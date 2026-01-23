@@ -2,9 +2,7 @@
 
 ##   Approche
 
-Basé sur l'analyse des données CSV Glide et la structure de l'application, voici les parcours identifiés. **À valider avec vous par discussion** plutôt que description d'images.
-
----
+Basé sur l'analyse des données CSV Glide et la structure de l'application
 
 ## Parcours USER (Candidat)
 
