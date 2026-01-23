@@ -2,7 +2,7 @@
 
 ## Objectif
 
-Ce document explique, en termes simples, à quoi servent les dossiers du projet et pourquoi ils existent. Il est destiné aux personnes non techniques.
+Ce document explique, en termes simples, à quoi servent les dossiers du projet et pourquoi ils existent.
 
 ---
 
