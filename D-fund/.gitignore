@@ -41,3 +41,8 @@ next-env.d.ts
 # glide raw data
 data/glide/
 
+#glide"
+glide/
+
+#modeules
+node_modules/

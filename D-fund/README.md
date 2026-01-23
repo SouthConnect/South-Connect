@@ -2,39 +2,43 @@
 
 Plateforme connectant les entrepreneurs africains à leurs ressources: talents, outils, mentors, accompagnements et investisseurs.
 
-## Architecture
+## 🏗️ Architecture
 
-Le projet est structuré en **architecture séparée** :
+Le projet est structuré en **architecture monorepo séparée** :
 
-- **Backend** : NestJS + TypeScript + Prisma + PostgreSQL (Supabase)
-- **Frontend** : Next.js 14 + TypeScript + Tailwind CSS
+```
+D-fund/
+├── backend/          # API NestJS (Node + TypeScript + Prisma)
+├── frontend/         # Frontend Next.js 14 (App Router)
+├── prisma/           # Schéma Prisma partagé
+├── scripts/          # Scripts utilitaires (migration Glide)
+├── docs/             # Documentation
+└── .env              # Variables d'environnement backend
+```
 
-## Stack Technique
-
-### Backend
+### Backend (`backend/`)
 - **NestJS** - Framework Node.js avec TypeScript
 - **Prisma** - ORM pour PostgreSQL
 - **PostgreSQL** - Base de données (via Supabase)
 - **JWT** - Authentification
 
-### Frontend
+### Frontend (`frontend/`)
 - **Next.js 14** - Framework React avec App Router
 - **TypeScript** - Typage statique
 - **Tailwind CSS** - Framework CSS
-- **React Query** - Gestion des appels API (à venir)
 
 ### Infrastructure
 - **Supabase** - PostgreSQL managé + Auth + Storage
 - **Vercel** - Déploiement frontend (prévu)
 - **Railway/Fly.io** - Déploiement backend (prévu)
 
-## Prérequis
+## 📋 Prérequis
 
 - Node.js 18+
 - npm ou yarn
 - Compte Supabase (gratuit)
 
-## Installation
+## 🚀 Installation
 
 ### 1. Configuration Supabase
 
@@ -45,49 +49,74 @@ Résumé rapide :
 2. Récupérez la connection string PostgreSQL
 3. Configurez les variables d'environnement
 
-### 2. Backend
+### 2. Variables d'environnement
+
+**À la racine** : Créer `.env` (pour le backend) :
+```env
+DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres"
+JWT_SECRET="your-super-secret-jwt-key"
+PORT=3001
+FRONTEND_URL="http://localhost:3000"
+```
+
+**À la racine** : Créer `.env.local` (pour le frontend) :
+```env
+NEXT_PUBLIC_API_URL="http://localhost:3001/api/v1"
+```
+
+### 3. Installation des dépendances
 
 ```bash
-cd backend
+# Installer toutes les dépendances (backend + frontend)
+npm run install:all
 
-# Installer les dépendances
-npm install
+# OU séparément :
+cd backend && npm install
+cd ../frontend && npm install
+```
 
-# Configurer les variables d'environnement
-cp .env.example .env
-# Éditez .env avec vos credentials Supabase
+### 4. Configuration Prisma
 
+```bash
 # Générer le client Prisma
-npm run prisma:generate
+npm run db:generate
 
-# Créer les migrations
-npm run prisma:migrate
+# Appliquer le schéma à la base
+cd backend
+npx prisma migrate deploy
+# OU pour développement :
+npx prisma migrate dev --name init
+```
 
-# Lancer le serveur de développement
+## 🏃 Développement
+
+### Démarrer le backend
+
+```bash
+# Depuis la racine
+npm run backend:dev
+
+# OU depuis backend/
+cd backend
 npm run dev
 ```
 
 Le backend sera accessible sur `http://localhost:3001`
 
-### 3. Frontend
+### Démarrer le frontend
 
 ```bash
-# À la racine du projet
-cd app  # ou rester à la racine si le frontend est ici
+# Depuis la racine
+npm run frontend:dev
 
-# Installer les dépendances
-npm install
-
-# Configurer les variables d'environnement
-# Créez .env.local avec NEXT_PUBLIC_API_URL=http://localhost:3001
-
-# Lancer le serveur de développement
+# OU depuis frontend/
+cd frontend
 npm run dev
 ```
 
 Le frontend sera accessible sur `http://localhost:3000`
 
-## Structure du projet
+## 📁 Structure du Projet
 
 ```
 D-fund/
@@ -96,15 +125,17 @@ D-fund/
 │   │   ├── modules/        # Modules métier
 │   │   │   ├── auth/       # Authentification
 │   │   │   ├── users/      # Gestion utilisateurs
+│   │   │   ├── opportunities/
+│   │   │   ├── applications/
 │   │   │   └── ...
 │   │   ├── common/         # Utilitaires partagés
 │   │   └── main.ts         # Point d'entrée
 │   ├── prisma/
-│   │   └── schema.prisma   # Schéma de base de données
+│   │   └── schema.prisma   # Lien vers ../prisma/schema.prisma
 │   └── package.json
 │
-├── app/                     # Frontend Next.js
-│   ├── app/                 # Pages et routes
+├── frontend/                # Frontend Next.js
+│   ├── app/                 # Pages et routes (App Router)
 │   ├── components/          # Composants React
 │   ├── lib/                 # Utilitaires
 │   └── package.json
@@ -112,18 +143,16 @@ D-fund/
 ├── prisma/                  # Schéma Prisma principal
 │   └── schema.prisma        # Modèle de données complet
 │
-├── data/                    # Données archivées
-│   └── glide/
-│       └── raw/             # CSV Glide (ignorés par Git)
+├── scripts/                 # Scripts utilitaires
+│   └── migrate.ts           # Migration Glide → Supabase
 │
 ├── docs/                    # Documentation
 │   └── ...
 │
-└── scripts/                 # Scripts utilitaires
-    └── migrate.ts           # Migration Glide → Supabase
+└── .env                     # Variables d'environnement backend
 ```
 
-## Base de données
+## 🗄️ Base de données
 
 Le schéma Prisma définit les modèles suivants :
 
@@ -138,15 +167,9 @@ Le schéma Prisma définit les modèles suivants :
 - **Rating** - Système de notation
 - **ReferralCode** - Système de parrainage
 
-### Relations
-- **Follow** - Système de suivi
-- **SavedOpportunity** - Opportunités sauvegardées
-- **LikedOpportunity** - Opportunités likées
-- **PrivateDiscussion** / **PublicDiscussion** - Discussions
-
 Voir [prisma/schema.prisma](./prisma/schema.prisma) pour le schéma complet.
 
-## Authentification
+## 🔐 Authentification
 
 L'authentification utilise JWT :
 
@@ -155,49 +178,30 @@ L'authentification utilise JWT :
 
 Les tokens JWT sont utilisés pour protéger les routes API.
 
-## Fonctionnalités
+## 📝 Commandes Utiles
 
-### Implémenté
-- Architecture backend NestJS
-- Schéma Prisma complet basé sur les données Glide
-- Authentification JWT de base
-- Structure frontend Next.js
-- Migration des données Glide vers Supabase
-
-### En cours / À venir
-- [ ] Modules backend complets (opportunities, applications, messages)
-- [ ] Intégration frontend avec le backend
-- [ ] Dashboard utilisateur
-- [ ] Système de recherche et filtres
-- [ ] Notifications (Resend)
-- [ ] Upload de fichiers (Supabase Storage)
-- [ ] Real-time (Supabase Realtime)
-
-## Migration des données Glide
-
-- Les CSV exportés de Glide sont **archivés** dans `data/glide/raw/` et **ignorés par Git**.
-- La **source de vérité** est la base PostgreSQL Supabase (pas les fichiers CSV).
-
-Un script de migration existe déjà :
+### À la racine
 
 ```bash
-# À la racine du projet
+# Installation
+npm run install:all
+
+# Backend
+npm run backend:dev
+npm run backend:build
+
+# Frontend
+npm run frontend:dev
+npm run frontend:build
+
+# Prisma
+npm run db:generate
+npm run db:studio
 npm run db:migrate:glide
 ```
 
-Ce script :
-1. Lit les CSV principaux (Users, Opportunities, Applications)
-2. Nettoie et transforme les données
-3. Importe dans PostgreSQL via Prisma
-
-Voir :
-- `scripts/migrate.ts`
-- `docs/PHASE7_MIGRATION_GLIDE.md`
-- `docs/MAPPING_CSV_SCHEMA.md`
-
-## Commandes utiles
-
 ### Backend
+
 ```bash
 cd backend
 
@@ -211,13 +215,16 @@ npm run build
 npm run start:prod
 
 # Prisma
-npm run prisma:generate    # Générer le client
-npm run prisma:migrate     # Créer une migration
-npm run prisma:studio      # Interface graphique
+npm run prisma:generate
+npm run prisma:migrate
+npm run prisma:studio
 ```
 
 ### Frontend
+
 ```bash
+cd frontend
+
 # Développement
 npm run dev
 
@@ -228,43 +235,36 @@ npm run build
 npm start
 ```
 
-## Développement
+## 📚 Documentation
 
-### Workflow recommandé
-
-1. **Backend d'abord** : Développer les endpoints API
-2. **Frontend ensuite** : Consommer les APIs
-3. **Tests** : Tester chaque module indépendamment
-
-### Variables d'environnement
-
-**Backend** (`backend/.env`) :
-```env
-DATABASE_URL="postgresql://..."
-JWT_SECRET="your-secret"
-PORT=3001
-FRONTEND_URL="http://localhost:3000"
-```
-
-**Frontend** (`.env.local`) :
-```env
-NEXT_PUBLIC_API_URL="http://localhost:3001"
-```
-
-## Documentation
-
-- [Rapport Final](./docs/RAPPORT_FINAL.md) - Rapport détaillé de la phase pré-code (travail réalisé)
-- [Prochaines Étapes](./docs/PROCHAINES_ETAPES.md) - Plan de développement V1 (prochaines étapes)
-- [Structure du projet](./docs/STRUCTURE_PROJET.md) - Explication simple des dossiers
 - [Architecture](./ARCHITECTURE.md) - Détails de l'architecture
 - [Configuration Supabase](./SUPABASE_SETUP.md) - Guide de setup Supabase
+- [Structure des variables d'environnement](./STRUCTURE_ENV.md) - Guide des .env
 - [Environnement de travail](./docs/ENVIRONNEMENT_DE_TRAVAIL.md) - Guide de développement
 - [Documentation complète](./docs/) - Toutes les phases de validation
 
-## Licence
+## 🎯 Fonctionnalités
+
+### Implémenté
+- ✅ Architecture backend NestJS
+- ✅ Schéma Prisma complet basé sur les données Glide
+- ✅ Authentification JWT de base
+- ✅ Structure frontend Next.js
+- ✅ Migration des données Glide vers Supabase
+
+### En cours / À venir
+- [ ] Modules backend complets (opportunities, applications, messages)
+- [ ] Intégration frontend avec le backend
+- [ ] Dashboard utilisateur
+- [ ] Système de recherche et filtres
+- [ ] Notifications (Resend)
+- [ ] Upload de fichiers (Supabase Storage)
+- [ ] Real-time (Supabase Realtime)
+
+## 📄 Licence
 
 Ce projet est privé.
 
-## Contribution
+## 🤝 Contribution
 
 Pour toute question ou suggestion, contactez l'équipe D-Fund.

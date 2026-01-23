@@ -1,0 +1,2025 @@
+{
+    "version": "1.0",
+    "database": "PostgreSQL",
+    "orm": "Prisma",
+    "description": "ERD complet pour D-Fund - Base de données de connexion entrepreneurs africains",
+    "enums": {
+        "UserRole": {
+            "values": [
+                "USER",
+                "ADMIN"
+            ],
+            "description": "OWNER n'est pas un rôle séparé, mais un User qui a créé des opportunités"
+        },
+        "OpportunityType": {
+            "values": [
+                "JOB_OPPORTUNITY",
+                "TALENT_PROFILE",
+                "CO_FOUNDER_OPPORTUNITY",
+                "CO_FOUNDER_PROFILE",
+                "BUSINESS_IDEA",
+                "SUPPORT_OFFER",
+                "SERVICE_LISTING",
+                "SERVICE_REQUEST",
+                "DEAL_FLOW",
+                "INVESTOR_THESIS",
+                "INVESTOR_PROFILE",
+                "FUNDING_OPPORTUNITY",
+                "EVENT",
+                "CALL_FOR_STARTUPS",
+                "MENTORSHIP_BA_OFFER",
+                "PROJECT_SEEKING_SUPPORT",
+                "VENTURE_PROGRAM",
+                "CHILL_WORK_SPOT",
+                "MARKET_ADVISOR"
+            ]
+        },
+        "OpportunityStatus": {
+            "values": [
+                "DRAFT",
+                "PENDING",
+                "ACTIVE",
+                "ARCHIVED",
+                "CLOSED"
+            ]
+        },
+        "ApplicationStage": {
+            "values": [
+                "DRAFT",
+                "SUBMITTED",
+                "OWNER_REVIEW",
+                "READY_TO_SUBMIT",
+                "SUCCESS",
+                "ARCHIVED"
+            ]
+        },
+        "DiscussionType": {
+            "values": [
+                "OPEN_FORUM",
+                "OPPORTUNITY_RELATED"
+            ]
+        },
+        "TaskStatus": {
+            "values": [
+                "TODO",
+                "WORKING_ON_IT",
+                "IDEA",
+                "DONE"
+            ]
+        },
+        "ReferralType": {
+            "values": [
+                "NEW_USER",
+                "TALENT_HUNT",
+                "OPPORTUNITY_RELATED"
+            ]
+        },
+        "ReferralStatus": {
+            "values": [
+                "PENDING",
+                "ACTIVE",
+                "COMPLETED",
+                "EXPIRED"
+            ]
+        }
+    },
+    "entities": [
+        {
+            "name": "User",
+            "tableName": "users",
+            "description": "Utilisateur principal - peut être candidat, owner, ou admin",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "email",
+                    "type": "String",
+                    "unique": true,
+                    "nullable": false,
+                    "indexed": true
+                },
+                {
+                    "name": "firstName",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "lastName",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "name",
+                    "type": "String",
+                    "nullable": true,
+                    "description": "Full name (computed or stored)"
+                },
+                {
+                    "name": "password",
+                    "type": "String",
+                    "nullable": true,
+                    "description": "Nullable if using OAuth only"
+                },
+                {
+                    "name": "role",
+                    "type": "UserRole",
+                    "default": "USER",
+                    "nullable": false
+                },
+                {
+                    "name": "bio",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "profilePic",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "headerImage",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "phone",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "city",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "country",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "linkedinUrl",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "website",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "visibility",
+                    "type": "Boolean",
+                    "default": true,
+                    "nullable": false
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "DateTime",
+                    "autoUpdate": true,
+                    "nullable": false
+                }
+            ],
+            "relations": [
+                {
+                    "type": "one-to-one",
+                    "target": "BtoCProfile",
+                    "field": "btoCProfile",
+                    "foreignKey": "userId",
+                    "optional": true
+                },
+                {
+                    "type": "one-to-one",
+                    "target": "BtoBProfile",
+                    "field": "btoBProfile",
+                    "foreignKey": "userId",
+                    "optional": true
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "Opportunity",
+                    "field": "opportunities",
+                    "foreignKey": "ownerId"
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "Application",
+                    "field": "applications",
+                    "foreignKey": "candidateId"
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "Message",
+                    "field": "sentMessages",
+                    "foreignKey": "senderId",
+                    "relationName": "SentMessages"
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "Message",
+                    "field": "receivedMessages",
+                    "foreignKey": "receiverId",
+                    "relationName": "ReceivedMessages",
+                    "optional": true
+                },
+                {
+                    "type": "many-to-many",
+                    "target": "PrivateDiscussion",
+                    "field": "privateDiscussions",
+                    "through": "Participant",
+                    "foreignKey": "userId",
+                    "relationName": "PrivateDiscussionParticipants"
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "PublicDiscussion",
+                    "field": "publicDiscussions",
+                    "foreignKey": "ownerId"
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "Rating",
+                    "field": "ratings",
+                    "foreignKey": "userId"
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "Task",
+                    "field": "tasks",
+                    "foreignKey": "userId"
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "ReferralCode",
+                    "field": "referralCodes",
+                    "foreignKey": "ownerId"
+                },
+                {
+                    "type": "many-to-many",
+                    "target": "User",
+                    "field": "followers",
+                    "through": "Follow",
+                    "foreignKey": "followerId",
+                    "relationName": "Follower"
+                },
+                {
+                    "type": "many-to-many",
+                    "target": "User",
+                    "field": "following",
+                    "through": "Follow",
+                    "foreignKey": "followingId",
+                    "relationName": "Following"
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "SavedOpportunity",
+                    "field": "savedOpportunities",
+                    "foreignKey": "userId"
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "LikedOpportunity",
+                    "field": "likedOpportunities",
+                    "foreignKey": "userId"
+                }
+            ]
+        },
+        {
+            "name": "BtoCProfile",
+            "tableName": "bto_c_profiles",
+            "description": "Profil BtoC - Individu / Talent",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "userId",
+                    "type": "String",
+                    "unique": true,
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "description",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "tags",
+                    "type": "String[]",
+                    "description": "Skills, interests, etc.",
+                    "nullable": false
+                },
+                {
+                    "name": "industries",
+                    "type": "String[]",
+                    "description": "Industries of interest",
+                    "nullable": false
+                },
+                {
+                    "name": "marketFocus",
+                    "type": "String[]",
+                    "description": "Geographic markets",
+                    "nullable": false
+                },
+                {
+                    "name": "languages",
+                    "type": "String[]",
+                    "nullable": false
+                },
+                {
+                    "name": "businessSkills",
+                    "type": "String[]",
+                    "nullable": false
+                },
+                {
+                    "name": "techSkills",
+                    "type": "String[]",
+                    "nullable": false
+                },
+                {
+                    "name": "seniorityLevel",
+                    "type": "String",
+                    "nullable": true,
+                    "description": "Junior, Mid, Senior, etc."
+                },
+                {
+                    "name": "opportunitiesCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "activeOpportunitiesCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "followersCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "avgRating",
+                    "type": "Float",
+                    "nullable": true
+                },
+                {
+                    "name": "roundedRating",
+                    "type": "Int",
+                    "nullable": true
+                },
+                {
+                    "name": "profileSharedCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "lookingForOpportunities",
+                    "type": "Boolean",
+                    "default": true,
+                    "nullable": false
+                },
+                {
+                    "name": "remote",
+                    "type": "Boolean",
+                    "nullable": true
+                },
+                {
+                    "name": "countries",
+                    "type": "String[]",
+                    "nullable": false
+                },
+                {
+                    "name": "regions",
+                    "type": "String[]",
+                    "nullable": false
+                },
+                {
+                    "name": "opportunityTypes",
+                    "type": "String[]",
+                    "nullable": false
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "DateTime",
+                    "autoUpdate": true,
+                    "nullable": false
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "user",
+                    "foreignKey": "userId"
+                }
+            ]
+        },
+        {
+            "name": "BtoBProfile",
+            "tableName": "bto_b_profiles",
+            "description": "Profil BtoB - Entreprise / Startup",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "userId",
+                    "type": "String",
+                    "unique": true,
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "companyName",
+                    "type": "String",
+                    "nullable": false
+                },
+                {
+                    "name": "logo",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "headerImage",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "punchline",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "description",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "longDescription",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "website",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "linkedinUrl",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "city",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "country",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "foundationDate",
+                    "type": "DateTime",
+                    "nullable": true
+                },
+                {
+                    "name": "developmentStage",
+                    "type": "String",
+                    "nullable": true,
+                    "description": "Ideation, MVP, Growth, Scale"
+                },
+                {
+                    "name": "industries",
+                    "type": "String[]",
+                    "nullable": false
+                },
+                {
+                    "name": "marketFocus",
+                    "type": "String[]",
+                    "nullable": false
+                },
+                {
+                    "name": "followersCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "opportunitiesCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "profileSharedCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "DateTime",
+                    "autoUpdate": true,
+                    "nullable": false
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "user",
+                    "foreignKey": "userId"
+                }
+            ]
+        },
+        {
+            "name": "Opportunity",
+            "tableName": "opportunities",
+            "description": "Opportunité - Job, Co-founder, Event, etc.",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "name",
+                    "type": "String",
+                    "nullable": false
+                },
+                {
+                    "name": "punchline",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "description",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "type",
+                    "type": "OpportunityType",
+                    "nullable": false
+                },
+                {
+                    "name": "featureId",
+                    "type": "String",
+                    "nullable": true,
+                    "description": "Reference to Feature type"
+                },
+                {
+                    "name": "status",
+                    "type": "OpportunityStatus",
+                    "default": "DRAFT",
+                    "nullable": false
+                },
+                {
+                    "name": "ownerId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "indexed": true
+                },
+                {
+                    "name": "city",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "country",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "region",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "remote",
+                    "type": "Boolean",
+                    "nullable": true
+                },
+                {
+                    "name": "startDate",
+                    "type": "DateTime",
+                    "nullable": true
+                },
+                {
+                    "name": "endDate",
+                    "type": "DateTime",
+                    "nullable": true
+                },
+                {
+                    "name": "expirationDate",
+                    "type": "DateTime",
+                    "nullable": true
+                },
+                {
+                    "name": "applicationProcessId",
+                    "type": "String",
+                    "foreignKey": "ApplicationProcess.id",
+                    "nullable": true
+                },
+                {
+                    "name": "needToCheckApplicant",
+                    "type": "Boolean",
+                    "default": false,
+                    "nullable": false
+                },
+                {
+                    "name": "image",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "backgroundImage",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "file",
+                    "type": "String",
+                    "nullable": true,
+                    "description": "Attachments"
+                },
+                {
+                    "name": "url",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "tags",
+                    "type": "String[]",
+                    "nullable": false
+                },
+                {
+                    "name": "industries",
+                    "type": "String[]",
+                    "nullable": false
+                },
+                {
+                    "name": "markets",
+                    "type": "String[]",
+                    "nullable": false
+                },
+                {
+                    "name": "price",
+                    "type": "Float",
+                    "nullable": true,
+                    "description": "for paid opportunities"
+                },
+                {
+                    "name": "currency",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "pricingUnit",
+                    "type": "String",
+                    "nullable": true,
+                    "description": "per hour, per month, etc."
+                },
+                {
+                    "name": "pricingDetails",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "aiGenerated",
+                    "type": "Boolean",
+                    "default": false,
+                    "nullable": false
+                },
+                {
+                    "name": "aiPrompt",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "aiOutput",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "applicationsCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "likesCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "messagesCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "savedCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "sharedCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "viewsCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "boosted",
+                    "type": "Boolean",
+                    "default": false,
+                    "nullable": false
+                },
+                {
+                    "name": "boostedUntil",
+                    "type": "DateTime",
+                    "nullable": true
+                },
+                {
+                    "name": "qualified",
+                    "type": "Boolean",
+                    "default": false,
+                    "nullable": false
+                },
+                {
+                    "name": "referralAvailable",
+                    "type": "Boolean",
+                    "default": false,
+                    "nullable": false
+                },
+                {
+                    "name": "referralAmount",
+                    "type": "Float",
+                    "nullable": true
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false,
+                    "indexed": true
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "DateTime",
+                    "autoUpdate": true,
+                    "nullable": false
+                }
+            ],
+            "indexes": [
+                {
+                    "fields": [
+                        "ownerId"
+                    ]
+                },
+                {
+                    "fields": [
+                        "type"
+                    ]
+                },
+                {
+                    "fields": [
+                        "status"
+                    ]
+                },
+                {
+                    "fields": [
+                        "createdAt"
+                    ]
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "owner",
+                    "foreignKey": "ownerId"
+                },
+                {
+                    "type": "many-to-one",
+                    "target": "ApplicationProcess",
+                    "field": "applicationProcess",
+                    "foreignKey": "applicationProcessId",
+                    "optional": true
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "Application",
+                    "field": "applications",
+                    "foreignKey": "opportunityId"
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "PublicDiscussion",
+                    "field": "publicDiscussions",
+                    "foreignKey": "opportunityId",
+                    "optional": true
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "Task",
+                    "field": "tasks",
+                    "foreignKey": "relatedItemId",
+                    "optional": true
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "ReferralCode",
+                    "field": "referralCodes",
+                    "foreignKey": "opportunityId",
+                    "optional": true
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "SavedOpportunity",
+                    "field": "savedBy",
+                    "foreignKey": "opportunityId"
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "LikedOpportunity",
+                    "field": "likedBy",
+                    "foreignKey": "opportunityId"
+                }
+            ]
+        },
+        {
+            "name": "ApplicationProcess",
+            "tableName": "application_processes",
+            "description": "Processus de candidature",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "name",
+                    "type": "String",
+                    "unique": true,
+                    "nullable": false
+                },
+                {
+                    "name": "description",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "candidateDescription",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                }
+            ],
+            "relations": [
+                {
+                    "type": "one-to-many",
+                    "target": "Opportunity",
+                    "field": "opportunities",
+                    "foreignKey": "applicationProcessId"
+                }
+            ]
+        },
+        {
+            "name": "Application",
+            "tableName": "applications",
+            "description": "Candidature à une opportunité",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "opportunityId",
+                    "type": "String",
+                    "foreignKey": "Opportunity.id",
+                    "nullable": false,
+                    "indexed": true,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "candidateId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "indexed": true,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "title",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "goalLetter",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "submissionDate",
+                    "type": "DateTime",
+                    "nullable": true
+                },
+                {
+                    "name": "stage",
+                    "type": "ApplicationStage",
+                    "default": "DRAFT",
+                    "nullable": false,
+                    "indexed": true
+                },
+                {
+                    "name": "isClosed",
+                    "type": "Boolean",
+                    "default": false,
+                    "nullable": false
+                },
+                {
+                    "name": "isDraft",
+                    "type": "Boolean",
+                    "default": true,
+                    "nullable": false
+                },
+                {
+                    "name": "reviewDate",
+                    "type": "DateTime",
+                    "nullable": true
+                },
+                {
+                    "name": "reviewFeedback",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "feedbackTitle",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "referralCodeUsed",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "DateTime",
+                    "autoUpdate": true,
+                    "nullable": false
+                }
+            ],
+            "uniqueConstraints": [
+                {
+                    "fields": [
+                        "opportunityId",
+                        "candidateId"
+                    ],
+                    "description": "Un user ne peut postuler qu'une fois par opportunité"
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "Opportunity",
+                    "field": "opportunity",
+                    "foreignKey": "opportunityId"
+                },
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "candidate",
+                    "foreignKey": "candidateId"
+                }
+            ]
+        },
+        {
+            "name": "Message",
+            "tableName": "messages",
+            "description": "Message - peut être privé ou public",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "content",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": false
+                },
+                {
+                    "name": "senderId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "indexed": true,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "receiverId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": true,
+                    "indexed": true,
+                    "onDelete": "Cascade",
+                    "description": "Pour messages 1-to-1 directs"
+                },
+                {
+                    "name": "privateDiscussionId",
+                    "type": "String",
+                    "foreignKey": "PrivateDiscussion.id",
+                    "nullable": true,
+                    "indexed": true,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "publicDiscussionId",
+                    "type": "String",
+                    "foreignKey": "PublicDiscussion.id",
+                    "nullable": true,
+                    "indexed": true,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "sender",
+                    "foreignKey": "senderId",
+                    "relationName": "SentMessages"
+                },
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "receiver",
+                    "foreignKey": "receiverId",
+                    "relationName": "ReceivedMessages",
+                    "optional": true
+                },
+                {
+                    "type": "many-to-one",
+                    "target": "PrivateDiscussion",
+                    "field": "privateDiscussion",
+                    "foreignKey": "privateDiscussionId",
+                    "optional": true
+                },
+                {
+                    "type": "many-to-one",
+                    "target": "PublicDiscussion",
+                    "field": "publicDiscussion",
+                    "foreignKey": "publicDiscussionId",
+                    "optional": true
+                }
+            ]
+        },
+        {
+            "name": "PrivateDiscussion",
+            "tableName": "private_discussions",
+            "description": "Discussion privée entre utilisateurs",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "lastMessageAt",
+                    "type": "DateTime",
+                    "nullable": true
+                },
+                {
+                    "name": "unreadCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "DateTime",
+                    "autoUpdate": true,
+                    "nullable": false
+                }
+            ],
+            "relations": [
+                {
+                    "type": "one-to-many",
+                    "target": "Message",
+                    "field": "messages",
+                    "foreignKey": "privateDiscussionId"
+                },
+                {
+                    "type": "many-to-many",
+                    "target": "User",
+                    "field": "participants",
+                    "through": "Participant",
+                    "foreignKey": "discussionId",
+                    "relationName": "PrivateDiscussionParticipants"
+                }
+            ]
+        },
+        {
+            "name": "Participant",
+            "tableName": "participants",
+            "description": "Table de jointure pour discussions privées",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "userId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "discussionId",
+                    "type": "String",
+                    "foreignKey": "PrivateDiscussion.id",
+                    "nullable": false,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "joinedAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                }
+            ],
+            "uniqueConstraints": [
+                {
+                    "fields": [
+                        "userId",
+                        "discussionId"
+                    ]
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "user",
+                    "foreignKey": "userId",
+                    "relationName": "PrivateDiscussionParticipants"
+                },
+                {
+                    "type": "many-to-one",
+                    "target": "PrivateDiscussion",
+                    "field": "discussion",
+                    "foreignKey": "discussionId"
+                }
+            ]
+        },
+        {
+            "name": "PublicDiscussion",
+            "tableName": "public_discussions",
+            "description": "Discussion publique liée à une opportunité ou forum ouvert",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "title",
+                    "type": "String",
+                    "nullable": false
+                },
+                {
+                    "name": "description",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "image",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "type",
+                    "type": "DiscussionType",
+                    "default": "OPEN_FORUM",
+                    "nullable": false,
+                    "indexed": true
+                },
+                {
+                    "name": "ownerId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "indexed": true,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "opportunityId",
+                    "type": "String",
+                    "foreignKey": "Opportunity.id",
+                    "nullable": true,
+                    "indexed": true,
+                    "onDelete": "SetNull"
+                },
+                {
+                    "name": "messagesCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "membersCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "likesCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "lastMessageAt",
+                    "type": "DateTime",
+                    "nullable": true
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "DateTime",
+                    "autoUpdate": true,
+                    "nullable": false
+                }
+            ],
+            "indexes": [
+                {
+                    "fields": [
+                        "ownerId"
+                    ]
+                },
+                {
+                    "fields": [
+                        "opportunityId"
+                    ]
+                },
+                {
+                    "fields": [
+                        "type"
+                    ]
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "owner",
+                    "foreignKey": "ownerId"
+                },
+                {
+                    "type": "many-to-one",
+                    "target": "Opportunity",
+                    "field": "opportunity",
+                    "foreignKey": "opportunityId",
+                    "optional": true
+                },
+                {
+                    "type": "one-to-many",
+                    "target": "Message",
+                    "field": "messages",
+                    "foreignKey": "publicDiscussionId"
+                }
+            ]
+        },
+        {
+            "name": "Follow",
+            "tableName": "follows",
+            "description": "Relation de suivi entre utilisateurs",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "followerId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "indexed": true,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "followingId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "indexed": true,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                }
+            ],
+            "uniqueConstraints": [
+                {
+                    "fields": [
+                        "followerId",
+                        "followingId"
+                    ]
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "follower",
+                    "foreignKey": "followerId",
+                    "relationName": "Follower"
+                },
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "following",
+                    "foreignKey": "followingId",
+                    "relationName": "Following"
+                }
+            ]
+        },
+        {
+            "name": "SavedOpportunity",
+            "tableName": "saved_opportunities",
+            "description": "Opportunités sauvegardées par un utilisateur",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "userId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "opportunityId",
+                    "type": "String",
+                    "foreignKey": "Opportunity.id",
+                    "nullable": false,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                }
+            ],
+            "uniqueConstraints": [
+                {
+                    "fields": [
+                        "userId",
+                        "opportunityId"
+                    ]
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "user",
+                    "foreignKey": "userId"
+                },
+                {
+                    "type": "many-to-one",
+                    "target": "Opportunity",
+                    "field": "opportunity",
+                    "foreignKey": "opportunityId"
+                }
+            ]
+        },
+        {
+            "name": "LikedOpportunity",
+            "tableName": "liked_opportunities",
+            "description": "Opportunités likées par un utilisateur",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "userId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "opportunityId",
+                    "type": "String",
+                    "foreignKey": "Opportunity.id",
+                    "nullable": false,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                }
+            ],
+            "uniqueConstraints": [
+                {
+                    "fields": [
+                        "userId",
+                        "opportunityId"
+                    ]
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "user",
+                    "foreignKey": "userId"
+                },
+                {
+                    "type": "many-to-one",
+                    "target": "Opportunity",
+                    "field": "opportunity",
+                    "foreignKey": "opportunityId"
+                }
+            ]
+        },
+        {
+            "name": "Rating",
+            "tableName": "ratings",
+            "description": "Note attribuée à un item (opportunité, user, etc.)",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "itemId",
+                    "type": "String",
+                    "nullable": false,
+                    "indexed": true,
+                    "description": "Can be opportunity, user, etc."
+                },
+                {
+                    "name": "userId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "rating",
+                    "type": "Int",
+                    "nullable": false,
+                    "description": "1-5 typically"
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "DateTime",
+                    "autoUpdate": true,
+                    "nullable": false
+                }
+            ],
+            "uniqueConstraints": [
+                {
+                    "fields": [
+                        "itemId",
+                        "userId"
+                    ]
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "user",
+                    "foreignKey": "userId"
+                }
+            ]
+        },
+        {
+            "name": "Task",
+            "tableName": "tasks",
+            "description": "Tâche liée à un utilisateur",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "userId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "indexed": true,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "relatedItemId",
+                    "type": "String",
+                    "nullable": true,
+                    "description": "Can be opportunity, application, etc."
+                },
+                {
+                    "name": "relatedItemType",
+                    "type": "String",
+                    "nullable": true,
+                    "description": "opportunity, application, etc."
+                },
+                {
+                    "name": "name",
+                    "type": "String",
+                    "nullable": false
+                },
+                {
+                    "name": "description",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "status",
+                    "type": "TaskStatus",
+                    "default": "TODO",
+                    "nullable": false,
+                    "indexed": true
+                },
+                {
+                    "name": "dueDate",
+                    "type": "DateTime",
+                    "nullable": true
+                },
+                {
+                    "name": "url",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "DateTime",
+                    "autoUpdate": true,
+                    "nullable": false
+                }
+            ],
+            "indexes": [
+                {
+                    "fields": [
+                        "userId"
+                    ]
+                },
+                {
+                    "fields": [
+                        "status"
+                    ]
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "user",
+                    "foreignKey": "userId"
+                }
+            ]
+        },
+        {
+            "name": "ReferralCode",
+            "tableName": "referral_codes",
+            "description": "Code de parrainage",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "code",
+                    "type": "String",
+                    "unique": true,
+                    "nullable": false,
+                    "indexed": true
+                },
+                {
+                    "name": "ownerId",
+                    "type": "String",
+                    "foreignKey": "User.id",
+                    "nullable": false,
+                    "indexed": true,
+                    "onDelete": "Cascade"
+                },
+                {
+                    "name": "opportunityId",
+                    "type": "String",
+                    "foreignKey": "Opportunity.id",
+                    "nullable": true,
+                    "onDelete": "SetNull"
+                },
+                {
+                    "name": "type",
+                    "type": "ReferralType",
+                    "nullable": true
+                },
+                {
+                    "name": "status",
+                    "type": "ReferralStatus",
+                    "default": "PENDING",
+                    "nullable": false
+                },
+                {
+                    "name": "amount",
+                    "type": "Float",
+                    "nullable": true
+                },
+                {
+                    "name": "usesCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                },
+                {
+                    "name": "potentialAmount",
+                    "type": "Float",
+                    "default": 0,
+                    "nullable": true
+                },
+                {
+                    "name": "createdAt",
+                    "type": "DateTime",
+                    "default": "now()",
+                    "nullable": false
+                },
+                {
+                    "name": "updatedAt",
+                    "type": "DateTime",
+                    "autoUpdate": true,
+                    "nullable": false
+                }
+            ],
+            "indexes": [
+                {
+                    "fields": [
+                        "ownerId"
+                    ]
+                },
+                {
+                    "fields": [
+                        "code"
+                    ]
+                }
+            ],
+            "relations": [
+                {
+                    "type": "many-to-one",
+                    "target": "User",
+                    "field": "owner",
+                    "foreignKey": "ownerId"
+                },
+                {
+                    "type": "many-to-one",
+                    "target": "Opportunity",
+                    "field": "opportunity",
+                    "foreignKey": "opportunityId",
+                    "optional": true
+                }
+            ]
+        },
+        {
+            "name": "Industry",
+            "tableName": "industries",
+            "description": "Référentiel des industries",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "name",
+                    "type": "String",
+                    "unique": true,
+                    "nullable": false
+                },
+                {
+                    "name": "description",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "opportunitiesCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                }
+            ]
+        },
+        {
+            "name": "Market",
+            "tableName": "markets",
+            "description": "Référentiel des marchés géographiques",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "name",
+                    "type": "String",
+                    "unique": true,
+                    "nullable": false
+                },
+                {
+                    "name": "image",
+                    "type": "String",
+                    "nullable": true
+                }
+            ]
+        },
+        {
+            "name": "Feature",
+            "tableName": "features",
+            "description": "Référentiel des types d'opportunités (features)",
+            "primaryKey": "id",
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "String",
+                    "primaryKey": true,
+                    "default": "cuid()",
+                    "nullable": false
+                },
+                {
+                    "name": "name",
+                    "type": "String",
+                    "unique": true,
+                    "nullable": false
+                },
+                {
+                    "name": "description",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "category",
+                    "type": "String",
+                    "nullable": true,
+                    "description": "Main category"
+                },
+                {
+                    "name": "order",
+                    "type": "Int",
+                    "nullable": true
+                },
+                {
+                    "name": "aiPrompt",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "seekerName",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "creatorName",
+                    "type": "String",
+                    "nullable": true
+                },
+                {
+                    "name": "seekerScenario",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "creatorScenario",
+                    "type": "String",
+                    "dbType": "Text",
+                    "nullable": true
+                },
+                {
+                    "name": "displayType",
+                    "type": "String",
+                    "nullable": true,
+                    "description": "Post, Gallery, Map, etc."
+                },
+                {
+                    "name": "noApplicationNeeded",
+                    "type": "Boolean",
+                    "default": false,
+                    "nullable": false
+                },
+                {
+                    "name": "opportunitiesCount",
+                    "type": "Int",
+                    "default": 0,
+                    "nullable": false
+                }
+            ]
+        }
+    ],
+    "summary": {
+        "totalEntities": 18,
+        "totalEnums": 7,
+        "entityCategories": {
+            "core": [
+                "User",
+                "BtoCProfile",
+                "BtoBProfile"
+            ],
+            "opportunities": [
+                "Opportunity",
+                "ApplicationProcess",
+                "Application"
+            ],
+            "messaging": [
+                "Message",
+                "PrivateDiscussion",
+                "Participant",
+                "PublicDiscussion"
+            ],
+            "social": [
+                "Follow",
+                "SavedOpportunity",
+                "LikedOpportunity",
+                "Rating"
+            ],
+            "tasks": [
+                "Task"
+            ],
+            "referral": [
+                "ReferralCode"
+            ],
+            "reference": [
+                "Industry",
+                "Market",
+                "Feature"
+            ]
+        }
+    }
+}
