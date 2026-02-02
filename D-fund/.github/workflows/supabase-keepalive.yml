@@ -1,0 +1,23 @@
+name: Supabase Keepalive
+
+on:
+  # Lancement manuel si besoin
+  workflow_dispatch:
+  # Ping automatique hebdo pour éviter la mise en pause du projet
+  schedule:
+    - cron: '0 9 * * 1' # Tous les lundis à 09:00 UTC
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Supabase status check script
+        working-directory: ./D-fund
+        run: |
+          chmod +x scripts/check-supabase-status.sh
+          ./scripts/check-supabase-status.sh
+
