@@ -1,125 +1,150 @@
+'use client'
+
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Search, Filter, Plus, Clock, TrendingUp, Star, LayoutGrid, Map, List } from 'lucide-react'
+import { apiJson } from '@/app/lib/api'
+import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
-import { ArrowRight, Users, Briefcase, GraduationCap, DollarSign, Wrench } from 'lucide-react'
 
-export default function Home() {
+export default function HomePage() {
+  const [tab, setTab] = useState<'newest' | 'trending' | 'favorites'>('newest')
+  const [viewMode, setViewMode] = useState<'post' | 'map' | 'gallery'>('post')
+  const [search, setSearch] = useState('')
+
+  const { data: opportunities, isLoading } = useQuery({
+    queryKey: ['opportunities', tab, search],
+    queryFn: () => {
+      let endpoint = '/opportunities?take=20'
+      if (search) endpoint += `&search=${encodeURIComponent(search)}`
+      if (tab === 'newest') endpoint += '&orderBy=createdAt:desc'
+      // trending et favorites nécessitent une logique backend plus poussée, pour l'instant on reste simple
+      return apiJson(endpoint)
+    }
+  })
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-primary-50 to-white">
+    <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
-      <section className="container mx-auto px-4 py-20 text-center">
-        <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
-          Connectez-vous aux ressources
-          <span className="text-primary-600 block">pour votre startup</span>
-        </h1>
-        <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-          D-Fund est la plateforme qui connecte les entrepreneurs africains aux talents, 
-          outils, mentors, programmes d'accompagnement et investisseurs dont ils ont besoin.
-        </p>
-        <div className="flex gap-4 justify-center">
-          <Link
-            href="/register"
-            className="bg-primary-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-primary-700 transition-colors"
+      <section className="relative h-[300px] flex items-center justify-center text-white overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#1a237e] to-[#3f51b5] z-0">
+          <img 
+            src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80" 
+            alt="" 
+            className="w-full h-full object-cover opacity-30"
+          />
+        </div>
+        <div className="relative z-10 text-center px-4 max-w-4xl">
+          <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
+            Welcome to D-fund Platform
+          </h1>
+          <p className="text-xl md:text-2xl text-white/80 mb-8">
+            Startups meet investors. Investors meet opportunities. Companies meet innovation. With D-fund, the right connections turn into real deals.
+          </p>
+          <Link 
+            href="/register" 
+            className="inline-block px-8 py-3 bg-[#3b49df] text-white rounded-lg font-bold text-lg hover:bg-[#2d3aba] transition-colors"
           >
-            Commencer
-          </Link>
-          <Link
-            href="/resources"
-            className="border-2 border-primary-600 text-primary-600 px-8 py-3 rounded-lg font-semibold hover:bg-primary-50 transition-colors"
-          >
-            Explorer les ressources
+            Join the Ecosystem
           </Link>
         </div>
       </section>
 
-      {/* Resources Grid */}
-      <section className="container mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold text-center mb-12 text-gray-900">
-          Trouvez les ressources dont vous avez besoin
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <ResourceCard
-            icon={<Users className="w-8 h-8" />}
-            title="Talents"
-            description="Trouvez les compétences dont votre startup a besoin"
-            href="/resources/talents"
-            color="bg-blue-100 text-blue-600"
-          />
-          <ResourceCard
-            icon={<Wrench className="w-8 h-8" />}
-            title="Outils"
-            description="Découvrez les outils essentiels pour votre entreprise"
-            href="/resources/tools"
-            color="bg-green-100 text-green-600"
-          />
-          <ResourceCard
-            icon={<GraduationCap className="w-8 h-8" />}
-            title="Mentors"
-            description="Connectez-vous avec des mentors expérimentés"
-            href="/resources/mentors"
-            color="bg-purple-100 text-purple-600"
-          />
-          <ResourceCard
-            icon={<Briefcase className="w-8 h-8" />}
-            title="Accompagnements"
-            description="Accédez aux programmes d'incubation et d'accélération"
-            href="/resources/programs"
-            color="bg-orange-100 text-orange-600"
-          />
-          <ResourceCard
-            icon={<DollarSign className="w-8 h-8" />}
-            title="Investisseurs"
-            description="Rencontrez des investisseurs et business angels"
-            href="/resources/investors"
-            color="bg-yellow-100 text-yellow-600"
-          />
+      {/* Explore Section */}
+      <section className="container mx-auto px-4 py-8 max-w-5xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">Explore opportunities</h2>
+          <Link 
+            href="/opportunities/new"
+            className="flex items-center gap-2 px-4 py-2 bg-[#3b49df] text-white rounded-lg font-semibold hover:bg-[#2d3aba] transition-colors self-start"
+          >
+            <Plus className="w-5 h-5" />
+            Create
+          </Link>
         </div>
-      </section>
 
-      {/* Stats Section */}
-      <section className="container mx-auto px-4 py-16 bg-white">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-          <div>
-            <div className="text-4xl font-bold text-primary-600 mb-2">100+</div>
-            <div className="text-gray-600">Entrepreneurs</div>
+        {/* Filters & Tabs */}
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between border-b border-gray-200">
+            <div className="flex gap-6">
+              {[
+                { id: 'newest', label: 'Newest', icon: Clock },
+                { id: 'trending', label: 'Trending', icon: TrendingUp },
+                { id: 'favorites', label: 'Favorites', icon: Star },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id as any)}
+                  className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    tab === t.id
+                      ? 'border-[#3b49df] text-[#3b49df]'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <t.icon className="w-4 h-4" />
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div>
-            <div className="text-4xl font-bold text-primary-600 mb-2">50+</div>
-            <div className="text-gray-600">Mentors</div>
+
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              {[
+                { id: 'post', label: 'Post', icon: List },
+                { id: 'map', label: 'Map', icon: Map },
+                { id: 'gallery', label: 'Gallery', icon: LayoutGrid },
+              ].map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => setViewMode(v.id as any)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    viewMode === v.id
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-lg text-sm focus:ring-2 focus:ring-[#3b49df] transition-all"
+                />
+              </div>
+              <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                <Filter className="w-4 h-4" />
+                Filter
+              </button>
+            </div>
           </div>
-          <div>
-            <div className="text-4xl font-bold text-primary-600 mb-2">30+</div>
-            <div className="text-gray-600">Investisseurs</div>
-          </div>
+        </div>
+
+        {/* Opportunity List */}
+        <div className="mt-8 space-y-4">
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-32 bg-gray-100 animate-pulse rounded-xl" />
+            ))
+          ) : opportunities?.length > 0 ? (
+            opportunities.map((opportunity: any) => (
+              <OpportunityCard key={opportunity.id} opportunity={opportunity} />
+            ))
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              No opportunities found.
+            </div>
+          )}
         </div>
       </section>
     </div>
-  )
-}
-
-function ResourceCard({ 
-  icon, 
-  title, 
-  description, 
-  href, 
-  color 
-}: { 
-  icon: React.ReactNode
-  title: string
-  description: string
-  href: string
-  color: string
-}) {
-  return (
-    <Link href={href}>
-      <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer">
-        <div className={`${color} w-16 h-16 rounded-lg flex items-center justify-center mb-4`}>
-          {icon}
-        </div>
-        <h3 className="text-xl font-semibold mb-2 text-gray-900">{title}</h3>
-        <p className="text-gray-600 mb-4">{description}</p>
-        <div className="flex items-center text-primary-600 font-medium">
-          Explorer <ArrowRight className="w-4 h-4 ml-2" />
-        </div>
-      </div>
-    </Link>
   )
 }

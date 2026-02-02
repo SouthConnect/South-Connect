@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { RegisterDto, LoginDto } from './dto';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -27,6 +29,13 @@ export class AuthService {
 
     const { password, ...result } = user;
     const token = this.jwtService.sign({ userId: user.id, email: user.email });
+
+    // Email de bienvenue (non bloquant en cas d'échec)
+    try {
+      await this.notificationsService.sendWelcomeEmail(user);
+    } catch (e) {
+      // Erreurs déjà loggées dans le service
+    }
 
     return {
       user: result,

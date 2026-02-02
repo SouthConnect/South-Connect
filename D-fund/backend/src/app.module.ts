@@ -8,6 +8,7 @@ import { ApplicationsModule } from './modules/applications/applications.module';
 import { ProfilesModule } from './modules/profiles/profiles.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { SocialModule } from './modules/social/social.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { SocialModule } from './modules/social/social.module';
     ProfilesModule,
     MessagesModule,
     SocialModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

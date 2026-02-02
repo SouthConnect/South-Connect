@@ -3,15 +3,17 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { apiJson, setAuthToken } from '@/lib/api'
+import { apiJson, setAuthToken } from '@/app/lib/api'
+import { useAuth } from '@/app/lib/AuthContext'
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { login } = useAuth()
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
     password: '',
-    role: 'entrepreneur',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -22,14 +24,10 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
-      // Le backend attend firstName, lastName, email, password, role (UserRole enum)
       const registerData = {
-        email: formData.email,
-        password: formData.password,
-        firstName: formData.name.split(' ')[0] || formData.name,
-        lastName: formData.name.split(' ').slice(1).join(' ') || '',
-        name: formData.name,
-        role: 'USER' as const, // Le backend utilise UserRole enum (USER, ADMIN)
+        ...formData,
+        name: `${formData.firstName} ${formData.lastName}`.trim(),
+        role: 'USER' as const,
       }
       
       const data = await apiJson<{ user: any; token: string }>('/auth/register', {
@@ -37,9 +35,9 @@ export default function RegisterPage() {
         body: JSON.stringify(registerData),
       })
 
-      // Stocker le token
       if (data.token) {
         setAuthToken(data.token)
+        login(data.token, data.user)
       }
 
       router.push('/login?registered=true')
@@ -52,42 +50,59 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Créer un compte
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 bg-[#3b49df] rounded-lg flex items-center justify-center text-white text-2xl font-bold mb-4">
+            D
+          </div>
+          <h2 className="text-3xl font-extrabold text-gray-900">
+            Create Account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Ou{' '}
-            <Link href="/login" className="font-medium text-primary-600 hover:text-primary-500">
-              connectez-vous à votre compte existant
-            </Link>
+          <p className="mt-2 text-sm text-gray-600">
+            Join the D-fund Platform ecosystem
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="name" className="sr-only">
-                Nom complet
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Nom complet"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                  First Name
+                </label>
+                <input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  required
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm transition-all"
+                  placeholder="John"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                />
+              </div>
+              <div>
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                  Last Name
+                </label>
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  required
+                  className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm transition-all"
+                  placeholder="Doe"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                />
+              </div>
             </div>
             <div>
-              <label htmlFor="email" className="sr-only">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
               </label>
               <input
@@ -96,15 +111,15 @@ export default function RegisterPage() {
                 type="email"
                 autoComplete="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Email"
+                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm transition-all"
+                placeholder="you@example.com"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
             <div>
-              <label htmlFor="password" className="sr-only">
-                Mot de passe
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                Password
               </label>
               <input
                 id="password"
@@ -112,39 +127,29 @@ export default function RegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Mot de passe"
+                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm transition-all"
+                placeholder="••••••••"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />
             </div>
           </div>
 
-          <div>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-              Je suis
-            </label>
-            <select
-              id="role"
-              name="role"
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-            >
-              <option value="entrepreneur">Entrepreneur</option>
-              <option value="mentor">Mentor</option>
-              <option value="investor">Investisseur</option>
-              <option value="talent">Talent</option>
-            </select>
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <Link href="/login" className="font-medium text-[#3b49df] hover:text-[#2d3aba]">
+                Already have an account? Sign In
+              </Link>
+            </div>
           </div>
 
           <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-[#3b49df] hover:bg-[#2d3aba] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3b49df] disabled:opacity-50 transition-all shadow-sm"
             >
-              {loading ? 'Inscription...' : 'S\'inscrire'}
+              {loading ? 'Creating account...' : 'Create Account'}
             </button>
           </div>
         </form>

@@ -8,12 +8,26 @@ import {
 import { ApplicationStage } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateApplicationDto, ReviewApplicationDto, UpdateApplicationDto } from './dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ApplicationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+  ) {}
 
-  findByOpportunity(opportunityId: string) {
+  async findByOpportunityForOwner(opportunityId: string, ownerId: string) {
+    // Vérifie que l'opportunité appartient bien à l'owner courant
+    const opportunity = await this.prisma.opportunity.findUnique({
+      where: { id: opportunityId },
+      select: { ownerId: true },
+    });
+
+    if (!opportunity || opportunity.ownerId !== ownerId) {
+      throw new ForbiddenException('You are not allowed to access these applications');
+    }
+
     return this.prisma.application.findMany({
       where: { opportunityId },
       orderBy: { createdAt: 'desc' },
@@ -91,6 +105,13 @@ export class ApplicationsService {
   async submit(id: string, candidateId: string) {
     const application = await this.prisma.application.findUnique({
       where: { id },
+      include: {
+        opportunity: {
+          include: {
+            owner: true,
+          },
+        },
+      },
     });
 
     if (!application) {
@@ -105,7 +126,7 @@ export class ApplicationsService {
       throw new BadRequestException('Only draft applications can be submitted');
     }
 
-    return this.prisma.application.update({
+    const updated = await this.prisma.application.update({
       where: { id },
       data: {
         stage: ApplicationStage.SUBMITTED,
@@ -113,6 +134,21 @@ export class ApplicationsService {
         submissionDate: new Date(),
       },
     });
+
+    // Notification au owner
+    try {
+      if (application.opportunity?.owner) {
+        await this.notificationsService.sendApplicationSubmittedEmail(
+          application.opportunity.owner,
+          updated,
+          application.opportunity,
+        );
+      }
+    } catch {
+      // Erreurs loggées dans le service, on ne bloque pas la requête
+    }
+
+    return updated;
   }
 
   async review(id: string, ownerId: string, dto: ReviewApplicationDto) {
@@ -120,6 +156,7 @@ export class ApplicationsService {
       where: { id },
       include: {
         opportunity: true,
+        candidate: true,
       },
     });
 
@@ -141,7 +178,7 @@ export class ApplicationsService {
       throw new BadRequestException('Invalid review stage');
     }
 
-    return this.prisma.application.update({
+    const updated = await this.prisma.application.update({
       where: { id },
       data: {
         stage: dto.stage,
@@ -153,6 +190,29 @@ export class ApplicationsService {
           dto.stage === ApplicationStage.ARCHIVED,
       },
     });
+
+    // Notifications au candidat selon le stage
+    try {
+      if (application.candidate && application.opportunity) {
+        if (dto.stage === ApplicationStage.SUCCESS) {
+          await this.notificationsService.sendApplicationAcceptedEmail(
+            application.candidate,
+            updated,
+            application.opportunity,
+          );
+        } else {
+          await this.notificationsService.sendApplicationReviewedEmail(
+            application.candidate,
+            updated,
+            application.opportunity,
+          );
+        }
+      }
+    } catch {
+      // Erreurs loggées dans le service, on ne bloque pas la requête
+    }
+
+    return updated;
   }
 }
 

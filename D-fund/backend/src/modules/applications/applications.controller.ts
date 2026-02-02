@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, UseGuards, ForbiddenException } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ApplicationOwnerGuard } from '../../common/guards/application-owner.guard';
 import { ApplicationsService } from './applications.service';
 import { CreateApplicationDto, ReviewApplicationDto, UpdateApplicationDto } from './dto';
 
@@ -11,13 +12,22 @@ export class ApplicationsController {
 
   // Candidatures pour une opportunité (vue Owner)
   @Get('opportunity/:opportunityId')
-  findByOpportunity(@Param('opportunityId') opportunityId: string) {
-    return this.applicationsService.findByOpportunity(opportunityId);
+  @UseGuards(JwtAuthGuard)
+  findByOpportunity(
+    @Param('opportunityId') opportunityId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.applicationsService.findByOpportunityForOwner(opportunityId, user.id);
   }
 
   // Candidatures d'un user (vue candidat)
   @Get('user/:userId')
-  findForUser(@Param('userId') userId: string) {
+  @UseGuards(JwtAuthGuard)
+  findForUser(@Param('userId') userId: string, @CurrentUser() user: User) {
+    // On ne permet pas de récupérer les candidatures d'un autre user
+    if (user.id !== userId) {
+      throw new ForbiddenException('You can only access your own applications');
+    }
     return this.applicationsService.findForUser(userId);
   }
 
@@ -28,7 +38,7 @@ export class ApplicationsController {
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ApplicationOwnerGuard)
   update(
     @Param('id') id: string,
     @CurrentUser() user: User,
@@ -38,13 +48,13 @@ export class ApplicationsController {
   }
 
   @Post(':id/submit')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ApplicationOwnerGuard)
   submit(@Param('id') id: string, @CurrentUser() user: User) {
     return this.applicationsService.submit(id, user.id);
   }
 
   @Put(':id/review')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ApplicationOwnerGuard)
   review(
     @Param('id') id: string,
     @CurrentUser() user: User,

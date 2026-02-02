@@ -35,18 +35,19 @@ export const removeAuthToken = (): void => {
  */
 export const apiCall = async (
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<Response> => {
   const apiUrl = getApiUrl()
   const token = getAuthToken()
 
-  const headers: HeadersInit = {
+  // On force un objet simple pour pouvoir ajouter proprement l'en-tête Authorization
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string> | undefined),
   }
 
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`
+    headers.Authorization = `Bearer ${token}`
   }
 
   const response = await fetch(`${apiUrl}${endpoint}`, {

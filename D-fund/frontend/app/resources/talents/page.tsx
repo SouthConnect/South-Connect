@@ -2,23 +2,32 @@ import TalentCard from '@/components/TalentCard'
 
 type TalentUser = {
   id: string
-  name: string | null
+  name: string
   email: string
   city: string | null
   country: string | null
   profilePic?: string | null
 }
 
+/**
+ * Profil de talent tel qu'utilisé dans la carte front
+ * (aligné sur les champs consommés par le composant `TalentCard`).
+ */
 type TalentProfile = {
   id: string
-  description?: string | null
-  tags: string[]
-  industries: string[]
-  marketFocus: string[]
-  languages: string[]
-  businessSkills: string[]
-  techSkills: string[]
+  description: string | null
+  skills: string[]
+  experience: number | null
+  availability: string | null
+  rate: string | null
   user: TalentUser
+  // Champs complémentaires potentiellement renvoyés par l'API
+  tags?: string[]
+  industries?: string[]
+  marketFocus?: string[]
+  languages?: string[]
+  businessSkills?: string[]
+  techSkills?: string[]
 }
 
 async function fetchTalents(): Promise<TalentProfile[]> {

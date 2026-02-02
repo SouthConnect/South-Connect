@@ -1,268 +1,248 @@
-import 'dotenv/config';
-import fs from 'fs';
-import path from 'path';
-import { parse } from 'csv-parse/sync';
-import { PrismaClient, ApplicationStage, OpportunityStatus } from '@prisma/client';
+import { PrismaClient, UserRole, OpportunityType, OpportunityStatus, ApplicationStage } from '@prisma/client'
+import { parse } from 'csv-parse/sync'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as dotenv from 'dotenv'
 
-/**
- * Script de migration depuis les CSV Glide vers la base Supabase/PostgreSQL via Prisma.
- *
- * Principes:
- * - On réutilise les Row ID Glide comme `id` Prisma quand c'est pertinent
- *   (User.id, Opportunity.id, Application.id, etc.) pour garder la cohérence des FK.
- * - On commence par migrer les entités cœur V1:
- *   - Users(1).csv  -> User, BtoCProfile, BtoBProfile
- *   - Opportunities(1).csv -> Opportunity
- *   - Applications(1).csv  -> Application
- * - Les autres CSV (messages, discussions, tasks, ratings, referrals...) pourront être ajoutés ensuite.
- *
- * Utilisation:
- *   npx ts-node scripts/migrate.ts
- *
- * ATTENTION:
- * - À lancer uniquement sur une base vide ou de test.
- * - Vérifier que DATABASE_URL pointe bien vers votre instance Supabase cible.
- */
+dotenv.config()
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient()
+const RAW_DATA_PATH = path.join(__dirname, '../data/glide/raw')
 
-const ROOT_DIR = path.resolve(__dirname, '..');
-const CSV_DIR = path.join(ROOT_DIR, 'data', 'glide', 'raw');
+async function migrate() {
+  console.log('🚀 Starting migration...')
 
-function readCsv(fileName: string) {
-  const filePath = path.join(CSV_DIR, fileName);
-  const content = fs.readFileSync(filePath, 'utf-8');
-  return parse(content, {
-    columns: true,
-    skip_empty_lines: true,
-  }) as Record<string, string>[];
+  try {
+    // 1. Industries
+    await migrateIndustries()
+    
+    // 2. Markets
+    await migrateMarkets()
+    
+    // 3. Features
+    await migrateFeatures()
+    
+    // 4. Users & Profiles
+    await migrateUsers()
+    
+    // 5. Opportunities
+    await migrateOpportunities()
+    
+    // 6. Applications
+    await migrateApplications()
+
+    console.log('✅ Migration completed successfully!')
+  } catch (error) {
+    console.error('❌ Migration failed:', error)
+  } finally {
+    await prisma.$disconnect()
+  }
+}
+
+async function migrateIndustries() {
+  console.log('📦 Migrating Industries...')
+  const fileContent = fs.readFileSync(path.join(RAW_DATA_PATH, 'Industries.csv'), 'utf-8')
+  const records = parse(fileContent, { columns: true, skip_empty_lines: true })
+
+  for (const record of records) {
+    const name = record.Name || record.Industry
+    if (!name) continue
+    
+    await prisma.industry.upsert({
+      where: { name },
+      update: {},
+      create: {
+        id: record['🔒 Row ID'] || record['Row ID'],
+        name,
+      }
+    })
+  }
+}
+
+async function migrateMarkets() {
+  console.log('📦 Migrating Markets...')
+  const fileContent = fs.readFileSync(path.join(RAW_DATA_PATH, 'Markets.csv'), 'utf-8')
+  const records = parse(fileContent, { columns: true, skip_empty_lines: true })
+
+  for (const record of records) {
+    const name = record.Name || record.Market
+    if (!name) continue
+
+    await prisma.market.upsert({
+      where: { name },
+      update: {},
+      create: {
+        id: record['🔒 Row ID'] || record['Row ID'],
+        name,
+        image: record.Images || record.Image,
+      }
+    })
+  }
+}
+
+async function migrateFeatures() {
+  console.log('📦 Migrating Features...')
+  const fileContent = fs.readFileSync(path.join(RAW_DATA_PATH, 'Features.csv'), 'utf-8')
+  const records = parse(fileContent, { columns: true, skip_empty_lines: true })
+
+  for (const record of records) {
+    const name = record['Opportunity Name'] || record.Feature
+    if (!name) continue
+
+    await prisma.feature.upsert({
+      where: { name },
+      update: {},
+      create: {
+        id: record['🔒 Row ID'] || record['Row ID'],
+        name,
+        description: record.Description || record['Creator / Description'],
+        category: record['Foreign Keys / Main Category'],
+      }
+    })
+  }
 }
 
 async function migrateUsers() {
-  const rows = readCsv('Users(1).csv');
+  console.log('📦 Migrating Users & Profiles...')
+  const fileContent = fs.readFileSync(path.join(RAW_DATA_PATH, 'Users(1).csv'), 'utf-8')
+  const records = parse(fileContent, { columns: true, skip_empty_lines: true })
 
-  for (const row of rows) {
-    const rowId = row['🔒 Row ID'] || row['Row ID'];
-    const email = row['Resume / Email']?.trim();
-    if (!email) continue;
+  const btoBContent = fs.readFileSync(path.join(RAW_DATA_PATH, 'BtoB.csv'), 'utf-8')
+  const btoBRecords = parse(btoBContent, { columns: true, skip_empty_lines: true })
 
-    // User de base
+  const btoCContent = fs.readFileSync(path.join(RAW_DATA_PATH, 'BtoC.csv'), 'utf-8')
+  const btoCRecords = parse(btoCContent, { columns: true, skip_empty_lines: true })
+
+  for (const record of records) {
+    const email = record['Resume / Email'] || record.Email
+    if (!email) continue
+
     const user = await prisma.user.upsert({
       where: { email },
       update: {},
       create: {
-        id: rowId || undefined,
+        id: record['🔒 Row ID'] || record['Row ID'],
         email,
-        firstName: row['Resume / First Name'] || null,
-        lastName: row['Resume / Last Name'] || null,
-        profilePic: row['Resume / Profile Pic'] || null,
-        headerImage: row['BtoC Info / Header'] || null,
-        city: row['Resume / City'] || null,
-        country: row['Resume / Country'] || null,
-        linkedinUrl: row['Resume / Linkedin Url'] || null,
-        // On laisse password null, ce seront des comptes importés (login à gérer plus tard)
-      },
-    });
+        firstName: record['Resume / First Name'],
+        lastName: record['Resume / Last Name'],
+        name: record['Resume / Name'] || record.Name,
+        role: record['Resume / Role'] === 'ADMIN' ? UserRole.ADMIN : UserRole.USER,
+        profilePic: record['Resume / Profile Pic'] || record['BtoC Info / Profil pic'],
+        city: record['Resume / City'],
+        country: record['Resume / Country'],
+        linkedinUrl: record['Resume / Linkedin Url'],
+        createdAt: record['Resume / date creation'] ? new Date(record['Resume / date creation']) : new Date(),
+      }
+    })
 
-    // Profil BtoC si données présentes
-    const hasBtoC =
-      row['Profile / Bio'] ||
-      row['Profile / Tags Displayed'] ||
-      row['Profile / Industries'] ||
-      row['Profile / Market Focus'];
-
-    if (hasBtoC) {
+    // BtoC Profile
+    const btoCData = btoCRecords.find((r: any) => (r['Profile / Email'] || r.Email) === email)
+    if (btoCData) {
       await prisma.btoCProfile.upsert({
         where: { userId: user.id },
         update: {},
         create: {
           userId: user.id,
-          description: row['Profile / Bio'] || null,
-          tags: row['Profile / Tags Displayed'] ? row['Profile / Tags Displayed'].split(',').map((t) => t.trim()) : [],
-          industries: row['Profile / Industries']
-            ? row['Profile / Industries'].split(',').map((t) => t.trim())
-            : [],
-          marketFocus: row['Profile / Market Focus']
-            ? row['Profile / Market Focus'].split(',').map((t) => t.trim())
-            : [],
-          languages: row['Profile / Languages']
-            ? row['Profile / Languages'].split(',').map((t) => t.trim())
-            : [],
-          businessSkills: row['Profile / Business Skills']
-            ? row['Profile / Business Skills'].split(',').map((t) => t.trim())
-            : [],
-          techSkills: row['Profile / Tech Skills']
-            ? row['Profile / Tech Skills'].split(',').map((t) => t.trim())
-            : [],
-          seniorityLevel: row['Profile / Seniority Level'] || null,
-        },
-      });
+          description: btoCData['Profile / Bio'] || btoCData.Bio,
+          tags: btoCData['Profile / Tags Displayed'] ? btoCData['Profile / Tags Displayed'].split(',').map((s: string) => s.trim()) : [],
+          seniorityLevel: btoCData['Profile / Seniority Level'],
+        }
+      })
     }
 
-    // Profil BtoB si données présentes
-    const hasBtoB =
-      row['Profile / Company Name'] ||
-      row['Profile / Long Description'] ||
-      row['Profile / Development Stage'];
-
-    if (hasBtoB) {
+    // BtoB Profile
+    const btoBData = btoBRecords.find((r: any) => (r['Profile / Email'] || r.Email) === email)
+    if (btoBData) {
       await prisma.btoBProfile.upsert({
         where: { userId: user.id },
         update: {},
         create: {
           userId: user.id,
-          companyName: row['Profile / Company Name'] || email,
-          logo: row['Visuals & Documents / Logo'] || null,
-          punchline: row['Profile / Punchline'] || null,
-          description: row['Profile / Long Description'] || null,
-          longDescription: row['Profile / Long Description'] || null,
-          website: row['Profile / Website'] || null,
-          linkedinUrl: row['Profile / LinkedIn'] || null,
-          developmentStage: row['Profile / Development Stage'] || null,
-          industries: row['Profile / Industries']
-            ? row['Profile / Industries'].split(',').map((t) => t.trim())
-            : [],
-          marketFocus: row['Profile / Market Focus']
-            ? row['Profile / Market Focus'].split(',').map((t) => t.trim())
-            : [],
-        },
-      });
+          companyName: btoBData['Profile / Company Name'] || btoBData.Name || 'Unknown Company',
+          logo: btoBData['Profile / Logo'] || btoBData.Logo,
+          description: btoBData['Profile / Description'] || btoBData.Description,
+          developmentStage: btoBData['Profile / Development Stage'],
+        }
+      })
     }
   }
-}
-
-function mapOpportunityStatus(status?: string): OpportunityStatus {
-  if (!status) return OpportunityStatus.DRAFT;
-  const s = status.toLowerCase();
-  if (s.includes('active') || s.includes('published')) return OpportunityStatus.ACTIVE;
-  if (s.includes('draft')) return OpportunityStatus.DRAFT;
-  if (s.includes('archiv')) return OpportunityStatus.ARCHIVED;
-  if (s.includes('closed')) return OpportunityStatus.CLOSED;
-  return OpportunityStatus.DRAFT;
 }
 
 async function migrateOpportunities() {
-  const rows = readCsv('Opportunities(1).csv');
+  console.log('📦 Migrating Opportunities...')
+  const fileContent = fs.readFileSync(path.join(RAW_DATA_PATH, 'Opportunities(1).csv'), 'utf-8')
+  const records = parse(fileContent, { columns: true, skip_empty_lines: true })
 
-  for (const row of rows) {
-    const rowId = row['🔒 Row ID'] || row['Row ID'];
-    const name = row['Offer / Opportunity Name'] || row['Name'];
-    if (!name) continue;
+  for (const record of records) {
+    const ownerEmail = record['Foreign Keys / BtoC Owner Email'] || record['Owner Email']
+    if (!ownerEmail) continue
 
-    const ownerEmail = row['Foreign Keys / BtoC Owner Email']?.trim();
-    if (!ownerEmail) continue;
+    const owner = await prisma.user.findUnique({ where: { email: ownerEmail } })
+    if (!owner) continue
 
-    const owner = await prisma.user.findUnique({ where: { email: ownerEmail } });
-    if (!owner) {
-      console.warn(`Owner not found for opportunity ${name} (${ownerEmail})`);
-      continue;
-    }
-
+    const id = record['🔒 Row ID'] || record['Row ID']
+    
     await prisma.opportunity.upsert({
-      where: { id: rowId || name },
+      where: { id },
       update: {},
       create: {
-        id: rowId || undefined,
-        name,
-        punchline: row['Offer / Punchline'] || null,
-        description: row['Offer / Description'] || null,
-        // type sera affiné plus tard via Feature.mapping si besoin
-        type: 'JOB_OPPORTUNITY',
+        id,
+        name: record['Offer / Opportunity Name'] || record.Name || 'Untitled Opportunity',
+        punchline: record['Offer / Punchline'],
+        description: record['Offer / Description'],
+        type: (record['Offer / Type'] || record.Type) as OpportunityType || OpportunityType.JOB_OPPORTUNITY,
+        status: (record['Offer / Publication Status'] || record.Status) as OpportunityStatus || OpportunityStatus.ACTIVE,
         ownerId: owner.id,
-        status: mapOpportunityStatus(row['Offer / Publication Status']),
-        url: row['Offer / Url'] || null,
-        tags: row['Offer / Tags']
-          ? row['Offer / Tags'].split(',').map((t) => t.trim())
-          : [],
-        industries: row['Offer / Industries']
-          ? row['Offer / Industries'].split(',').map((t) => t.trim())
-          : [],
-        markets: row['Offer / Markets']
-          ? row['Offer / Markets'].split(',').map((t) => t.trim())
-          : [],
-      },
-    });
+        city: record['Offer / City'],
+        country: record['Offer / Country'],
+        remote: record['Offer / Remote?'] === 'true' || record.Remote === 'true',
+        image: record['Images / Image'] || record.Image,
+        price: record['Pricing / Price'] ? parseFloat(record['Pricing / Price']) : undefined,
+        currency: record['Pricing / Currency'],
+        createdAt: record['Dates / Created Date'] ? new Date(record['Dates / Created Date']) : new Date(),
+      }
+    })
   }
 }
 
-function mapApplicationStage(stage?: string): ApplicationStage {
-  if (!stage) return ApplicationStage.DRAFT;
-  const s = stage.toLowerCase();
-  if (s.includes('draft')) return ApplicationStage.DRAFT;
-  if (s.includes('submitted')) return ApplicationStage.SUBMITTED;
-  if (s.includes('review')) return ApplicationStage.OWNER_REVIEW;
-  if (s.includes('success') || s.includes('accepted')) return ApplicationStage.SUCCESS;
-  if (s.includes('archive')) return ApplicationStage.ARCHIVED;
-  return ApplicationStage.DRAFT;
-}
-
 async function migrateApplications() {
-  const rows = readCsv('Applications(1).csv');
+  console.log('📦 Migrating Applications...')
+  const fileContent = fs.readFileSync(path.join(RAW_DATA_PATH, 'Applications(1).csv'), 'utf-8')
+  const records = parse(fileContent, { columns: true, skip_empty_lines: true })
 
-  for (const row of rows) {
-    const rowId = row['🔒 Row ID'] || row['Row ID'];
-    const opportunityId = row['Foreign Keys / Opportunity ID'];
-    const candidateEmail = row['Foreign Keys / email BtoC Candidate']?.trim();
-    if (!opportunityId || !candidateEmail) continue;
+  for (const record of records) {
+    const candidateEmail = record['Foreign Keys / email BtoC Candidate'] || record['Candidate Email']
+    if (!candidateEmail) continue
 
-    const candidate = await prisma.user.findUnique({ where: { email: candidateEmail } });
-    if (!candidate) {
-      console.warn(`Candidate not found for application ${rowId} (${candidateEmail})`);
-      continue;
-    }
+    const candidate = await prisma.user.findUnique({ where: { email: candidateEmail } })
+    if (!candidate) continue
 
-    const opportunity = await prisma.opportunity.findUnique({ where: { id: opportunityId } });
-    if (!opportunity) {
-      console.warn(`Opportunity not found for application ${rowId} (${opportunityId})`);
-      continue;
-    }
+    const opportunityId = record['Foreign Keys / Opportunity ID'] || record['Opportunity ID']
+    if (!opportunityId) continue
+
+    const opportunity = await prisma.opportunity.findUnique({ where: { id: opportunityId } })
+    if (!opportunity) continue
+
+    const id = record['🔒 Row ID'] || record['Row ID']
 
     await prisma.application.upsert({
       where: {
         opportunityId_candidateId: {
-          opportunityId: opportunity.id,
-          candidateId: candidate.id,
-        },
+          opportunityId,
+          candidateId: candidate.id
+        }
       },
       update: {},
       create: {
-        id: rowId || undefined,
-        opportunityId: opportunity.id,
+        id,
+        opportunityId,
         candidateId: candidate.id,
-        title: row['Application / Title'] || null,
-        goalLetter: row['Application / Goal Letter'] || null,
-        stage: mapApplicationStage(row['Application Stage / Stage']),
-        isClosed: (row['Application Stage / Is Closed?'] || '').toLowerCase() === 'true',
-        isDraft: (row['Navigation / Draft Slider'] || '').toLowerCase() === 'true',
-        reviewFeedback: row['Owner Review / Review'] || null,
-        referralCodeUsed: row['Referrals / Code Used'] || null,
-      },
-    });
+        goalLetter: record['Application / Goal Letter'] || record['Goal Letter'],
+        stage: (record['Application Stage / Stage'] || record.Stage) as ApplicationStage || ApplicationStage.SUBMITTED,
+        submissionDate: record['Application / Submission Date'] ? new Date(record['Application / Submission Date']) : new Date(),
+      }
+    })
   }
 }
 
-async function main() {
-  console.log('Starting Glide → Supabase migration (core V1 entities)...');
-
-  await migrateUsers();
-  console.log('Users migrated');
-
-  await migrateOpportunities();
-  console.log('Opportunities migrated');
-
-  await migrateApplications();
-  console.log('Applications migrated');
-
-  console.log('Migration core V1 completed.');
-}
-
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
-
-
+migrate()
