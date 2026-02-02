@@ -1,11 +1,9 @@
 name: Supabase Keepalive
 
 on:
-  # Lancement manuel si besoin
   workflow_dispatch:
-  # Ping automatique hebdo pour éviter la mise en pause du projet
   schedule:
-    - cron: '0 9 * * 1' # Tous les lundis à 09:00 UTC
+    - cron: '0 9 * * 1'
 
 jobs:
   ping-supabase:
