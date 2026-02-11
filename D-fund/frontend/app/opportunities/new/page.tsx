@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
-import { apiJson, OpportunityType } from '@/app/lib/api'
+import { apiJson, OpportunityType, uploadImage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
-import { ArrowLeft, Plus, Save, Info, MapPin, Globe, DollarSign } from 'lucide-react'
+import { ArrowLeft, Plus, Save, Info, MapPin, Globe, DollarSign, Image as ImageIcon, X } from 'lucide-react'
 import Link from 'next/link'
 
 const OPPORTUNITY_TYPES: { value: OpportunityType; label: string; description: string }[] = [
@@ -23,20 +23,117 @@ export default function CreateOpportunityPage() {
   const router = useRouter()
   const { user } = useAuth()
   const [selectedType, setSelectedType] = useState<OpportunityType | ''>('')
+  const [coverImage, setCoverImage] = useState<File | null>(null)
+  const [coverImagePreview, setCoverImagePreview] = useState<string | null>(null)
+  const [logoImage, setLogoImage] = useState<File | null>(null)
+  const [logoImagePreview, setLogoImagePreview] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
   
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiJson('/opportunities', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    mutationFn: async (data: any) => {
+      setErrorMessage(null)
+
+      // 1. Création de l'opportunité sans les images
+      const created = await apiJson('/opportunities', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+
+      // 2. Upload des images si présentes, avec le vrai ID de l'opportunité
+      let imageUrl: string | undefined
+      let backgroundImageUrl: string | undefined
+
+      if (logoImage) {
+        setIsUploading(true)
+        try {
+          imageUrl = await uploadImage(logoImage, 'opportunities', created.id, 'images')
+        } catch (error: any) {
+          throw new Error(`Failed to upload logo: ${error.message}`)
+        } finally {
+          setIsUploading(false)
+        }
+      }
+
+      if (coverImage) {
+        setIsUploading(true)
+        try {
+          backgroundImageUrl = await uploadImage(coverImage, 'opportunities', created.id, 'images')
+        } catch (error: any) {
+          throw new Error(`Failed to upload cover image: ${error.message}`)
+        } finally {
+          setIsUploading(false)
+        }
+      }
+
+      // 3. Mise à jour de l'opportunité avec les URLs d'images si nécessaire
+      if (imageUrl || backgroundImageUrl) {
+        const updated = await apiJson(`/opportunities/${created.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            image: imageUrl ?? created.image,
+            backgroundImage: backgroundImageUrl ?? created.backgroundImage,
+          }),
+        })
+
+        return updated
+      }
+
+      return created
+    },
     onSuccess: (data) => {
-      alert('Opportunity created successfully!')
       router.push(`/opportunities/${data.id}`)
     },
-    onError: (error) => {
-      alert(error.message)
+    onError: (error: any) => {
+      setErrorMessage(error.message || 'Failed to create opportunity')
     }
   })
+
+  const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size must be less than 5MB')
+        return
+      }
+      setCoverImage(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setCoverImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleLogoImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size must be less than 5MB')
+        return
+      }
+      setLogoImage(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setLogoImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const removeCoverImage = () => {
+    setCoverImage(null)
+    setCoverImagePreview(null)
+    if (coverInputRef.current) coverInputRef.current.value = ''
+  }
+
+  const removeLogoImage = () => {
+    setLogoImage(null)
+    setLogoImagePreview(null)
+    if (logoInputRef.current) logoInputRef.current.value = ''
+  }
 
   if (!user) {
     return (
@@ -52,17 +149,27 @@ export default function CreateOpportunityPage() {
     if (!selectedType) return
     
     const formData = new FormData(e.currentTarget)
-    const data = Object.fromEntries(formData.entries())
-    
-    createMutation.mutate({
-      ...data,
+    const raw = Object.fromEntries(formData.entries())
+
+    const toArray = (value: FormDataEntryValue | undefined) =>
+      typeof value === 'string'
+        ? value
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
+        : []
+
+    const data = {
+      ...raw,
       type: selectedType,
-      remote: !!data.remote,
-      tags: (data.tags as string).split(',').map(t => t.trim()).filter(Boolean),
-      industries: (data.industries as string).split(',').map(t => t.trim()).filter(Boolean),
-      markets: (data.markets as string).split(',').map(t => t.trim()).filter(Boolean),
-      price: data.price ? parseFloat(data.price as string) : undefined,
-    })
+      remote: !!raw.remote,
+      tags: toArray(raw.tags),
+      industries: toArray(raw.industries),
+      markets: toArray(raw.markets),
+      price: raw.price ? parseFloat(raw.price as string) : undefined,
+    }
+    
+    createMutation.mutate(data)
   }
 
   return (
@@ -82,6 +189,11 @@ export default function CreateOpportunityPage() {
       </div>
 
       <div className="container mx-auto px-4 max-w-5xl">
+        {errorMessage && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {errorMessage}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             {/* Type Selection */}
@@ -117,7 +229,156 @@ export default function CreateOpportunityPage() {
                   Details
                 </h2>
                 
+                {/* Image Uploads */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Cover Image */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Cover Image (optional)
+                    </label>
+                    {coverImagePreview ? (
+                      <div className="relative">
+                        <img
+                          src={coverImagePreview}
+                          alt="Cover preview"
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={removeCoverImage}
+                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                        <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
+                        <span className="text-sm text-gray-500">Click to upload cover</span>
+                        <input
+                          ref={coverInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleCoverImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Logo Image */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Logo / Thumbnail (optional)
+                    </label>
+                    {logoImagePreview ? (
+                      <div className="relative">
+                        <img
+                          src={logoImagePreview}
+                          alt="Logo preview"
+                          className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                        />
+                        <button
+                          type="button"
+                          onClick={removeLogoImage}
+                          className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                        <ImageIcon className="w-8 h-8 text-gray-400 mb-2" />
+                        <span className="text-sm text-gray-500">Click to upload logo</span>
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+                
                 <div className="space-y-4">
+                  {/* Cover Image Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Cover Image (optional)
+                    </label>
+                    {coverImagePreview ? (
+                      <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-200">
+                        <img
+                          src={coverImagePreview}
+                          alt="Cover preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={removeCoverImage}
+                          className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <ImageIcon className="w-8 h-8 mb-2 text-gray-400" />
+                          <p className="mb-2 text-sm text-gray-500">
+                            <span className="font-semibold">Click to upload</span> or drag and drop
+                          </p>
+                          <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                        </div>
+                        <input
+                          ref={coverInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleCoverImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Logo Image Upload */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Logo / Thumbnail (optional)
+                    </label>
+                    {logoImagePreview ? (
+                      <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-gray-200">
+                        <img
+                          src={logoImagePreview}
+                          alt="Logo preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={removeLogoImage}
+                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-32 h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                        <div className="flex flex-col items-center justify-center">
+                          <ImageIcon className="w-6 h-6 mb-1 text-gray-400" />
+                          <p className="text-xs text-gray-500 text-center px-2">Upload logo</p>
+                        </div>
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleLogoImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Opportunity Name *</label>
                     <input
@@ -190,11 +451,15 @@ export default function CreateOpportunityPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6 sticky top-8">
               <button
                 type="submit"
-                disabled={!selectedType || createMutation.isPending}
+                disabled={!selectedType || createMutation.isPending || isUploading}
                 className="flex items-center justify-center gap-2 w-full py-3 bg-[#3b49df] text-white rounded-xl font-bold hover:bg-[#2d3aba] transition-colors shadow-sm disabled:opacity-50"
               >
                 <Save className="w-5 h-5" />
-                {createMutation.isPending ? 'Publishing...' : 'Publish Opportunity'}
+                {isUploading
+                  ? 'Uploading images...'
+                  : createMutation.isPending
+                  ? 'Publishing...'
+                  : 'Publish Opportunity'}
               </button>
 
               <div className="space-y-4 pt-4 border-t border-gray-100">

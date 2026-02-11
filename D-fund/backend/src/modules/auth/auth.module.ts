@@ -13,10 +13,20 @@ import { NotificationsModule } from '../notifications/notifications.module';
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get('JWT_SECRET') || 'your-secret-key',
-        signOptions: { expiresIn: '7d' },
-      }),
+      useFactory: (config: ConfigService) => {
+        const secret = config.get<string>('JWT_SECRET');
+        if (!secret) {
+          // On préfère échouer fort au démarrage plutôt que tourner avec une clé faible.
+          throw new Error(
+            'JWT_SECRET is not configured. Please set it in your environment variables.',
+          );
+        }
+
+        return {
+          secret,
+          signOptions: { expiresIn: '7d' },
+        };
+      },
     }),
     UsersModule,
     NotificationsModule,

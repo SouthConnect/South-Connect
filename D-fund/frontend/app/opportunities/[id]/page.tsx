@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { MapPin, Calendar, Clock, Tag, ArrowLeft, Send, MessageSquare, ThumbsUp, Bookmark, Share2 } from 'lucide-react'
@@ -12,11 +12,62 @@ export default function OpportunityDetailPage() {
   const router = useRouter()
   const { user } = useAuth()
   const id = params?.id as string
+  const queryClient = useQueryClient()
 
   const { data: opportunity, isLoading } = useQuery({
     queryKey: ['opportunity', id],
     queryFn: () => apiJson(`/opportunities/${id}`),
     enabled: !!id,
+  })
+
+  const toggleLikeMutation = useMutation({
+    mutationFn: async () => {
+      try {
+        await apiJson(`/social/like/${id}`, {
+          method: 'POST',
+        })
+      } catch (error: any) {
+        // Si déjà liké, on tente un unlike
+        if (error?.message?.includes('already liked')) {
+          await apiJson(`/social/like/${id}`, {
+            method: 'DELETE',
+          })
+        } else {
+          throw error
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunity', id] })
+    },
+    onError: (error: any) => {
+      alert(error.message || 'Unable to update like status')
+    },
+  })
+
+  const toggleSaveMutation = useMutation({
+    mutationFn: async () => {
+      try {
+        await apiJson(`/social/save/${id}`, {
+          method: 'POST',
+        })
+      } catch (error: any) {
+        // Si déjà sauvegardée, on tente un unsave
+        if (error?.message?.includes('already saved')) {
+          await apiJson(`/social/save/${id}`, {
+            method: 'DELETE',
+          })
+        } else {
+          throw error
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['opportunity', id] })
+    },
+    onError: (error: any) => {
+      alert(error.message || 'Unable to update saved status')
+    },
   })
 
   const applyMutation = useMutation({
@@ -161,12 +212,20 @@ export default function OpportunityDetailPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4 sticky top-8">
               {user ? (
                 opportunity.ownerId === user.id ? (
-                  <Link 
-                    href={`/opportunities/${id}/edit`}
-                    className="flex items-center justify-center w-full py-3 bg-gray-100 text-gray-900 rounded-xl font-bold hover:bg-gray-200 transition-colors"
-                  >
-                    Edit Opportunity
-                  </Link>
+                  <div className="space-y-3">
+                    <Link 
+                      href={`/opportunities/${id}/edit`}
+                      className="flex items-center justify-center w-full py-3 bg-gray-100 text-gray-900 rounded-xl font-bold hover:bg-gray-200 transition-colors"
+                    >
+                      Edit Opportunity
+                    </Link>
+                    <Link
+                      href={`/opportunities/${id}/applications`}
+                      className="flex items-center justify-center w-full py-2 border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                    >
+                      View applications ({opportunity.applicationsCount})
+                    </Link>
+                  </div>
                 ) : (
                   <button
                     onClick={() => applyMutation.mutate()}
@@ -187,11 +246,33 @@ export default function OpportunityDetailPage() {
               )}
 
               <div className="grid grid-cols-2 gap-3">
-                <button className="flex items-center justify-center gap-2 py-2 border border-gray-100 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!user) {
+                      router.push('/login')
+                      return
+                    }
+                    toggleLikeMutation.mutate()
+                  }}
+                  disabled={toggleLikeMutation.isPending}
+                  className="flex items-center justify-center gap-2 py-2 border border-gray-100 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
                   <ThumbsUp className="w-4 h-4" />
                   Like
                 </button>
-                <button className="flex items-center justify-center gap-2 py-2 border border-gray-100 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!user) {
+                      router.push('/login')
+                      return
+                    }
+                    toggleSaveMutation.mutate()
+                  }}
+                  disabled={toggleSaveMutation.isPending}
+                  className="flex items-center justify-center gap-2 py-2 border border-gray-100 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
                   <Bookmark className="w-4 h-4" />
                   Save
                 </button>

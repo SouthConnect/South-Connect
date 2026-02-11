@@ -123,11 +123,11 @@ async function main() {
     console.log('status', res.status);
 
     console.log('7) GET /applications/user/:userId');
-    res = await http('GET', `/applications/user/${created.userId}`);
+    res = await http('GET', `/applications/user/${created.userId}`, null, token);
     console.log('status', res.status);
 
     console.log('8) GET /applications/opportunity/:opportunityId');
-    res = await http('GET', `/applications/opportunity/${created.opportunityId}`);
+    res = await http('GET', `/applications/opportunity/${created.opportunityId}`, null, token);
     console.log('status', res.status);
 
     console.log('DONE');

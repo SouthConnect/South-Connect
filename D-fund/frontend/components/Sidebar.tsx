@@ -12,6 +12,7 @@ import {
   Users2, 
   PlusCircle, 
   Compass,
+  Bookmark,
   LogOut,
   LogIn
 } from 'lucide-react'
@@ -35,6 +36,11 @@ export default function Sidebar() {
     { href: '/features', label: 'New Features', icon: PlusCircle },
     { href: '/explore', label: 'Explore', icon: Compass },
   ]
+
+  const userLinks = user ? [
+    { href: '/saved', label: 'Saved', icon: Bookmark },
+    { href: '/applications', label: 'My Applications', icon: MessageSquare },
+  ] : []
 
   const NavLink = ({ href, label, icon: Icon }: any) => {
     const isActive = pathname === href
@@ -70,6 +76,19 @@ export default function Sidebar() {
             <NavLink key={link.href} {...link} />
           ))}
         </div>
+
+        {userLinks.length > 0 && (
+          <div className="mt-8">
+            <div className="px-4 py-2 text-xs font-semibold text-white/40 uppercase tracking-wider">
+              My Content
+            </div>
+            <div className="mt-2 space-y-1">
+              {userLinks.map((link) => (
+                <NavLink key={link.href} {...link} />
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-8">
           <div className="px-4 py-2 text-xs font-semibold text-white/40 uppercase tracking-wider">

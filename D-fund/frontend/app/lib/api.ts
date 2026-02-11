@@ -127,6 +127,52 @@ export interface CreateOpportunityData {
 }
 
 /**
+ * Upload un fichier image vers Supabase Storage via le backend
+ * @param file - Fichier à uploader
+ * @param prefix - Préfixe du chemin (ex: 'opportunities', 'avatars')
+ * @param resourceId - ID de la ressource (ex: opportunityId, userId)
+ * @param bucket - Nom du bucket (optionnel, défaut: 'images')
+ * @returns URL publique du fichier uploadé
+ */
+export const uploadImage = async (
+  file: File,
+  prefix: string,
+  resourceId: string,
+  bucket?: string,
+): Promise<string> => {
+  const apiUrl = getApiUrl()
+  const token = getAuthToken()
+
+  if (!token) {
+    throw new Error('Authentication required to upload files')
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('prefix', prefix)
+  formData.append('resourceId', resourceId)
+  if (bucket) {
+    formData.append('bucket', bucket)
+  }
+
+  const response = await fetch(`${apiUrl}/storage/upload`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Upload failed' }))
+    throw new Error(error.error || error.message || `HTTP ${response.status}`)
+  }
+
+  const data = await response.json()
+  return data.url
+}
+
+/**
  * Crée une nouvelle opportunité
  */
 export const createOpportunity = async (data: CreateOpportunityData) => {
