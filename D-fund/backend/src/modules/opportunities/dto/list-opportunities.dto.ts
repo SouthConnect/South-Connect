@@ -1,23 +1,28 @@
 import { Type } from 'class-transformer';
-import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { OpportunityStatus, OpportunityType } from '@prisma/client';
+import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { OpportunityStatusEnum, OpportunityTypeEnum } from './create-opportunity.dto';
 
 export class ListOpportunitiesDto {
   @IsOptional()
   @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   take?: number;
 
   @IsOptional()
   @Type(() => Number)
+  @IsInt()
+  @Min(0)
   skip?: number;
 
   @IsOptional()
-  @IsEnum(OpportunityStatus)
-  status?: OpportunityStatus;
+  @IsEnum(OpportunityStatusEnum)
+  status?: OpportunityStatusEnum;
 
   @IsOptional()
-  @IsEnum(OpportunityType)
-  type?: OpportunityType;
+  @IsEnum(OpportunityTypeEnum)
+  type?: OpportunityTypeEnum;
 
   @IsOptional()
   @IsString()
@@ -25,5 +30,6 @@ export class ListOpportunitiesDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   search?: string;
 }

@@ -6,22 +6,69 @@ import { Search, Filter, Plus, Clock, TrendingUp, Star, LayoutGrid, Map, List } 
 import { apiJson } from '@/app/lib/api'
 import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
+import { useAuth } from '@/app/lib/AuthContext'
 
 export default function HomePage() {
+  const { user } = useAuth()
   const [tab, setTab] = useState<'newest' | 'trending' | 'favorites'>('newest')
   const [viewMode, setViewMode] = useState<'post' | 'map' | 'gallery'>('post')
   const [search, setSearch] = useState('')
 
-  const { data: opportunities, isLoading } = useQuery({
-    queryKey: ['opportunities', tab, search],
+  // Toutes les opportunités (vue publique)
+  const {
+    data: opportunities,
+    isLoading: isLoadingOpportunities,
+  } = useQuery({
+    queryKey: ['opportunities', search],
     queryFn: () => {
-      let endpoint = '/opportunities?take=20'
+      let endpoint = '/opportunities?take=50'
       if (search) endpoint += `&search=${encodeURIComponent(search)}`
-      if (tab === 'newest') endpoint += '&orderBy=createdAt:desc'
-      // trending et favorites nécessitent une logique backend plus poussée, pour l'instant on reste simple
       return apiJson(endpoint)
-    }
+    },
   })
+
+  // Opportunités sauvegardées (favorites) pour l'utilisateur connecté
+  const {
+    data: saved,
+    isLoading: isLoadingSaved,
+  } = useQuery({
+    queryKey: ['saved-opportunities'],
+    queryFn: () => apiJson('/social/saved'),
+    enabled: !!user,
+  })
+
+  const searchLower = search.toLowerCase()
+
+  const filterBySearch = (list: any[] = []) =>
+    !searchLower
+      ? list
+      : list.filter((op) => {
+          const haystack = `${op.name || ''} ${op.punchline || ''} ${op.description || ''}`.toLowerCase()
+          return haystack.includes(searchLower)
+        })
+
+  let displayed: any[] = []
+  let isLoadingList = false
+
+  if (tab === 'favorites') {
+    const base = filterBySearch(saved || [])
+    displayed = base
+    isLoadingList = !!user && isLoadingSaved && !saved
+  } else if (tab === 'trending') {
+    const base = filterBySearch(opportunities || [])
+    displayed = [...base].sort((a, b) => {
+      const byLikes = (b.likesCount || 0) - (a.likesCount || 0)
+      if (byLikes !== 0) return byLikes
+      const bySaved = (b.savedCount || 0) - (a.savedCount || 0)
+      if (bySaved !== 0) return bySaved
+      return (b.viewsCount || 0) - (a.viewsCount || 0)
+    })
+    isLoadingList = isLoadingOpportunities
+  } else {
+    // newest
+    displayed = filterBySearch(opportunities || [])
+    isLoadingList = isLoadingOpportunities
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -129,22 +176,74 @@ export default function HomePage() {
         </div>
 
         {/* Opportunity List */}
-        <div className="mt-8 space-y-4">
-          {isLoading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-32 bg-gray-100 animate-pulse rounded-xl" />
+        <div className={`mt-8 ${viewMode === 'gallery' ? 'grid grid-cols-2 md:grid-cols-3 gap-4' : 'space-y-4'}`}>
+          {isLoadingList ? (
+            Array.from({ length: viewMode === 'gallery' ? 6 : 5 }).map((_, i) => (
+              <div key={i} className={`bg-gray-100 animate-pulse rounded-xl ${viewMode === 'gallery' ? 'h-48' : 'h-32'}`} />
             ))
-          ) : opportunities?.length > 0 ? (
-            opportunities.map((opportunity: any) => (
-              <OpportunityCard key={opportunity.id} opportunity={opportunity} />
-            ))
+          ) : displayed.length > 0 ? (
+            displayed.map((opportunity: any) =>
+              viewMode === 'gallery' ? (
+                <GalleryCard key={opportunity.id} opportunity={opportunity} />
+              ) : (
+                <OpportunityCard key={opportunity.id} opportunity={opportunity} />
+              )
+            )
           ) : (
-            <div className="text-center py-12 text-gray-500">
-              No opportunities found.
+            <div className="text-center py-12 text-gray-500 text-sm">
+              {tab === 'favorites' ? (
+                user ? (
+                  'You have no favorites yet. Use the bookmark button on an opportunity to add it here.'
+                ) : (
+                  'Sign in to see your favorite opportunities.'
+                )
+              ) : tab === 'trending' ? (
+                'No trending opportunities yet.'
+              ) : search ? (
+                'No opportunities match your search.'
+              ) : (
+                'No opportunities found.'
+              )}
             </div>
           )}
         </div>
       </section>
     </div>
+  )
+}
+
+function GalleryCard({ opportunity }: { opportunity: any }) {
+  const date = new Date(opportunity.createdAt).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+  })
+  return (
+    <a href={`/opportunities/${opportunity.id}`} className="block group">
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+        <div className="h-28 bg-gray-100 overflow-hidden">
+          {opportunity.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={opportunity.image}
+              alt=""
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gradient-to-br from-gray-50 to-gray-100">
+              {opportunity.type?.replace(/_/g, ' ')}
+            </div>
+          )}
+        </div>
+        <div className="p-3">
+          <div className="text-[10px] font-bold text-[#3b49df] uppercase tracking-wider mb-0.5">
+            {opportunity.type?.replace(/_/g, ' ')}
+          </div>
+          <div className="text-sm font-semibold text-gray-900 truncate">{opportunity.name}</div>
+          <div className="text-xs text-gray-400 mt-1 truncate">
+            {opportunity.owner?.name} · {date}
+          </div>
+        </div>
+      </div>
+    </a>
   )
 }

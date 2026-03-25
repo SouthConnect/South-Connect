@@ -1,12 +1,15 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RegisterDto, LoginDto } from './dto';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -23,7 +26,7 @@ export class AuthService {
         firstName: dto.firstName,
         lastName: dto.lastName,
         name: dto.name || `${dto.firstName} ${dto.lastName}`,
-        role: dto.role || 'USER',
+        role: (dto.role as UserRole) || UserRole.USER,
       },
     });
 
@@ -33,8 +36,8 @@ export class AuthService {
     // Email de bienvenue (non bloquant en cas d'échec)
     try {
       await this.notificationsService.sendWelcomeEmail(user);
-    } catch (e) {
-      // Erreurs déjà loggées dans le service
+    } catch (error) {
+      this.logger.error(`Failed to send welcome email to ${user.email}`, error);
     }
 
     return {

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
+import { stageLabel, stageColor } from '@/app/lib/stage-labels'
 import { useAuth } from '@/app/lib/AuthContext'
 import { Clock, CheckCircle, Archive, Filter, Search } from 'lucide-react'
 import Link from 'next/link'
@@ -14,7 +15,12 @@ export default function ApplicationsPage() {
   const [stageFilter, setStageFilter] = useState<StageFilter>('ALL')
   const [search, setSearch] = useState('')
 
-  const { data: applications, isLoading } = useQuery({
+  const {
+    data: applications,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ['my-applications-full', user?.id],
     queryFn: () => apiJson(`/applications/user/${user?.id}`),
     enabled: !!user?.id,
@@ -94,6 +100,12 @@ export default function ApplicationsPage() {
         </div>
       </div>
 
+      {isError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {(error as Error)?.message || 'Unable to load your applications.'}
+        </div>
+      )}
+
       {/* List */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100">
         {isLoading ? (
@@ -104,7 +116,9 @@ export default function ApplicationsPage() {
           filtered.map((app: any) => <ApplicationRow key={app.id} app={app} />)
         ) : (
           <div className="py-8 text-center text-gray-500 text-sm">
-            No applications match your filters.
+            {stageFilter === 'ALL' && !search
+              ? 'You have no applications yet. Explore opportunities and apply to get started.'
+              : 'No applications match your filters.'}
           </div>
         )}
       </div>
@@ -113,15 +127,7 @@ export default function ApplicationsPage() {
 }
 
 function ApplicationRow({ app }: { app: any }) {
-  const statusColor: Record<string, string> = {
-    DRAFT: 'bg-gray-100 text-gray-600',
-    SUBMITTED: 'bg-blue-50 text-blue-700',
-    OWNER_REVIEW: 'bg-purple-50 text-purple-700',
-    SUCCESS: 'bg-green-50 text-green-700',
-    ARCHIVED: 'bg-gray-50 text-gray-500',
-  }
-
-  const chipClass = statusColor[app.stage] || 'bg-gray-100 text-gray-600'
+  const chipClass = stageColor(app.stage)
 
   return (
     <Link
@@ -131,7 +137,7 @@ function ApplicationRow({ app }: { app: any }) {
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${chipClass}`}>
-            {app.stage}
+            {stageLabel(app.stage)}
           </span>
           <span className="text-xs text-gray-400">
             {app.submissionDate

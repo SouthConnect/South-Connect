@@ -9,7 +9,37 @@ import {
   IsString,
   IsUrl,
 } from 'class-validator';
-import { OpportunityStatus, OpportunityType } from '@prisma/client';
+
+// Enums locaux alignés sur les valeurs Prisma, pour éviter les problèmes d'import en prod
+export enum OpportunityTypeEnum {
+  JOB_OPPORTUNITY = 'JOB_OPPORTUNITY',
+  TALENT_PROFILE = 'TALENT_PROFILE',
+  CO_FOUNDER_OPPORTUNITY = 'CO_FOUNDER_OPPORTUNITY',
+  CO_FOUNDER_PROFILE = 'CO_FOUNDER_PROFILE',
+  BUSINESS_IDEA = 'BUSINESS_IDEA',
+  SUPPORT_OFFER = 'SUPPORT_OFFER',
+  SERVICE_LISTING = 'SERVICE_LISTING',
+  SERVICE_REQUEST = 'SERVICE_REQUEST',
+  DEAL_FLOW = 'DEAL_FLOW',
+  INVESTOR_THESIS = 'INVESTOR_THESIS',
+  INVESTOR_PROFILE = 'INVESTOR_PROFILE',
+  FUNDING_OPPORTUNITY = 'FUNDING_OPPORTUNITY',
+  EVENT = 'EVENT',
+  CALL_FOR_STARTUPS = 'CALL_FOR_STARTUPS',
+  MENTORSHIP_BA_OFFER = 'MENTORSHIP_BA_OFFER',
+  PROJECT_SEEKING_SUPPORT = 'PROJECT_SEEKING_SUPPORT',
+  VENTURE_PROGRAM = 'VENTURE_PROGRAM',
+  CHILL_WORK_SPOT = 'CHILL_WORK_SPOT',
+  MARKET_ADVISOR = 'MARKET_ADVISOR',
+}
+
+export enum OpportunityStatusEnum {
+  DRAFT = 'DRAFT',
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  ARCHIVED = 'ARCHIVED',
+  CLOSED = 'CLOSED',
+}
 
 export class CreateOpportunityDto {
   @IsString()
@@ -23,12 +53,12 @@ export class CreateOpportunityDto {
   @IsString()
   description?: string;
 
-  @IsEnum(OpportunityType)
-  type: OpportunityType;
+  @IsEnum(OpportunityTypeEnum)
+  type: OpportunityTypeEnum;
 
   @IsOptional()
-  @IsEnum(OpportunityStatus)
-  status?: OpportunityStatus;
+  @IsEnum(OpportunityStatusEnum)
+  status?: OpportunityStatusEnum;
 
   @IsOptional()
   @IsString()

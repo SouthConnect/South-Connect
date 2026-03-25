@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateBtoCProfileDto, UpdateBtoBProfileDto } from './dto';
 
@@ -72,10 +72,6 @@ export class ProfilesService {
       throw new NotFoundException('BtoC profile not found');
     }
 
-    if (profile.userId !== userId) {
-      throw new ForbiddenException('You cannot update this profile');
-    }
-
     return this.prisma.btoCProfile.update({
       where: { userId },
       data: {
@@ -124,10 +120,6 @@ export class ProfilesService {
       throw new NotFoundException('BtoB profile not found');
     }
 
-    if (profile.userId !== userId) {
-      throw new ForbiddenException('You cannot update this profile');
-    }
-
     return this.prisma.btoBProfile.update({
       where: { userId },
       data: {
@@ -155,6 +147,25 @@ export class ProfilesService {
             profilePic: true,
           },
         },
+      },
+    });
+  }
+
+  /**
+   * Liste tous les membres (users) visibles
+   * Inclut les profils BtoC/BtoB s'ils existent, pour exposer les compteurs
+   */
+  async listMembers() {
+    return this.prisma.user.findMany({
+      where: {
+        visibility: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        btoCProfile: true,
+        btoBProfile: true,
       },
     });
   }

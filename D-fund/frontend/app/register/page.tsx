@@ -40,9 +40,11 @@ export default function RegisterPage() {
         login(data.token, data.user)
       }
 
-      router.push('/login?registered=true')
+      router.push('/profile?onboarding=true')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Une erreur est survenue')
+      setError(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+      )
     } finally {
       setLoading(false)
     }

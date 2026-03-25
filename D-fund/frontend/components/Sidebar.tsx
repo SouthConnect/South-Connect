@@ -2,30 +2,51 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { 
-  Home, 
-  Users, 
-  MessageSquare, 
-  LayoutDashboard, 
-  UserCircle, 
-  TrendingUp, 
-  Users2, 
-  PlusCircle, 
+import {
+  Home,
+  Users,
+  MessageSquare,
+  LayoutDashboard,
+  UserCircle,
+  TrendingUp,
+  Users2,
+  PlusCircle,
   Compass,
   Bookmark,
   LogOut,
-  LogIn
+  LogIn,
+  Bell,
+  Menu,
+  X,
 } from 'lucide-react'
 import { useAuth } from '@/app/lib/AuthContext'
+import { useQuery } from '@tanstack/react-query'
+import { apiJson } from '@/app/lib/api'
+import { useState, useEffect } from 'react'
 
 export default function Sidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
+
+  const { data: notifData } = useQuery({
+    queryKey: ['notifications-count', user?.id],
+    queryFn: () => apiJson('/notifications/unread-count'),
+    enabled: !!user?.id,
+    refetchInterval: 30000,
+  })
+  const unreadCount: number = notifData?.count ?? 0
 
   const mainLinks = [
     { href: '/', label: 'Home', icon: Home },
     { href: '/referral', label: 'Referral', icon: Users },
     { href: '/chat', label: 'Chat', icon: MessageSquare },
+    { href: '/notifications', label: 'Notifications', icon: Bell, badge: unreadCount },
   ]
 
   const exploreLinks = [
@@ -40,10 +61,11 @@ export default function Sidebar() {
   const userLinks = user ? [
     { href: '/saved', label: 'Saved', icon: Bookmark },
     { href: '/applications', label: 'My Applications', icon: MessageSquare },
+    { href: '/my-opportunities', label: 'My Opportunities', icon: LayoutDashboard },
   ] : []
 
-  const NavLink = ({ href, label, icon: Icon }: any) => {
-    const isActive = pathname === href
+  const NavLink = ({ href, label, icon: Icon, badge }: any) => {
+    const isActive = href === '/' ? pathname === '/' : pathname === href || pathname?.startsWith(href + '/')
     return (
       <Link
         href={href}
@@ -54,20 +76,54 @@ export default function Sidebar() {
         }`}
       >
         <Icon className="w-5 h-5" />
-        {label}
+        <span className="flex-1">{label}</span>
+        {badge > 0 && (
+          <span className="ml-auto bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
       </Link>
     )
   }
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-[#3b49df] text-white flex flex-col z-50">
-      <div className="p-6">
+    <>
+      {/* Mobile hamburger button */}
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-4 left-4 z-50 w-10 h-10 bg-[#3b49df] text-white rounded-lg flex items-center justify-center shadow-md"
+        aria-label="Open menu"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/40 z-40"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+    <aside className={`fixed left-0 top-0 h-screen w-64 bg-[#3b49df] text-white flex flex-col z-50 transition-transform duration-200 ${
+      mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+    }`}>
+      <div className="p-6 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 text-xl font-bold">
           <div className="w-8 h-8 bg-white rounded flex items-center justify-center text-[#3b49df]">
             D
           </div>
           D-fund
         </Link>
+        <button
+          type="button"
+          onClick={() => setMobileOpen(false)}
+          className="md:hidden text-white/70 hover:text-white"
+          aria-label="Close menu"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4">
@@ -137,5 +193,6 @@ export default function Sidebar() {
         )}
       </div>
     </aside>
+    </>
   )
 }

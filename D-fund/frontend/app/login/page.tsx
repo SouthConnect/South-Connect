@@ -24,7 +24,7 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (searchParams?.get('registered') === 'true') {
-      setSuccess('Inscription réussie! Connectez-vous maintenant.')
+      setSuccess('Registration successful. Please sign in to continue.')
     }
   }, [searchParams])
 
@@ -46,7 +46,9 @@ function LoginPageContent() {
 
       router.push('/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Une erreur est survenue')
+      setError(
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+      )
     } finally {
       setLoading(false)
     }

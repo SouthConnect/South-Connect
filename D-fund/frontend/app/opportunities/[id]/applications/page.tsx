@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
+import { stageLabel, stageColor } from '@/app/lib/stage-labels'
+import Link from 'next/link'
 import {
   ArrowLeft,
   User as UserIcon,
@@ -12,6 +14,7 @@ import {
   Clock,
   CheckCircle,
   Archive,
+  ExternalLink,
 } from 'lucide-react'
 
 type ReviewStage = 'OWNER_REVIEW' | 'SUCCESS' | 'ARCHIVED'
@@ -27,6 +30,7 @@ export default function OpportunityApplicationsPage() {
   const [feedbackTitle, setFeedbackTitle] = useState('')
   const [reviewFeedback, setReviewFeedback] = useState('')
   const [stage, setStage] = useState<ReviewStage>('OWNER_REVIEW')
+  const [reviewSaved, setReviewSaved] = useState(false)
 
   const {
     data: opportunity,
@@ -77,7 +81,8 @@ export default function OpportunityApplicationsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['owner-applications', opportunityId] })
-      alert('Review saved successfully.')
+      setReviewSaved(true)
+      setTimeout(() => setReviewSaved(false), 3000)
     },
   })
 
@@ -91,22 +96,27 @@ export default function OpportunityApplicationsPage() {
 
   return (
     <div className="container mx-auto px-6 py-8 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
         <button
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
+          onClick={() => router.push('/dashboard')}
+          className="hover:text-gray-700 transition-colors"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back
+          <ArrowLeft className="w-4 h-4 inline mr-1" />
+          Dashboard
         </button>
+        <span className="text-gray-300">/</span>
+        <Link href={`/opportunities/${opportunityId}`} className="hover:text-gray-700 transition-colors">
+          {opportunity?.name || 'Opportunity'}
+        </Link>
+        <span className="text-gray-300">/</span>
+        <span className="text-gray-900 font-medium">Applications</span>
       </div>
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-1">Applications received</h1>
-        {opportunity && (
+        {applications && (
           <p className="text-sm text-gray-500">
-            Opportunity:{' '}
-            <span className="font-semibold text-gray-900">{opportunity.name}</span>
+            {applications.length} candidate{applications.length !== 1 ? 's' : ''} applied
           </p>
         )}
       </div>
@@ -151,8 +161,8 @@ export default function OpportunityApplicationsPage() {
                         <div>
                           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
                             <span>{app.candidate?.name || 'Unknown candidate'}</span>
-                            <span className="text-[10px] uppercase px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                              {app.stage}
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${stageColor(app.stage)}`}>
+                              {stageLabel(app.stage)}
                             </span>
                           </div>
                           <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -184,6 +194,55 @@ export default function OpportunityApplicationsPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           {selectedApplication ? (
             <>
+              {/* Candidate summary */}
+              <div className="mb-4 pb-4 border-b border-gray-100">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-[#3b49df]">
+                    {selectedApplication.candidate?.name?.[0] || '?'}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {selectedApplication.candidate?.name || 'Unknown'}
+                    </div>
+                    <div className="text-xs text-gray-500">{selectedApplication.candidate?.email}</div>
+                  </div>
+                </div>
+                {selectedApplication.title && (
+                  <p className="text-xs text-gray-700 font-medium mb-1">{selectedApplication.title}</p>
+                )}
+                {selectedApplication.goalLetter && (
+                  <p className="text-xs text-gray-500 line-clamp-4 whitespace-pre-wrap">
+                    {selectedApplication.goalLetter}
+                  </p>
+                )}
+                {(selectedApplication.externalLink || selectedApplication.externalLink2) && (
+                  <div className="mt-2 space-y-1">
+                    {selectedApplication.externalLink && (
+                      <a
+                        href={selectedApplication.externalLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-[10px] text-[#3b49df] hover:underline truncate"
+                      >
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                        {selectedApplication.externalLink}
+                      </a>
+                    )}
+                    {selectedApplication.externalLink2 && (
+                      <a
+                        href={selectedApplication.externalLink2}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-[10px] text-[#3b49df] hover:underline truncate"
+                      >
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                        {selectedApplication.externalLink2}
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="mb-4">
                 <h2 className="text-sm font-semibold text-gray-900 mb-1">
                   Review application
@@ -277,6 +336,12 @@ export default function OpportunityApplicationsPage() {
                     placeholder="Share constructive feedback to help the candidate understand your decision."
                   />
                 </div>
+
+                {reviewSaved && (
+                  <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700 font-medium">
+                    Review saved successfully.
+                  </div>
+                )}
 
                 <button
                   type="submit"

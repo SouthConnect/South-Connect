@@ -190,20 +190,8 @@ export default function OpportunityDetailPage() {
               )}
             </div>
 
-            {/* Discussion Preview (Place-holder) */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Discussion</h3>
-                <span className="text-gray-500 text-sm">{opportunity.messagesCount} messages</span>
-              </div>
-              <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                <p>Join the conversation about this opportunity.</p>
-                <button className="mt-4 text-[#3b49df] font-bold hover:underline">
-                  View all messages
-                </button>
-              </div>
-            </div>
+            {/* Discussion */}
+            <DiscussionSection opportunityId={id} messagesCount={opportunity.messagesCount} />
           </div>
 
           {/* Sidebar Info */}
@@ -227,14 +215,36 @@ export default function OpportunityDetailPage() {
                     </Link>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => applyMutation.mutate()}
-                    disabled={applyMutation.isPending}
-                    className="flex items-center justify-center gap-2 w-full py-3 bg-[#3b49df] text-white rounded-xl font-bold hover:bg-[#2d3aba] transition-colors shadow-sm disabled:opacity-50"
-                  >
-                    <Send className="w-5 h-5" />
-                    {applyMutation.isPending ? 'Creating draft...' : 'Apply Now'}
-                  </button>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => applyMutation.mutate()}
+                      disabled={applyMutation.isPending}
+                      className="flex items-center justify-center gap-2 w-full py-3 bg-[#3b49df] text-white rounded-xl font-bold hover:bg-[#2d3aba] transition-colors shadow-sm disabled:opacity-50"
+                    >
+                      <Send className="w-5 h-5" />
+                      {applyMutation.isPending ? 'Creating draft...' : 'Apply Now'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!user) {
+                          router.push('/login')
+                          return
+                        }
+                        const discussion = await apiJson(
+                          `/messages/private/start/${opportunity.ownerId}`,
+                          { method: 'POST' },
+                        )
+                        if (discussion?.id) {
+                          router.push(`/chat/private/${discussion.id}`)
+                        }
+                      }}
+                      className="flex items-center justify-center gap-2 w-full py-2 border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Message owner
+                    </button>
+                  </div>
                 )
               ) : (
                 <Link 
@@ -328,6 +338,64 @@ export default function OpportunityDetailPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function DiscussionSection({
+  opportunityId,
+  messagesCount,
+}: {
+  opportunityId: string
+  messagesCount: number
+}) {
+  const { data: discussions, isLoading } = useQuery({
+    queryKey: ['public-discussions', 'OPPORTUNITY_RELATED'],
+    queryFn: () => apiJson('/messages/public?type=OPPORTUNITY_RELATED'),
+  })
+
+  const linked = (discussions as any[])?.find(
+    (d: any) => d.opportunityId === opportunityId || d.opportunity?.id === opportunityId,
+  )
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-bold text-gray-900">Discussion</h3>
+        <span className="text-gray-500 text-sm">{messagesCount ?? 0} messages</span>
+      </div>
+
+      {isLoading ? (
+        <div className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+      ) : linked ? (
+        <Link
+          href={`/chat/public/${linked.id}`}
+          className="flex items-center justify-between px-5 py-4 bg-gray-50 rounded-xl border border-gray-100 hover:shadow-sm transition-shadow"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-sm font-bold text-[#3b49df] overflow-hidden">
+              {linked.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={linked.image} alt="" className="w-full h-full object-cover" />
+              ) : (
+                linked.title?.[0] || 'D'
+              )}
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-gray-900">{linked.title}</div>
+              <div className="text-xs text-gray-500">
+                {linked.membersCount ?? 0} members · {messagesCount ?? 0} messages
+              </div>
+            </div>
+          </div>
+          <span className="text-xs font-semibold text-[#3b49df]">Join →</span>
+        </Link>
+      ) : (
+        <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+          <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-20" />
+          <p className="text-sm">No public discussion linked to this opportunity yet.</p>
+        </div>
+      )}
     </div>
   )
 }

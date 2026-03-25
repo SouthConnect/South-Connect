@@ -1,33 +1,77 @@
 'use client'
 
+import { useState } from 'react'
 import { useAuth } from '@/app/lib/AuthContext'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
-import { Clock, CheckCircle, FileText, Inbox, ArrowUpRight } from 'lucide-react'
+import { stageLabel, stageColor } from '@/app/lib/stage-labels'
+import {
+  FileText,
+  ArrowUpRight,
+  Briefcase,
+  ListChecks,
+  MessageCircle,
+} from 'lucide-react'
 import Link from 'next/link'
+
+type DashboardTab = 'applications' | 'offers' | 'dm' | 'tasks'
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const [tab, setTab] = useState<DashboardTab>('applications')
 
-  const { data: applications, isLoading } = useQuery({
+  const {
+    data: applications,
+    isLoading: isLoadingApplications,
+  } = useQuery({
     queryKey: ['my-applications', user?.id],
     queryFn: () => apiJson(`/applications/user/${user?.id}`),
     enabled: !!user?.id,
   })
 
+  const {
+    data: myOpportunities,
+    isLoading: isLoadingOpportunities,
+  } = useQuery({
+    queryKey: ['my-opportunities-dashboard', user?.id],
+    queryFn: () => apiJson(`/opportunities/user/${user?.id}?take=10`),
+    enabled: !!user?.id,
+  })
+
+  const {
+    data: privateDiscussions,
+    isLoading: isLoadingDMs,
+  } = useQuery({
+    queryKey: ['private-discussions', user?.id],
+    queryFn: () => apiJson('/messages/private'),
+    enabled: !!user?.id,
+  })
+
+  const totalApplications = applications?.length ?? 0
+  const totalOffers = myOpportunities?.length ?? 0
+  const totalDMs = (privateDiscussions as any[])?.length ?? 0
+  const unreadDMs = (privateDiscussions as any[])?.filter((d: any) => d.unreadCount > 0).length ?? 0
+
   return (
     <div className="container mx-auto px-6 py-8 max-w-5xl">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Welcome{user ? `, ${user.name}` : ''} 
-        </h1>
-        <p className="text-sm text-gray-500">
-          Track your applications, offers and tasks in one place.
-        </p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Welcome{user ? `, ${user.name}` : ''}
+          </h1>
+          <p className="text-sm text-gray-500">
+            Track your applications, offers and tasks in one place.
+          </p>
+        </div>
+        <Link
+          href="/referral"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#3b49df] text-white rounded-lg text-sm font-semibold hover:bg-[#2d3aba] transition-colors"
+        >
+          <ArrowUpRight className="w-4 h-4" />
+          Guide &amp; Earn
+        </Link>
       </div>
 
-      {/* Important Tasks cards */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
         <DashboardCard
           title="Import Opportunities"
@@ -47,78 +91,105 @@ export default function DashboardPage() {
         />
       </section>
 
-      {/* Applications section */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-gray-900">Applications</h2>
-            <span className="text-xs text-gray-400 border border-gray-200 rounded-full px-2 py-0.5">
-              {applications?.length ?? 0} total
-            </span>
+          <div className="flex gap-4 text-sm border-b border-gray-200">
+            <button
+              type="button"
+              onClick={() => setTab('applications')}
+              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+                tab === 'applications'
+                  ? 'border-[#3b49df] text-[#3b49df]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Applications
+              <span className="text-[10px] text-gray-400 border border-gray-200 rounded-full px-1.5 py-0.5">
+                {totalApplications}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('offers')}
+              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+                tab === 'offers'
+                  ? 'border-[#3b49df] text-[#3b49df]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              Offers
+              <span className="text-[10px] text-gray-400 border border-gray-200 rounded-full px-1.5 py-0.5">
+                {totalOffers}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('dm')}
+              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+                tab === 'dm'
+                  ? 'border-[#3b49df] text-[#3b49df]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <MessageCircle className="w-4 h-4" />
+              DM
+              {unreadDMs > 0 && (
+                <span className="text-[10px] bg-[#3b49df] text-white rounded-full px-1.5 py-0.5">
+                  {unreadDMs}
+                </span>
+              )}
+              {unreadDMs === 0 && (
+                <span className="text-[10px] text-gray-400 border border-gray-200 rounded-full px-1.5 py-0.5">
+                  {totalDMs}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('tasks')}
+              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+                tab === 'tasks'
+                  ? 'border-[#3b49df] text-[#3b49df]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <ListChecks className="w-4 h-4" />
+              Tasks
+            </button>
           </div>
           <Link
             href="/"
-            className="flex items-center gap-1 text-xs font-medium text-[#3b49df] hover:text-[#2d3aba]"
+            className="hidden md:inline-flex items-center gap-1 text-xs font-medium text-[#3b49df] hover:text-[#2d3aba]"
           >
             Explore opportunities
             <ArrowUpRight className="w-3 h-3" />
           </Link>
         </div>
 
-        <div className="flex gap-4 border-b border-gray-200 mb-4 text-sm">
-          <span className="pb-3 border-b-2 border-[#3b49df] text-[#3b49df] font-semibold flex items-center gap-1">
-            <Clock className="w-4 h-4" />
-            Draft
-          </span>
-          <span className="pb-3 text-gray-400 flex items-center gap-1">
-            <Inbox className="w-4 h-4" />
-            Pending
-          </span>
-          <span className="pb-3 text-gray-400 flex items-center gap-1">
-            <CheckCircle className="w-4 h-4" />
-            Success / Archived
-          </span>
-        </div>
+        {tab === 'applications' && (
+          <ApplicationsSection
+            applications={applications}
+            isLoading={isLoadingApplications}
+          />
+        )}
 
-        <div className="space-y-3">
-          {isLoading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
-            ))
-          ) : applications?.length ? (
-            applications.map((app: any) => (
-              <div
-                key={app.id}
-                className="bg-white rounded-xl border border-gray-100 px-5 py-4 flex items-center justify-between hover:shadow-sm transition-shadow"
-              >
-                <div className="flex flex-col">
-                  <span className="text-xs font-semibold text-gray-400 uppercase mb-1">
-                    {app.stage}
-                  </span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {app.opportunity?.name || 'Untitled opportunity'}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {app.title || 'No title'} •{' '}
-                    {app.submissionDate
-                      ? new Date(app.submissionDate).toLocaleDateString('fr-FR')
-                      : 'Draft'}
-                  </span>
-                </div>
-                <Link
-                  href={`/applications/${app.id}`}
-                  className="text-xs font-semibold text-[#3b49df] hover:text-[#2d3aba]"
-                >
-                  Edit
-                </Link>
-              </div>
-            ))
-          ) : (
-            <div className="text-center text-gray-500 text-sm py-8 bg-white rounded-xl border border-dashed border-gray-200">
-              No applications yet. Start by applying to an opportunity.
-            </div>
-          )}
-        </div>
+        {tab === 'offers' && (
+          <OffersSection
+            opportunities={myOpportunities}
+            isLoading={isLoadingOpportunities}
+          />
+        )}
+
+        {tab === 'dm' && (
+          <DMSection
+            discussions={privateDiscussions as any[]}
+            isLoading={isLoadingDMs}
+          />
+        )}
+
+        {tab === 'tasks' && <TasksSection />}
       </section>
     </div>
   )
@@ -159,4 +230,332 @@ function DashboardCard({
 
   return content
 }
+
+function ApplicationsSection({
+  applications,
+  isLoading,
+}: {
+  applications: any[] | undefined
+  isLoading: boolean
+}) {
+  const [subFilter, setSubFilter] = useState<'ALL' | 'DRAFT' | 'SUBMITTED' | 'OWNER_REVIEW'>('ALL')
+
+  const filtered = applications?.filter((app: any) => {
+    if (subFilter === 'ALL') return true
+    return app.stage === subFilter
+  })
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-3 text-xs font-semibold mb-2">
+        {(['ALL', 'DRAFT', 'SUBMITTED', 'OWNER_REVIEW'] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setSubFilter(s)}
+            className={`px-3 py-1 rounded-full border transition-colors ${
+              subFilter === s
+                ? 'border-[#3b49df] bg-[#3b49df]/5 text-[#3b49df]'
+                : 'border-gray-200 text-gray-500 hover:border-gray-300'
+            }`}
+          >
+            {s === 'ALL' ? 'All' : s === 'OWNER_REVIEW' ? 'In Review' : s.charAt(0) + s.slice(1).toLowerCase()}
+            {s !== 'ALL' && (
+              <span className="ml-1 text-[10px] text-gray-400">
+                {applications?.filter((a: any) => a.stage === s).length ?? 0}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+        ))
+      ) : filtered && filtered.length > 0 ? (
+        filtered.map((app: any) => (
+          <div
+            key={app.id}
+            className="bg-white rounded-xl border border-gray-100 px-5 py-4 flex items-center justify-between hover:shadow-sm transition-shadow"
+          >
+            <div className="flex flex-col">
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full mb-1 inline-flex ${stageColor(app.stage)}`}>
+                {stageLabel(app.stage)}
+              </span>
+              <span className="text-sm font-semibold text-gray-900">
+                {app.opportunity?.name || 'Untitled opportunity'}
+              </span>
+              <span className="text-xs text-gray-500">
+                {app.title || 'No title'} •{' '}
+                {app.submissionDate
+                  ? new Date(app.submissionDate).toLocaleDateString('fr-FR')
+                  : 'Draft'}
+              </span>
+            </div>
+            <Link
+              href={`/applications/${app.id}`}
+              className="text-xs font-semibold text-[#3b49df] hover:text-[#2d3aba]"
+            >
+              Edit
+            </Link>
+          </div>
+        ))
+      ) : (
+        <div className="text-center text-gray-500 text-sm py-8 bg-white rounded-xl border border-dashed border-gray-200">
+          {subFilter === 'ALL'
+            ? 'No applications yet. Start by applying to an opportunity.'
+            : `No ${subFilter === 'OWNER_REVIEW' ? 'in-review' : subFilter.toLowerCase()} applications.`}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function OffersSection({
+  opportunities,
+  isLoading,
+}: {
+  opportunities: any[] | undefined
+  isLoading: boolean
+}) {
+  return (
+    <div className="space-y-3">
+      {isLoading ? (
+        Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+        ))
+      ) : opportunities && opportunities.length > 0 ? (
+        opportunities.map((op: any) => (
+          <Link
+            key={op.id}
+            href={`/opportunities/${op.id}`}
+            className="bg-white rounded-xl border border-gray-100 px-5 py-4 flex items-center justify-between hover:shadow-sm transition-shadow"
+          >
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold text-gray-400 uppercase mb-1">
+                {op.status}
+              </span>
+              <span className="text-sm font-semibold text-gray-900">
+                {op.name}
+              </span>
+              <span className="text-xs text-gray-500">
+                {op.applicationsCount ?? 0} applications •{' '}
+                {op.likesCount ?? 0} likes
+              </span>
+            </div>
+          </Link>
+        ))
+      ) : (
+        <div className="text-center text-gray-500 text-sm py-8 bg-white rounded-xl border border-dashed border-gray-200">
+          You have not created any opportunities yet.
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DMSection({
+  discussions,
+  isLoading,
+}: {
+  discussions: any[] | undefined
+  isLoading: boolean
+}) {
+  return (
+    <div className="space-y-3">
+      {isLoading ? (
+        Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+        ))
+      ) : discussions && discussions.length > 0 ? (
+        <>
+          {discussions.map((d: any) => {
+            const date = d.lastMessageAt
+              ? new Date(d.lastMessageAt).toLocaleDateString('fr-FR')
+              : null
+            const other = d.participants?.find((p: any) => p.user)?.user || null
+            const hasUnread = d.unreadCount > 0
+
+            return (
+              <Link
+                key={d.id}
+                href={`/chat/private/${d.id}`}
+                className="bg-white rounded-xl border border-gray-100 px-5 py-4 flex items-center gap-4 hover:shadow-sm transition-shadow"
+              >
+                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-[#3b49df] overflow-hidden flex-shrink-0">
+                  {other?.profilePic ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={other.profilePic} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    other?.name?.[0] || 'U'
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm font-semibold ${hasUnread ? 'text-gray-900' : 'text-gray-700'}`}>
+                      {other?.name || 'Direct message'}
+                    </span>
+                    {date && (
+                      <span className="text-xs text-gray-400 flex-shrink-0">{date}</span>
+                    )}
+                  </div>
+                  {hasUnread && (
+                    <span className="text-xs text-[#3b49df] font-semibold">
+                      {d.unreadCount} unread message{d.unreadCount > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                {hasUnread && (
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#3b49df] flex-shrink-0" />
+                )}
+              </Link>
+            )
+          })}
+          <div className="text-center pt-2">
+            <Link
+              href="/chat"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#3b49df] hover:underline"
+            >
+              Open all conversations
+              <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </>
+      ) : (
+        <div className="text-center text-gray-500 text-sm py-8 bg-white rounded-xl border border-dashed border-gray-200">
+          No conversations yet.{' '}
+          <Link href="/community" className="text-[#3b49df] font-semibold hover:underline">
+            Discover members
+          </Link>{' '}
+          and start chatting.
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TasksSection() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  const { data: tasks, isLoading } = useQuery({
+    queryKey: ['tasks', user?.id],
+    queryFn: () => apiJson('/tasks'),
+    enabled: !!user?.id,
+  })
+
+  const createMutation = useMutation({
+    mutationFn: (name: string) =>
+      apiJson('/tasks', { method: 'POST', body: JSON.stringify({ name }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
+  })
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      apiJson(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiJson(`/tasks/${id}`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
+  })
+
+  const STATUS_LABELS: Record<string, string> = {
+    TODO: 'To Do',
+    WORKING_ON_IT: 'In Progress',
+    IDEA: 'Idea',
+    DONE: 'Done',
+  }
+
+  const STATUS_COLORS: Record<string, string> = {
+    TODO: 'bg-gray-100 text-gray-600',
+    WORKING_ON_IT: 'bg-blue-50 text-blue-600',
+    IDEA: 'bg-yellow-50 text-yellow-600',
+    DONE: 'bg-green-50 text-green-600',
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Quick add */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          const name = (new FormData(e.currentTarget).get('name') as string)?.trim()
+          if (!name) return
+          createMutation.mutate(name)
+          e.currentTarget.reset()
+        }}
+        className="flex gap-2"
+      >
+        <input
+          name="name"
+          placeholder="Add a task…"
+          className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b49df] focus:border-[#3b49df] outline-none"
+        />
+        <button
+          type="submit"
+          disabled={createMutation.isPending}
+          className="px-4 py-2 bg-[#3b49df] text-white rounded-lg text-xs font-semibold hover:bg-[#2d3aba] disabled:opacity-50"
+        >
+          Add
+        </button>
+      </form>
+
+      {isLoading ? (
+        Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+        ))
+      ) : tasks && tasks.length > 0 ? (
+        tasks.map((task: any) => (
+          <div
+            key={task.id}
+            className="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between gap-3"
+          >
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <input
+                type="checkbox"
+                checked={task.status === 'DONE'}
+                onChange={() =>
+                  updateStatusMutation.mutate({
+                    id: task.id,
+                    status: task.status === 'DONE' ? 'TODO' : 'DONE',
+                  })
+                }
+                className="rounded border-gray-300 text-[#3b49df] focus:ring-[#3b49df]"
+              />
+              <span className={`text-sm font-medium flex-1 truncate ${task.status === 'DONE' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                {task.name}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <select
+                value={task.status}
+                onChange={(e) => updateStatusMutation.mutate({ id: task.id, status: e.target.value })}
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border-none focus:ring-1 focus:ring-[#3b49df] ${STATUS_COLORS[task.status] || 'bg-gray-100 text-gray-600'}`}
+              >
+                {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                  <option key={val} value={val}>{label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => deleteMutation.mutate(task.id)}
+                className="text-gray-300 hover:text-red-400 transition-colors text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="text-center text-gray-500 text-sm py-8 bg-white rounded-xl border border-dashed border-gray-200">
+          No tasks yet. Add your first task above.
+        </div>
+      )}
+    </div>
+  )
+}
+
 

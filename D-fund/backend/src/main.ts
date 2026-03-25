@@ -19,6 +19,7 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
   
   // Global prefix
   app.setGlobalPrefix('api/v1');

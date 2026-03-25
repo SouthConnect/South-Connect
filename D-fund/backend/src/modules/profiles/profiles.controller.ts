@@ -42,6 +42,15 @@ export class ProfilesController {
   }
 
   /**
+   * Liste tous les membres (users) avec leurs profils éventuels
+   * Endpoint public
+   */
+  @Get('lists/members')
+  listMembers() {
+    return this.profilesService.listMembers();
+  }
+
+  /**
    * Met à jour un profil talent (BtoC)
    * Requiert une authentification JWT
    * Vérifie que l'utilisateur authentifié est le propriétaire du profil

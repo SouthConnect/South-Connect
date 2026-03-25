@@ -3,8 +3,11 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+// Note: BadRequestException is kept for the DRAFT stage check
+import { Prisma } from '@prisma/client';
 import { ApplicationStage } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateApplicationDto, ReviewApplicationDto, UpdateApplicationDto } from './dto';
@@ -12,6 +15,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ApplicationsService {
+  private readonly logger = new Logger(ApplicationsService.name);
+
   constructor(
     private prisma: PrismaService,
     private notificationsService: NotificationsService,
@@ -48,31 +53,28 @@ export class ApplicationsService {
   }
 
   async create(candidateId: string, dto: CreateApplicationDto) {
-    const existing = await this.prisma.application.findUnique({
-      where: {
-        opportunityId_candidateId: {
+    try {
+      return await this.prisma.application.create({
+        data: {
           opportunityId: dto.opportunityId,
           candidateId,
+          title: dto.title,
+          goalLetter: dto.goalLetter,
+          referralCodeUsed: dto.referralCodeUsed,
+          stage: ApplicationStage.DRAFT,
+          isDraft: true,
+          isClosed: false,
         },
-      },
-    });
-
-    if (existing) {
-      throw new ConflictException('Application already exists');
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('Application already exists');
+      }
+      throw error;
     }
-
-    return this.prisma.application.create({
-      data: {
-        opportunityId: dto.opportunityId,
-        candidateId,
-        title: dto.title,
-        goalLetter: dto.goalLetter,
-        referralCodeUsed: dto.referralCodeUsed,
-        stage: ApplicationStage.DRAFT,
-        isDraft: true,
-        isClosed: false,
-      },
-    });
   }
 
   async update(id: string, candidateId: string, dto: UpdateApplicationDto) {
@@ -97,6 +99,8 @@ export class ApplicationsService {
       data: {
         title: dto.title,
         goalLetter: dto.goalLetter,
+        externalLink: dto.externalLink,
+        externalLink2: dto.externalLink2,
         referralCodeUsed: dto.referralCodeUsed,
       },
     });
@@ -143,9 +147,16 @@ export class ApplicationsService {
           updated,
           application.opportunity,
         );
+        await this.notificationsService.createInApp(
+          application.opportunity.owner.id,
+          'APPLICATION_RECEIVED',
+          `New application for "${application.opportunity.name}"`,
+          `A candidate just applied to your opportunity.`,
+          `/opportunities/${application.opportunity.id}/applications`,
+        );
       }
-    } catch {
-      // Erreurs loggées dans le service, on ne bloque pas la requête
+    } catch (error) {
+      this.logger.error('Failed to send application submitted email', error);
     }
 
     return updated;
@@ -168,37 +179,32 @@ export class ApplicationsService {
       throw new ForbiddenException('You cannot review this application');
     }
 
-    const allowedStages: ApplicationStage[] = [
-      ApplicationStage.OWNER_REVIEW,
-      ApplicationStage.SUCCESS,
-      ApplicationStage.ARCHIVED,
-    ];
-
-    if (!allowedStages.includes(dto.stage)) {
-      throw new BadRequestException('Invalid review stage');
-    }
-
     const updated = await this.prisma.application.update({
       where: { id },
       data: {
-        stage: dto.stage,
+        stage: dto.stage as ApplicationStage,
         reviewDate: new Date(),
         reviewFeedback: dto.reviewFeedback,
         feedbackTitle: dto.feedbackTitle,
-        isClosed:
-          dto.stage === ApplicationStage.SUCCESS ||
-          dto.stage === ApplicationStage.ARCHIVED,
+        isClosed: dto.stage === 'SUCCESS' || dto.stage === 'ARCHIVED',
       },
     });
 
     // Notifications au candidat selon le stage
     try {
       if (application.candidate && application.opportunity) {
-        if (dto.stage === ApplicationStage.SUCCESS) {
+        if (dto.stage === 'SUCCESS') {
           await this.notificationsService.sendApplicationAcceptedEmail(
             application.candidate,
             updated,
             application.opportunity,
+          );
+          await this.notificationsService.createInApp(
+            application.candidate.id,
+            'APPLICATION_ACCEPTED',
+            `Your application was accepted!`,
+            `Congratulations! Your application for "${application.opportunity.name}" was accepted.`,
+            `/applications/${application.id}`,
           );
         } else {
           await this.notificationsService.sendApplicationReviewedEmail(
@@ -206,10 +212,17 @@ export class ApplicationsService {
             updated,
             application.opportunity,
           );
+          await this.notificationsService.createInApp(
+            application.candidate.id,
+            'APPLICATION_REVIEWED',
+            `Your application has been reviewed`,
+            `Your application for "${application.opportunity.name}" has been reviewed.`,
+            `/applications/${application.id}`,
+          );
         }
       }
-    } catch {
-      // Erreurs loggées dans le service, on ne bloque pas la requête
+    } catch (error) {
+      this.logger.error('Failed to send application review email', error);
     }
 
     return updated;

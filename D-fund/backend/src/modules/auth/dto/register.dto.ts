@@ -1,5 +1,8 @@
 import { IsEmail, IsString, MinLength, IsOptional, IsEnum } from 'class-validator';
-import { UserRole } from '@prisma/client';
+
+enum AllowedRole {
+  USER = 'USER',
+}
 
 export class RegisterDto {
   @IsEmail()
@@ -21,8 +24,10 @@ export class RegisterDto {
   @IsOptional()
   name?: string;
 
-  @IsEnum(UserRole)
+  // Seul le rôle USER est autorisé à l'inscription publique
+  // Le rôle ADMIN ne peut être attribué que manuellement en base
   @IsOptional()
-  role?: UserRole;
+  @IsEnum(AllowedRole)
+  role?: AllowedRole;
 }
 

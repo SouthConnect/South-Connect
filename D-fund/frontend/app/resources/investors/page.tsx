@@ -46,19 +46,19 @@ export default async function InvestorsPage() {
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-4 text-gray-900">Investisseurs</h1>
+        <h1 className="text-4xl font-bold mb-4 text-gray-900">Investors</h1>
         <p className="text-xl text-gray-600">
-          Rencontrez des investisseurs et business angels
+          Meet investors and business angels.
         </p>
       </div>
 
       {investors.length === 0 ? (
         <div className="bg-gray-50 rounded-lg p-12 text-center">
           <p className="text-gray-600 text-lg mb-4">
-            Aucun investisseur disponible pour le moment.
+            There are no investors available at the moment.
           </p>
           <p className="text-gray-500">
-            Revenez bientôt pour découvrir les investisseurs disponibles.
+            Check back soon to discover available investors.
           </p>
         </div>
       ) : (

@@ -2,8 +2,14 @@
  * Utilitaire pour les appels API
  */
 
+const API_TIMEOUT_MS = 15000
+
 const getApiUrl = () => {
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+  const url = process.env.NEXT_PUBLIC_API_URL
+  if (!url && typeof window !== 'undefined') {
+    console.warn('[api] NEXT_PUBLIC_API_URL is not set, falling back to localhost')
+  }
+  return url || 'http://localhost:3001/api/v1'
 }
 
 /**
@@ -40,7 +46,6 @@ export const apiCall = async (
   const apiUrl = getApiUrl()
   const token = getAuthToken()
 
-  // On force un objet simple pour pouvoir ajouter proprement l'en-tête Authorization
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> | undefined),
@@ -50,12 +55,24 @@ export const apiCall = async (
     headers.Authorization = `Bearer ${token}`
   }
 
-  const response = await fetch(`${apiUrl}${endpoint}`, {
-    ...options,
-    headers,
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
 
-  return response
+  try {
+    const response = await fetch(`${apiUrl}${endpoint}`, {
+      ...options,
+      headers,
+      signal: options.signal ?? controller.signal,
+    })
+    return response
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Request timed out')
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 /**
@@ -75,10 +92,108 @@ export const apiJson = async <T = any>(
   return response.json()
 }
 
+// ─── Shared types ────────────────────────────────────────────────────────────
+
+export interface User {
+  id: string
+  email: string
+  name?: string
+  firstName?: string
+  lastName?: string
+  profilePic?: string
+  role: 'USER' | 'ADMIN'
+  createdAt: string
+}
+
+export interface Opportunity {
+  id: string
+  name: string
+  punchline?: string
+  description?: string
+  type: OpportunityType
+  status: OpportunityStatus
+  city?: string
+  country?: string
+  region?: string
+  remote?: boolean
+  image?: string
+  backgroundImage?: string
+  url?: string
+  tags: string[]
+  industries: string[]
+  markets: string[]
+  price?: number
+  currency?: string
+  ownerId: string
+  owner?: Pick<User, 'id' | 'name' | 'profilePic'>
+  createdAt: string
+  updatedAt: string
+}
+
+export type ApplicationStage =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'OWNER_REVIEW'
+  | 'SUCCESS'
+  | 'ARCHIVED'
+
+export interface Application {
+  id: string
+  opportunityId: string
+  candidateId: string
+  stage: ApplicationStage
+  isDraft: boolean
+  isClosed: boolean
+  title?: string
+  goalLetter?: string
+  externalLink?: string
+  externalLink2?: string
+  reviewFeedback?: string
+  feedbackTitle?: string
+  submissionDate?: string
+  reviewDate?: string
+  opportunity?: Opportunity
+  candidate?: User
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PrivateDiscussion {
+  id: string
+  lastMessageAt: string
+  unreadCount: number
+  participants: Array<{
+    userId: string
+    user: Pick<User, 'id' | 'name' | 'profilePic'>
+  }>
+}
+
+export interface PublicDiscussion {
+  id: string
+  type: string
+  title?: string
+  lastMessageAt: string
+  messagesCount: number
+  owner?: Pick<User, 'id' | 'name' | 'profilePic'>
+  opportunity?: Pick<Opportunity, 'id' | 'name' | 'image' | 'backgroundImage'>
+}
+
+export interface Message {
+  id: string
+  content: string
+  senderId: string
+  receiverId?: string
+  createdAt: string
+  sender?: User
+  receiver?: User
+}
+
+// ─── Opportunity types ────────────────────────────────────────────────────────
+
 /**
  * Types pour les opportunités
  */
-export type OpportunityType = 
+export type OpportunityType =
   | 'JOB_OPPORTUNITY'
   | 'TALENT_PROFILE'
   | 'CO_FOUNDER_OPPORTUNITY'

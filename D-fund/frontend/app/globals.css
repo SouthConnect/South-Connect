@@ -26,6 +26,13 @@ body {
     rgb(var(--background-start-rgb));
 }
 
+/* Ensure form fields text is always visible, even in dark mode */
+input,
+textarea,
+select {
+  color: #111827; /* tailwind gray-900 */
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

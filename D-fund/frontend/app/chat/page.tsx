@@ -1,0 +1,429 @@
+'use client'
+
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { apiJson } from '@/app/lib/api'
+import { useAuth } from '@/app/lib/AuthContext'
+import { useRouter } from 'next/navigation'
+import {
+  MessageCircle,
+  Lock,
+  Users,
+  Search,
+  Clock,
+  Plus,
+  X,
+} from 'lucide-react'
+import Link from 'next/link'
+
+type ChatMode = 'open' | 'private'
+type OpenTab = 'opportunity' | 'forum'
+type PrivateTab = 'direct' | 'pending' | 'archive'
+
+export default function ChatPage() {
+  const { user } = useAuth()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const [mode, setMode] = useState<ChatMode>('open')
+  const [openTab, setOpenTab] = useState<OpenTab>('opportunity')
+  const [privateTab, setPrivateTab] = useState<PrivateTab>('direct')
+  const [showNewForum, setShowNewForum] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newDescription, setNewDescription] = useState('')
+
+  const createForumMutation = useMutation({
+    mutationFn: () =>
+      apiJson('/messages/public', {
+        method: 'POST',
+        body: JSON.stringify({ title: newTitle.trim(), description: newDescription.trim() || undefined }),
+      }),
+    onSuccess: (discussion: any) => {
+      queryClient.invalidateQueries({ queryKey: ['public-discussions', 'OPEN_FORUM'] })
+      setShowNewForum(false)
+      setNewTitle('')
+      setNewDescription('')
+      if (discussion?.id) router.push(`/chat/public/${discussion.id}`)
+    },
+  })
+
+  const {
+    data: opportunityDiscussions,
+    isLoading: isLoadingOpportunityDiscussions,
+  } = useQuery({
+    queryKey: ['public-discussions', 'OPPORTUNITY_RELATED'],
+    queryFn: () => apiJson('/messages/public?type=OPPORTUNITY_RELATED'),
+  })
+
+  const {
+    data: forumDiscussions,
+    isLoading: isLoadingForumDiscussions,
+  } = useQuery({
+    queryKey: ['public-discussions', 'OPEN_FORUM'],
+    queryFn: () => apiJson('/messages/public?type=OPEN_FORUM'),
+  })
+
+  const {
+    data: privateDiscussions,
+    isLoading: isLoadingPrivateDiscussions,
+  } = useQuery({
+    queryKey: ['private-discussions', user?.id],
+    queryFn: () => apiJson('/messages/private'),
+    enabled: !!user?.id,
+  })
+
+  const activeOpenDiscussions =
+    openTab === 'opportunity' ? opportunityDiscussions : forumDiscussions
+
+  return (
+    <div className="container mx-auto px-6 py-8 max-w-5xl">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Chat</h1>
+          <p className="text-sm text-gray-500">
+            Join public discussions or continue your private conversations.
+          </p>
+        </div>
+      </div>
+
+      <div className="mb-6 flex gap-4 border-b border-gray-200 text-sm">
+        <button
+          type="button"
+          onClick={() => setMode('open')}
+          className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+            mode === 'open'
+              ? 'border-[#3b49df] text-[#3b49df]'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <MessageCircle className="w-4 h-4" />
+          Open
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('private')}
+          className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+            mode === 'private'
+              ? 'border-[#3b49df] text-[#3b49df]'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <Lock className="w-4 h-4" />
+          Private
+        </button>
+      </div>
+
+      {mode === 'open' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex gap-4 text-sm">
+              <button
+                type="button"
+                onClick={() => setOpenTab('opportunity')}
+                className={`pb-2 border-b-2 font-semibold ${
+                  openTab === 'opportunity'
+                    ? 'border-[#3b49df] text-[#3b49df]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Opportunity-Related
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpenTab('forum')}
+                className={`pb-2 border-b-2 font-semibold ${
+                  openTab === 'forum'
+                    ? 'border-[#3b49df] text-[#3b49df]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Open Forum
+              </button>
+            </div>
+            <div className="relative w-56">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search"
+                className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg border-none text-sm focus:ring-2 focus:ring-[#3b49df]"
+              />
+            </div>
+          </div>
+
+          {openTab === 'forum' && user && (
+            <div>
+              {showNewForum ? (
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-2 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-900">New Open Forum discussion</p>
+                    <button onClick={() => setShowNewForum(false)}>
+                      <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
+                    placeholder="Discussion title"
+                    maxLength={200}
+                  />
+                  <textarea
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df] resize-none"
+                    placeholder="Optional description..."
+                    maxLength={1000}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setShowNewForum(false)}
+                      className="px-4 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => createForumMutation.mutate()}
+                      disabled={!newTitle.trim() || createForumMutation.isPending}
+                      className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-[#3b49df] text-white hover:bg-[#2d3aba] disabled:opacity-50"
+                    >
+                      {createForumMutation.isPending ? 'Creating...' : 'Create'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowNewForum(true)}
+                  className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg border border-[#3b49df] text-[#3b49df] hover:bg-[#3b49df]/5 mb-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  New Discussion
+                </button>
+              )}
+            </div>
+          )}
+
+          <DiscussionList
+            discussions={activeOpenDiscussions}
+            isLoading={
+              openTab === 'opportunity'
+                ? isLoadingOpportunityDiscussions
+                : isLoadingForumDiscussions
+            }
+          />
+        </div>
+      )}
+
+      {mode === 'private' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex gap-4 text-sm">
+              <button
+                type="button"
+                onClick={() => setPrivateTab('direct')}
+                className={`pb-2 border-b-2 font-semibold ${
+                  privateTab === 'direct'
+                    ? 'border-[#3b49df] text-[#3b49df]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Direct Messages
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrivateTab('pending')}
+                className={`pb-2 border-b-2 font-semibold ${
+                  privateTab === 'pending'
+                    ? 'border-[#3b49df] text-[#3b49df]'
+                    : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                Pending
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrivateTab('archive')}
+                className={`pb-2 border-b-2 font-semibold ${
+                  privateTab === 'archive'
+                    ? 'border-[#3b49df] text-[#3b49df]'
+                    : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                Archive
+              </button>
+            </div>
+            <div className="relative w-56">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search"
+                className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg border-none text-sm focus:ring-2 focus:ring-[#3b49df]"
+              />
+            </div>
+          </div>
+
+          {privateTab === 'direct' ? (
+            user ? (
+              <PrivateDiscussionList
+                discussions={privateDiscussions}
+                isLoading={isLoadingPrivateDiscussions}
+              />
+            ) : (
+              <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-sm text-gray-500">
+                Please sign in to access your private conversations.
+              </div>
+            )
+          ) : (
+            <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
+              This section will be available in a next iteration.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DiscussionList({
+  discussions,
+  isLoading,
+}: {
+  discussions: any[] | undefined
+  isLoading: boolean
+}) {
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
+  if (!discussions || discussions.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-sm text-gray-500">
+        No public discussions yet.
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
+      {discussions.map((d: any) => {
+        const date = d.lastMessageAt
+          ? new Date(d.lastMessageAt).toLocaleDateString('fr-FR')
+          : null
+        const members = d.membersCount ?? d.participants?.length ?? 0
+
+        return (
+          <Link
+            key={d.id}
+            href={`/chat/public/${d.id}`}
+            className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-[#3b49df] overflow-hidden">
+                {d.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={d.image} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  d.title?.[0] || 'D'
+                )}
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {d.title}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {members} members
+                  {d.opportunity?.name ? ` • ${d.opportunity.name}` : ''}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              {date && (
+                <>
+                  <Clock className="w-3 h-3" />
+                  <span>{date}</span>
+                </>
+              )}
+            </div>
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
+function PrivateDiscussionList({
+  discussions,
+  isLoading,
+}: {
+  discussions: any[] | undefined
+  isLoading: boolean
+}) {
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
+  if (!discussions || discussions.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-sm text-gray-500">
+        No private conversations yet.
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
+      {discussions.map((d: any) => {
+        const date = d.lastMessageAt
+          ? new Date(d.lastMessageAt).toLocaleDateString('fr-FR')
+          : null
+        const otherParticipant =
+          d.participants?.find((p: any) => p.user)?.user || null
+
+        return (
+          <Link
+            key={d.id}
+            href={`/chat/private/${d.id}`}
+            className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-[#3b49df] overflow-hidden">
+                {otherParticipant?.profilePic ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={otherParticipant.profilePic}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  otherParticipant?.name?.[0] || 'U'
+                )}
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-gray-900">
+                  {otherParticipant?.name || 'Direct message'}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {d.unreadCount ? `${d.unreadCount} unread • ` : ''}
+                  {date || 'No messages yet'}
+                </div>
+              </div>
+            </div>
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+

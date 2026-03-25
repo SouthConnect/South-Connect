@@ -45,6 +45,7 @@ model User {
   publicDiscussions PublicDiscussion[]
   ratings        Rating[]
   tasks          Task[]
+  notifications  Notification[]
   referralCodes  ReferralCode[]
   followers      Follow[]       @relation("Follower")
   following      Follow[]       @relation("Following")
@@ -279,6 +280,8 @@ model Application {
   // Application Content
   title           String?
   goalLetter      String?  @db.Text
+  externalLink    String?
+  externalLink2   String?
   submissionDate  DateTime?
   
   // Status & Workflow
@@ -537,6 +540,27 @@ enum ReferralStatus {
   ACTIVE
   COMPLETED
   EXPIRED
+}
+
+// ============================================
+// IN-APP NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type        String   // e.g. "APPLICATION_REVIEWED", "NEW_MESSAGE", "APPLICATION_RECEIVED"
+  title       String
+  body        String?  @db.Text
+  link        String?  // Frontend route to navigate to
+
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
 }
 
 // ============================================

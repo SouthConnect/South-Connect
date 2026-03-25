@@ -1,14 +1,17 @@
 'use client'
 
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import { Search } from 'lucide-react'
 import Link from 'next/link'
+import { useAuth } from '@/app/lib/AuthContext'
+import { useRouter } from 'next/navigation'
 
 export default function CommunityPage() {
-  const [tab, setTab] = useState<'btoc' | 'btob'>('btoc')
+  const [tab, setTab] = useState<'btoc' | 'btob' | 'all'>('btoc')
   const [search, setSearch] = useState('')
+  const { user } = useAuth()
 
   const { data: talents, isLoading: loadingTalents } = useQuery({
     queryKey: ['community-btoc'],
@@ -20,13 +23,65 @@ export default function CommunityPage() {
     queryFn: () => apiJson('/profiles/lists/companies'),
   })
 
-  const list = tab === 'btoc' ? talents : companies
-  const isLoading = tab === 'btoc' ? loadingTalents : loadingCompanies
+  const { data: following } = useQuery({
+    queryKey: ['social-following', user?.id],
+    queryFn: () => apiJson(`/social/following/${user?.id}`),
+    enabled: !!user?.id,
+  })
+
+  const { data: members, isLoading: loadingMembers } = useQuery({
+    queryKey: ['community-members'],
+    queryFn: () => apiJson('/profiles/lists/members'),
+  })
+
+  const followingIds = useMemo(() => {
+    const set = new Set<string>()
+    ;(following || []).forEach((u: any) => {
+      if (u.id) set.add(u.id)
+    })
+    return set
+  }, [following])
+
+  let list: any[] = []
+  let isLoading = false
+
+  if (tab === 'btoc') {
+    list = talents || []
+    isLoading = loadingTalents
+  } else if (tab === 'btob') {
+    list = companies || []
+    isLoading = loadingCompanies
+  } else {
+    list =
+      members?.map((m: any) => {
+        const source = m.btoBProfile || m.btoCProfile
+        return {
+          id: m.id,
+          userId: m.id,
+          user: {
+            name: m.name || m.email,
+            profilePic: m.profilePic,
+          },
+          companyName: m.btoBProfile?.companyName || m.name || m.email,
+          logo: m.btoBProfile?.logo || null,
+          followersCount:
+            m.btoBProfile?.followersCount ?? m.btoCProfile?.followersCount ?? 0,
+          opportunitiesCount:
+            m.btoBProfile?.opportunitiesCount ?? m.btoCProfile?.opportunitiesCount ?? 0,
+        }
+      }) || []
+    isLoading = loadingMembers
+  }
 
   const filtered = (list || []).filter((item: any) => {
     if (!search) return true
-    const name = tab === 'btoc' ? item.user?.name : item.companyName
-    return name?.toLowerCase().includes(search.toLowerCase())
+    const baseName =
+      tab === 'btoc'
+        ? item.user?.name
+        : tab === 'btob'
+        ? item.companyName
+        : item.user?.name || item.companyName
+    return baseName?.toLowerCase().includes(search.toLowerCase())
   })
 
   return (
@@ -62,6 +117,16 @@ export default function CommunityPage() {
           >
             BtoB
           </button>
+          <button
+            onClick={() => setTab('all')}
+            className={`pb-3 px-1 border-b-2 font-semibold ${
+              tab === 'all'
+                ? 'border-[#3b49df] text-[#3b49df]'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            All members
+          </button>
         </div>
 
         <div className="relative w-64">
@@ -83,7 +148,12 @@ export default function CommunityPage() {
           ))
         ) : filtered.length ? (
           filtered.map((item: any) => (
-            <CommunityRow key={item.id} item={item} tab={tab} />
+            <CommunityRow
+              key={item.id}
+              item={item}
+              tab={tab}
+              isFollowing={user ? followingIds.has(item.userId) : false}
+            />
           ))
         ) : (
           <div className="py-8 text-center text-gray-500 text-sm">
@@ -95,19 +165,55 @@ export default function CommunityPage() {
   )
 }
 
-function CommunityRow({ item, tab }: { item: any; tab: 'btoc' | 'btob' }) {
-  const name = tab === 'btoc' ? item.user?.name : item.companyName
+function CommunityRow({
+  item,
+  tab,
+  isFollowing,
+}: {
+  item: any
+  tab: 'btoc' | 'btob' | 'all'
+  isFollowing: boolean
+}) {
+  const name = tab === 'btoc' ? item.user?.name : (item.companyName || item.user?.name)
   const followers = item.followersCount ?? 0
   const opportunities = item.opportunitiesCount ?? 0
   const avatar =
-    (tab === 'btoc' ? item.user?.profilePic : item.logo) || undefined
+    (tab === 'btoc' ? item.user?.profilePic : (item.logo || item.user?.profilePic)) || undefined
+
+  const router = useRouter()
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  const toggleFollow = useMutation({
+    mutationFn: async () => {
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      try {
+        await apiJson(`/social/follow/${item.userId}`, { method: 'POST' })
+      } catch (error: any) {
+        if (error?.message?.includes('Already following')) {
+          await apiJson(`/social/follow/${item.userId}`, { method: 'DELETE' })
+        } else {
+          throw error
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['social-following', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['community-btoc'] })
+      queryClient.invalidateQueries({ queryKey: ['community-btob'] })
+    },
+  })
 
   return (
-    <Link
-      href={tab === 'btoc' ? `/profiles/${item.userId}` : `/profiles/${item.userId}`}
-      className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
-    >
-      <div className="flex items-center gap-4">
+    <div className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+      <Link
+        href={`/profiles/${item.userId}`}
+        className="flex items-center gap-4 flex-1 min-w-0"
+      >
         <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center text-sm font-semibold text-[#3b49df]">
           {avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -116,14 +222,46 @@ function CommunityRow({ item, tab }: { item: any; tab: 'btoc' | 'btob' }) {
             name?.[0] || '?'
           )}
         </div>
-        <div>
-          <div className="text-sm font-semibold text-gray-900">{name}</div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-gray-900 truncate">{name}</div>
           <div className="text-xs text-gray-500">
             {followers} Followers • {opportunities} Opportunities
           </div>
         </div>
+      </Link>
+      <div className="flex items-center gap-2 ml-4">
+        <button
+          type="button"
+          onClick={() => toggleFollow.mutate()}
+          disabled={toggleFollow.isPending}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+            isFollowing
+              ? 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              : 'border-[#3b49df] text-[#3b49df] hover:bg-[#3b49df]/5'
+          } disabled:opacity-50`}
+        >
+          {isFollowing ? 'Following' : 'Follow'}
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            if (!user) {
+              router.push('/login')
+              return
+            }
+            const discussion = await apiJson(`/messages/private/start/${item.userId}`, {
+              method: 'POST',
+            })
+            if (discussion?.id) {
+              router.push(`/chat/private/${discussion.id}`)
+            }
+          }}
+          className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50"
+        >
+          Message
+        </button>
       </div>
-    </Link>
+    </div>
   )
 }
 

@@ -61,17 +61,17 @@ export default async function TalentsPage() {
       <div className="mb-8">
         <h1 className="text-4xl font-bold mb-4 text-gray-900">Talents</h1>
         <p className="text-xl text-gray-600">
-          Trouvez les compétences dont votre startup a besoin
+          Find the skills your startup needs.
         </p>
       </div>
 
       {talents.length === 0 ? (
         <div className="bg-gray-50 rounded-lg p-12 text-center">
           <p className="text-gray-600 text-lg mb-4">
-            Aucun talent disponible pour le moment.
+            There are no talents available at the moment.
           </p>
           <p className="text-gray-500">
-            Revenez bientôt pour découvrir les talents disponibles.
+            Check back soon to discover available talents.
           </p>
         </div>
       ) : (

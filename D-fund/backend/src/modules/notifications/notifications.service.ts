@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import { Application, Opportunity, User } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class NotificationsService {
@@ -9,7 +10,10 @@ export class NotificationsService {
   private readonly resend?: Resend;
   private readonly fromEmail?: string;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
     this.fromEmail = this.configService.get<string>('RESEND_FROM_EMAIL');
 
@@ -27,6 +31,16 @@ export class NotificationsService {
   private ensureClient() {
     if (!this.resend || !this.fromEmail) {
       throw new InternalServerErrorException('Email service not configured');
+    }
+  }
+
+  async createInApp(userId: string, type: string, title: string, body?: string, link?: string) {
+    try {
+      await this.prisma.notification.create({
+        data: { userId, type, title, body, link },
+      });
+    } catch (err) {
+      this.logger.error(`Failed to create in-app notification: ${err.message}`);
     }
   }
 

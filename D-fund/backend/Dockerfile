@@ -34,5 +34,6 @@ ENV NODE_ENV=production
 
 EXPOSE 3001
 
-CMD ["node", "dist/main.js"]
+# Le build Nest génère l'entrée principale dans dist/src/main.js
+CMD ["node", "dist/src/main.js"]
 

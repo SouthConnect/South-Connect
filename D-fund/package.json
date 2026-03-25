@@ -14,6 +14,7 @@
     "cleanup:test": "dotenv -e .env -- tsx scripts/cleanup-test-data.ts",
     "check:secrets": "tsx scripts/check-secrets.ts",
     "supabase:check": "./scripts/check-supabase-status.sh",
+    "demo:set-users": "cd backend && dotenv -e ../.env -- tsx scripts/set-demo-users.ts",
     "encode-password": "node scripts/encode-password.js",
     "backend:dev": "cd backend && dotenv -e ../.env npm run dev",
     "backend:build": "cd backend && dotenv -e ../.env -- npm run build",
