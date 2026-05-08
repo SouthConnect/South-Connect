@@ -7,7 +7,6 @@
     "db:generate": "cd backend && npx prisma generate --schema=../prisma/schema.prisma",
     "db:push": "cd backend && dotenv -e ../.env -- npx prisma db push --schema=../prisma/schema.prisma",
     "db:studio": "cd backend && dotenv -e ../.env -- npx prisma studio --schema=../prisma/schema.prisma",
-    "db:seed": "dotenv -e .env -- tsx prisma/seed.ts",
     "db:migrate:glide": "dotenv -e .env -- tsx scripts/migrate.ts",
     "db:test": "dotenv -e .env -- tsx scripts/test-db-connection.ts",
     "test:opportunities": "dotenv -e .env -- tsx scripts/test-opportunities-clean.ts",
@@ -25,7 +24,7 @@
   "devDependencies": {
     "@types/node": "^20.10.6",
     "dotenv": "^17.2.3",
-    "prisma": "^5.7.1",
+    "prisma": "^6.19.3",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   },
