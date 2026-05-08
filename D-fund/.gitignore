@@ -44,5 +44,8 @@ data/glide/
 #glide"
 glide/
 
-#modeules
+#modules
 node_modules/
+
+#docs
+docs/

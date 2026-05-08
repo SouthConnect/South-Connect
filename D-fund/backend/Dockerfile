@@ -15,11 +15,17 @@ COPY prisma ./prisma
 
 WORKDIR /app/backend
 
+# Generate Prisma client (required before build)
+RUN npx prisma generate --schema=../prisma/schema.prisma
+
 # Build du backend NestJS
 RUN npm run build
 
 # Image de production minimale
 FROM node:20-alpine AS production
+
+# Create non-root user to avoid running as root in production
+RUN addgroup -S dfund && adduser -S dfund -G dfund
 
 WORKDIR /app/backend
 
@@ -27,8 +33,14 @@ WORKDIR /app/backend
 COPY --from=builder /app/backend/package.json /app/backend/package-lock.json ./
 COPY --from=builder /app/backend/dist ./dist
 COPY --from=builder /app/prisma ../prisma
+COPY --from=builder /app/backend/node_modules/.prisma ./node_modules/.prisma
 
 RUN npm install --omit=dev
+
+# Hand off ownership to the unprivileged user before switching
+RUN chown -R dfund:dfund /app
+
+USER dfund
 
 ENV NODE_ENV=production
 

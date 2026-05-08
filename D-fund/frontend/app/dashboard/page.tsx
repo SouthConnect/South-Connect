@@ -13,6 +13,8 @@ import {
   MessageCircle,
 } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from 'sonner'
+import type { PrivateDiscussion, Task } from '@/app/lib/types'
 
 type DashboardTab = 'applications' | 'offers' | 'dm' | 'tasks'
 
@@ -49,8 +51,12 @@ export default function DashboardPage() {
 
   const totalApplications = applications?.length ?? 0
   const totalOffers = myOpportunities?.length ?? 0
-  const totalDMs = (privateDiscussions as any[])?.length ?? 0
-  const unreadDMs = (privateDiscussions as any[])?.filter((d: any) => d.unreadCount > 0).length ?? 0
+  const discussions = (privateDiscussions as PrivateDiscussion[] | undefined)
+  const totalDMs = discussions?.length ?? 0
+  // unreadCount is now per-participant — find the current user's entry in each discussion
+  const unreadDMs = discussions?.filter((d) =>
+    (d.participants?.find((p) => p.userId === user?.id)?.unreadCount ?? 0) > 0
+  ).length ?? 0
 
   return (
     <div className="container mx-auto px-6 py-8 max-w-5xl">
@@ -74,20 +80,22 @@ export default function DashboardPage() {
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
         <DashboardCard
-          title="Import Opportunities"
-          description="Easily import opportunities from other platforms."
-          cta="Import"
+          title="Browse Opportunities"
+          description="Discover jobs, investments, partnerships and more from the community."
+          cta="Explore"
+          href="/"
         />
         <DashboardCard
-          title="Create Opportunities"
-          description="Create offers to start engaging with potential partners."
+          title="Create an Opportunity"
+          description="Post a job, funding round, event or any offer to reach the ecosystem."
           cta="Create Now"
           href="/opportunities/new"
         />
         <DashboardCard
-          title="Start Engaging"
-          description="Connect with the D-fund team and your matches."
-          cta="Meet"
+          title="Connect with Members"
+          description="Find talents, investors and co-founders. Message them directly."
+          cta="Discover"
+          href="/community"
         />
       </section>
 
@@ -184,7 +192,8 @@ export default function DashboardPage() {
 
         {tab === 'dm' && (
           <DMSection
-            discussions={privateDiscussions as any[]}
+            discussions={discussions}
+            currentUserId={user?.id}
             isLoading={isLoadingDMs}
           />
         )}
@@ -297,7 +306,7 @@ function ApplicationsSection({
               href={`/applications/${app.id}`}
               className="text-xs font-semibold text-[#3b49df] hover:text-[#2d3aba]"
             >
-              Edit
+              {app.stage === 'DRAFT' ? 'Edit' : 'View'}
             </Link>
           </div>
         ))
@@ -340,7 +349,7 @@ function OffersSection({
                 {op.name}
               </span>
               <span className="text-xs text-gray-500">
-                {op.applicationsCount ?? 0} applications •{' '}
+                {op._count?.applications ?? op.applicationsCount ?? 0} applications •{' '}
                 {op.likesCount ?? 0} likes
               </span>
             </div>
@@ -357,9 +366,11 @@ function OffersSection({
 
 function DMSection({
   discussions,
+  currentUserId,
   isLoading,
 }: {
-  discussions: any[] | undefined
+  discussions: PrivateDiscussion[] | undefined
+  currentUserId?: string
   isLoading: boolean
 }) {
   return (
@@ -370,12 +381,13 @@ function DMSection({
         ))
       ) : discussions && discussions.length > 0 ? (
         <>
-          {discussions.map((d: any) => {
+          {discussions.map((d) => {
             const date = d.lastMessageAt
               ? new Date(d.lastMessageAt).toLocaleDateString('fr-FR')
               : null
-            const other = d.participants?.find((p: any) => p.user)?.user || null
-            const hasUnread = d.unreadCount > 0
+            const other = d.participants?.find((p) => p.userId !== currentUserId)?.user || null
+            const myUnread = d.participants?.find((p) => p.userId === currentUserId)?.unreadCount ?? 0
+            const hasUnread = myUnread > 0
 
             return (
               <Link
@@ -402,7 +414,7 @@ function DMSection({
                   </div>
                   {hasUnread && (
                     <span className="text-xs text-[#3b49df] font-semibold">
-                      {d.unreadCount} unread message{d.unreadCount > 1 ? 's' : ''}
+                      {myUnread} unread message{myUnread > 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
@@ -447,19 +459,22 @@ function TasksSection() {
 
   const createMutation = useMutation({
     mutationFn: (name: string) =>
-      apiJson('/tasks', { method: 'POST', body: JSON.stringify({ name }) }),
+      apiJson<Task>('/tasks', { method: 'POST', body: JSON.stringify({ name }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
+    onError: (err: Error) => toast.error(err.message || 'Failed to create task'),
   })
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
-      apiJson(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
+      apiJson<Task>(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
+    onError: (err: Error) => toast.error(err.message || 'Failed to update task'),
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiJson(`/tasks/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiJson<{ success: boolean }>(`/tasks/${id}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
+    onError: (err: Error) => toast.error(err.message || 'Failed to delete task'),
   })
 
   const STATUS_LABELS: Record<string, string> = {
@@ -507,8 +522,8 @@ function TasksSection() {
         Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
         ))
-      ) : tasks && tasks.length > 0 ? (
-        tasks.map((task: any) => (
+      ) : tasks && (tasks as Task[]).length > 0 ? (
+        (tasks as Task[]).map((task) => (
           <div
             key={task.id}
             className="bg-white rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between gap-3"
@@ -544,7 +559,7 @@ function TasksSection() {
                 onClick={() => deleteMutation.mutate(task.id)}
                 className="text-gray-300 hover:text-red-400 transition-colors text-xs"
               >
-                ✕
+                &times;
               </button>
             </div>
           </div>

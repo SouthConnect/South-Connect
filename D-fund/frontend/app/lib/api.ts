@@ -1,58 +1,43 @@
 /**
- * Utilitaire pour les appels API
+ * HTTP utility layer for communicating with the D-Fund backend API.
+ *
+ * Authentication is handled via HttpOnly cookies set by the backend.
+ * JavaScript never reads or writes the token — the browser sends it
+ * automatically on every credentialed request.
+ *
+ * Transparent token refresh: when a 401 is received, one silent call to
+ * POST /auth/refresh is attempted. If it succeeds the original request is
+ * retried once. If it fails the caller receives the 401 as-is.
+ *
+ * Types are defined in app/lib/types.ts (single source of truth).
  */
+import type { CreateOpportunityData, OpportunityType } from '@/app/lib/types'
+
+// Re-exports — source unique : app/lib/types.ts
+export type { AuthUser as User, Opportunity, ApplicationStage, Application, PrivateDiscussion, PublicDiscussion, Message, OpportunityType, OpportunityStatus, CreateOpportunityData, ApplicationCandidate } from '@/app/lib/types'
 
 const API_TIMEOUT_MS = 15000
 
-const getApiUrl = () => {
-  const url = process.env.NEXT_PUBLIC_API_URL
-  if (!url && typeof window !== 'undefined') {
-    console.warn('[api] NEXT_PUBLIC_API_URL is not set, falling back to localhost')
-  }
-  return url || 'http://localhost:3001/api/v1'
-}
+const getApiUrl = (): string =>
+  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
 
 /**
- * Récupère le token JWT depuis le localStorage
- */
-export const getAuthToken = (): string | null => {
-  if (typeof window === 'undefined') return null
-  return localStorage.getItem('auth_token')
-}
-
-/**
- * Stocke le token JWT dans le localStorage
- */
-export const setAuthToken = (token: string): void => {
-  if (typeof window === 'undefined') return
-  localStorage.setItem('auth_token', token)
-}
-
-/**
- * Supprime le token JWT
- */
-export const removeAuthToken = (): void => {
-  if (typeof window === 'undefined') return
-  localStorage.removeItem('auth_token')
-}
-
-/**
- * Effectue un appel API avec authentification automatique
+ * Performs an HTTP request against the API.
+ *
+ * Cookies are sent automatically (credentials: 'include').
+ * On a 401 response a silent token refresh is attempted and the request
+ * is retried once. The _retry flag prevents infinite refresh loops.
  */
 export const apiCall = async (
   endpoint: string,
   options: RequestInit = {},
+  _retry = false,
 ): Promise<Response> => {
   const apiUrl = getApiUrl()
-  const token = getAuthToken()
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> | undefined),
-  }
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
   }
 
   const controller = new AbortController()
@@ -62,8 +47,22 @@ export const apiCall = async (
     const response = await fetch(`${apiUrl}${endpoint}`, {
       ...options,
       headers,
+      credentials: 'include',
       signal: options.signal ?? controller.signal,
     })
+
+    // Transparent token refresh on 401 (only one retry to avoid infinite loops)
+    if (response.status === 401 && !_retry) {
+      const refreshed = await fetch(`${apiUrl}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      }).then((r) => r.ok).catch(() => false)
+
+      if (refreshed) {
+        return apiCall(endpoint, options, true)
+      }
+    }
+
     return response
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
@@ -76,178 +75,36 @@ export const apiCall = async (
 }
 
 /**
- * Effectue un appel API et parse la réponse JSON
+ * Performs an API call and parses the JSON response.
+ * Throws an Error with the server message when the response status is not 2xx.
  */
 export const apiJson = async <T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> => {
   const response = await apiCall(endpoint, options)
-  
+
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Erreur inconnue' }))
-    throw new Error(error.error || error.message || `HTTP ${response.status}`)
+    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+    // NestJS validation errors return message as an array; other errors return a string.
+    const message = Array.isArray(error.message)
+      ? error.message[0]
+      : (error.message || error.error || `HTTP ${response.status}`)
+    throw new Error(message)
   }
 
   return response.json()
 }
 
-// ─── Shared types ────────────────────────────────────────────────────────────
-
-export interface User {
-  id: string
-  email: string
-  name?: string
-  firstName?: string
-  lastName?: string
-  profilePic?: string
-  role: 'USER' | 'ADMIN'
-  createdAt: string
-}
-
-export interface Opportunity {
-  id: string
-  name: string
-  punchline?: string
-  description?: string
-  type: OpportunityType
-  status: OpportunityStatus
-  city?: string
-  country?: string
-  region?: string
-  remote?: boolean
-  image?: string
-  backgroundImage?: string
-  url?: string
-  tags: string[]
-  industries: string[]
-  markets: string[]
-  price?: number
-  currency?: string
-  ownerId: string
-  owner?: Pick<User, 'id' | 'name' | 'profilePic'>
-  createdAt: string
-  updatedAt: string
-}
-
-export type ApplicationStage =
-  | 'DRAFT'
-  | 'SUBMITTED'
-  | 'OWNER_REVIEW'
-  | 'SUCCESS'
-  | 'ARCHIVED'
-
-export interface Application {
-  id: string
-  opportunityId: string
-  candidateId: string
-  stage: ApplicationStage
-  isDraft: boolean
-  isClosed: boolean
-  title?: string
-  goalLetter?: string
-  externalLink?: string
-  externalLink2?: string
-  reviewFeedback?: string
-  feedbackTitle?: string
-  submissionDate?: string
-  reviewDate?: string
-  opportunity?: Opportunity
-  candidate?: User
-  createdAt: string
-  updatedAt: string
-}
-
-export interface PrivateDiscussion {
-  id: string
-  lastMessageAt: string
-  unreadCount: number
-  participants: Array<{
-    userId: string
-    user: Pick<User, 'id' | 'name' | 'profilePic'>
-  }>
-}
-
-export interface PublicDiscussion {
-  id: string
-  type: string
-  title?: string
-  lastMessageAt: string
-  messagesCount: number
-  owner?: Pick<User, 'id' | 'name' | 'profilePic'>
-  opportunity?: Pick<Opportunity, 'id' | 'name' | 'image' | 'backgroundImage'>
-}
-
-export interface Message {
-  id: string
-  content: string
-  senderId: string
-  receiverId?: string
-  createdAt: string
-  sender?: User
-  receiver?: User
-}
-
-// ─── Opportunity types ────────────────────────────────────────────────────────
-
 /**
- * Types pour les opportunités
- */
-export type OpportunityType =
-  | 'JOB_OPPORTUNITY'
-  | 'TALENT_PROFILE'
-  | 'CO_FOUNDER_OPPORTUNITY'
-  | 'CO_FOUNDER_PROFILE'
-  | 'BUSINESS_IDEA'
-  | 'SUPPORT_OFFER'
-  | 'SERVICE_LISTING'
-  | 'SERVICE_REQUEST'
-  | 'DEAL_FLOW'
-  | 'INVESTOR_THESIS'
-  | 'INVESTOR_PROFILE'
-  | 'FUNDING_OPPORTUNITY'
-  | 'EVENT'
-  | 'CALL_FOR_STARTUPS'
-  | 'MENTORSHIP_BA_OFFER'
-  | 'PROJECT_SEEKING_SUPPORT'
-  | 'VENTURE_PROGRAM'
-  | 'CHILL_WORK_SPOT'
-  | 'MARKET_ADVISOR'
-
-export type OpportunityStatus = 'DRAFT' | 'PENDING' | 'ACTIVE' | 'ARCHIVED' | 'CLOSED'
-
-export interface CreateOpportunityData {
-  name: string
-  type: OpportunityType
-  punchline?: string
-  description?: string
-  status?: OpportunityStatus
-  city?: string
-  country?: string
-  region?: string
-  remote?: boolean
-  startDate?: string
-  endDate?: string
-  expirationDate?: string
-  tags?: string[]
-  industries?: string[]
-  markets?: string[]
-  url?: string
-  image?: string
-  backgroundImage?: string
-  price?: number
-  currency?: string
-  pricingUnit?: string
-  pricingDetails?: string
-}
-
-/**
- * Upload un fichier image vers Supabase Storage via le backend
- * @param file - Fichier à uploader
- * @param prefix - Préfixe du chemin (ex: 'opportunities', 'avatars')
- * @param resourceId - ID de la ressource (ex: opportunityId, userId)
- * @param bucket - Nom du bucket (optionnel, défaut: 'images')
- * @returns URL publique du fichier uploadé
+ * Uploads an image file to Supabase Storage via the backend proxy.
+ * Authentication is handled via the access_token HttpOnly cookie.
+ *
+ * @param file       - File to upload.
+ * @param prefix     - Storage path prefix (e.g. 'opportunities', 'avatars').
+ * @param resourceId - ID of the owning resource (e.g. opportunityId, userId).
+ * @param bucket     - Target bucket name (defaults to 'images').
+ * @returns Public URL of the uploaded file.
  */
 export const uploadImage = async (
   file: File,
@@ -255,13 +112,6 @@ export const uploadImage = async (
   resourceId: string,
   bucket?: string,
 ): Promise<string> => {
-  const apiUrl = getApiUrl()
-  const token = getAuthToken()
-
-  if (!token) {
-    throw new Error('Authentication required to upload files')
-  }
-
   const formData = new FormData()
   formData.append('file', file)
   formData.append('prefix', prefix)
@@ -270,11 +120,9 @@ export const uploadImage = async (
     formData.append('bucket', bucket)
   }
 
-  const response = await fetch(`${apiUrl}/storage/upload`, {
+  const response = await fetch(`${getApiUrl()}/storage/upload`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: 'include',
     body: formData,
   })
 
@@ -287,9 +135,7 @@ export const uploadImage = async (
   return data.url
 }
 
-/**
- * Crée une nouvelle opportunité
- */
+/** Creates a new opportunity. */
 export const createOpportunity = async (data: CreateOpportunityData) => {
   return apiJson('/opportunities', {
     method: 'POST',

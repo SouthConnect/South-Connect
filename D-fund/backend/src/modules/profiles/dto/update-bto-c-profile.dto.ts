@@ -1,79 +1,79 @@
 import { IsArray, IsBoolean, IsOptional, IsString } from 'class-validator';
 
 /**
- * DTO pour la mise à jour d'un profil talent (BtoC)
- * Tous les champs sont optionnels pour permettre des mises à jour partielles
+ * DTO for updating an individual talent profile (BtoC).
+ * All fields are optional to support partial updates.
  */
 export class UpdateBtoCProfileDto {
-  /** Description du profil talent */
+  /** Free-text description of the talent profile. */
   @IsOptional()
   @IsString()
   description?: string;
 
-  /** Tags et compétences générales */
+  /** General tags and skills. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
 
-  /** Industries d'intérêt */
+  /** Industries of interest. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   industries?: string[];
 
-  /** Marchés géographiques ciblés */
+  /** Target geographic markets. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   marketFocus?: string[];
 
-  /** Langues parlées */
+  /** Spoken languages. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   languages?: string[];
 
-  /** Compétences business */
+  /** Business skills. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   businessSkills?: string[];
 
-  /** Compétences techniques */
+  /** Technical skills. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   techSkills?: string[];
 
-  /** Niveau de séniorité (Junior, Mid, Senior, etc.) */
+  /** Seniority level (e.g. Junior, Mid, Senior). */
   @IsOptional()
   @IsString()
   seniorityLevel?: string;
 
-  /** Indique si le talent recherche activement des opportunités */
+  /** Whether the talent is actively looking for opportunities. */
   @IsOptional()
   @IsBoolean()
   lookingForOpportunities?: boolean;
 
-  /** Accepte le travail en remote */
+  /** Whether the talent accepts remote positions. */
   @IsOptional()
   @IsBoolean()
   remote?: boolean;
 
-  /** Pays d'intérêt pour les opportunités */
+  /** Countries of interest for opportunities. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   countries?: string[];
 
-  /** Régions d'intérêt pour les opportunités */
+  /** Regions of interest for opportunities. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   regions?: string[];
 
-  /** Types d'opportunités recherchées */
+  /** Types of opportunities being sought. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

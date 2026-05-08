@@ -8,17 +8,17 @@ import { useRouter } from 'next/navigation'
 import {
   MessageCircle,
   Lock,
-  Users,
   Search,
   Clock,
   Plus,
   X,
 } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from 'sonner'
+import type { PublicDiscussion, PrivateDiscussion } from '@/app/lib/types'
 
 type ChatMode = 'open' | 'private'
 type OpenTab = 'opportunity' | 'forum'
-type PrivateTab = 'direct' | 'pending' | 'archive'
 
 export default function ChatPage() {
   const { user } = useAuth()
@@ -26,7 +26,8 @@ export default function ChatPage() {
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<ChatMode>('open')
   const [openTab, setOpenTab] = useState<OpenTab>('opportunity')
-  const [privateTab, setPrivateTab] = useState<PrivateTab>('direct')
+  const [openSearch, setOpenSearch] = useState('')
+  const [privateSearch, setPrivateSearch] = useState('')
   const [showNewForum, setShowNewForum] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newDescription, setNewDescription] = useState('')
@@ -37,13 +38,14 @@ export default function ChatPage() {
         method: 'POST',
         body: JSON.stringify({ title: newTitle.trim(), description: newDescription.trim() || undefined }),
       }),
-    onSuccess: (discussion: any) => {
+    onSuccess: (discussion: Pick<PublicDiscussion, 'id'>) => {
       queryClient.invalidateQueries({ queryKey: ['public-discussions', 'OPEN_FORUM'] })
       setShowNewForum(false)
       setNewTitle('')
       setNewDescription('')
       if (discussion?.id) router.push(`/chat/public/${discussion.id}`)
     },
+    onError: (err: any) => toast.error(err.message || 'Failed to create discussion'),
   })
 
   const {
@@ -71,8 +73,19 @@ export default function ChatPage() {
     enabled: !!user?.id,
   })
 
-  const activeOpenDiscussions =
-    openTab === 'opportunity' ? opportunityDiscussions : forumDiscussions
+  const rawOpenDiscussions = openTab === 'opportunity' ? opportunityDiscussions : forumDiscussions
+  const activeOpenDiscussions = openSearch
+    ? (rawOpenDiscussions as PublicDiscussion[] | undefined)?.filter((d) =>
+        d.title?.toLowerCase().includes(openSearch.toLowerCase())
+      )
+    : (rawOpenDiscussions as PublicDiscussion[] | undefined)
+
+  const filteredPrivateDiscussions = privateSearch
+    ? (privateDiscussions as PrivateDiscussion[] | undefined)?.filter((d) => {
+        const other = d.participants?.find((p) => p.userId !== user?.id)?.user
+        return other?.name?.toLowerCase().includes(privateSearch.toLowerCase())
+      })
+    : (privateDiscussions as PrivateDiscussion[] | undefined)
 
   return (
     <div className="container mx-auto px-6 py-8 max-w-5xl">
@@ -143,7 +156,9 @@ export default function ChatPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search"
+                value={openSearch}
+                onChange={(e) => setOpenSearch(e.target.value)}
+                placeholder="Rechercher…"
                 className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg border-none text-sm focus:ring-2 focus:ring-[#3b49df]"
               />
             </div>
@@ -217,65 +232,28 @@ export default function ChatPage() {
       {mode === 'private' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex gap-4 text-sm">
-              <button
-                type="button"
-                onClick={() => setPrivateTab('direct')}
-                className={`pb-2 border-b-2 font-semibold ${
-                  privateTab === 'direct'
-                    ? 'border-[#3b49df] text-[#3b49df]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Direct Messages
-              </button>
-              <button
-                type="button"
-                onClick={() => setPrivateTab('pending')}
-                className={`pb-2 border-b-2 font-semibold ${
-                  privateTab === 'pending'
-                    ? 'border-[#3b49df] text-[#3b49df]'
-                    : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300'
-                }`}
-              >
-                Pending
-              </button>
-              <button
-                type="button"
-                onClick={() => setPrivateTab('archive')}
-                className={`pb-2 border-b-2 font-semibold ${
-                  privateTab === 'archive'
-                    ? 'border-[#3b49df] text-[#3b49df]'
-                    : 'border-transparent text-gray-400 hover:text-gray-600 hover:border-gray-300'
-                }`}
-              >
-                Archive
-              </button>
-            </div>
+            <p className="text-sm font-semibold text-gray-700">Messages directs</p>
             <div className="relative w-56">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search"
+                value={privateSearch}
+                onChange={(e) => setPrivateSearch(e.target.value)}
+                placeholder="Rechercher…"
                 className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg border-none text-sm focus:ring-2 focus:ring-[#3b49df]"
               />
             </div>
           </div>
 
-          {privateTab === 'direct' ? (
-            user ? (
-              <PrivateDiscussionList
-                discussions={privateDiscussions}
-                isLoading={isLoadingPrivateDiscussions}
-              />
-            ) : (
-              <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-sm text-gray-500">
-                Please sign in to access your private conversations.
-              </div>
-            )
+          {user ? (
+            <PrivateDiscussionList
+              discussions={filteredPrivateDiscussions}
+              isLoading={isLoadingPrivateDiscussions}
+              currentUserId={user.id}
+            />
           ) : (
-            <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">
-              This section will be available in a next iteration.
+            <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-sm text-gray-500">
+              Connectez-vous pour accéder à vos conversations privées.
             </div>
           )}
         </div>
@@ -288,7 +266,7 @@ function DiscussionList({
   discussions,
   isLoading,
 }: {
-  discussions: any[] | undefined
+  discussions: PublicDiscussion[] | undefined
   isLoading: boolean
 }) {
   if (isLoading) {
@@ -311,11 +289,11 @@ function DiscussionList({
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
-      {discussions.map((d: any) => {
+      {discussions.map((d) => {
         const date = d.lastMessageAt
           ? new Date(d.lastMessageAt).toLocaleDateString('fr-FR')
           : null
-        const members = d.membersCount ?? d.participants?.length ?? 0
+        const members = d.membersCount ?? 0
 
         return (
           <Link
@@ -360,9 +338,11 @@ function DiscussionList({
 function PrivateDiscussionList({
   discussions,
   isLoading,
+  currentUserId,
 }: {
-  discussions: any[] | undefined
+  discussions: PrivateDiscussion[] | undefined
   isLoading: boolean
+  currentUserId?: string
 }) {
   if (isLoading) {
     return (
@@ -377,19 +357,21 @@ function PrivateDiscussionList({
   if (!discussions || discussions.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-sm text-gray-500">
-        No private conversations yet.
+        Aucune conversation privée pour le moment.
       </div>
     )
   }
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
-      {discussions.map((d: any) => {
+      {discussions.map((d) => {
         const date = d.lastMessageAt
           ? new Date(d.lastMessageAt).toLocaleDateString('fr-FR')
           : null
         const otherParticipant =
-          d.participants?.find((p: any) => p.user)?.user || null
+          d.participants?.find((p) => p.userId !== currentUserId)?.user || null
+        // unreadCount is now per-participant — read the current user's entry
+        const myUnread = d.participants?.find((p) => p.userId === currentUserId)?.unreadCount ?? 0
 
         return (
           <Link
@@ -412,14 +394,19 @@ function PrivateDiscussionList({
               </div>
               <div>
                 <div className="text-sm font-semibold text-gray-900">
-                  {otherParticipant?.name || 'Direct message'}
+                  {otherParticipant?.name || 'Message direct'}
                 </div>
                 <div className="text-xs text-gray-500">
-                  {d.unreadCount ? `${d.unreadCount} unread • ` : ''}
-                  {date || 'No messages yet'}
+                  {myUnread > 0 ? `${myUnread} non lu${myUnread > 1 ? 's' : ''} · ` : ''}
+                  {date || 'Aucun message'}
                 </div>
               </div>
             </div>
+            {myUnread > 0 && (
+              <span className="w-5 h-5 rounded-full bg-[#3b49df] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                {myUnread > 9 ? '9+' : myUnread}
+              </span>
+            )}
           </Link>
         )
       })}

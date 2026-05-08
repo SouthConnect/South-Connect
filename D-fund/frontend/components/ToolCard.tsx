@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { ExternalLink } from 'lucide-react'
 
 interface ToolCardProps {
@@ -18,43 +17,43 @@ interface ToolCardProps {
 
 export default function ToolCard({ tool }: ToolCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-      <div className="mb-4">
-        <h3 className="text-xl font-semibold text-gray-900 mb-1">{tool.name}</h3>
-        <p className="text-sm text-gray-500 capitalize">{tool.category}</p>
+    <div className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
+      <div className="mb-3">
+        <span className="inline-block text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-green-50 text-green-600 mb-2 capitalize">
+          {tool.category}
+        </span>
+        <h3 className="text-sm font-bold text-gray-900 leading-snug">{tool.name}</h3>
+        <p className="text-xs text-gray-400 mt-0.5">by {tool.creator.name}</p>
       </div>
 
-      <p className="text-gray-600 mb-4 line-clamp-3">{tool.description}</p>
+      <p className="text-xs text-gray-500 mb-4 line-clamp-2 leading-relaxed">{tool.description}</p>
 
-      <div className="mb-4">
-        <div className="flex flex-wrap gap-2">
-          {tool.tags.slice(0, 3).map((tag, index) => (
-            <span
-              key={index}
-              className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full"
-            >
+      {tool.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {tool.tags.slice(0, 3).map((tag, i) => (
+            <span key={i} className="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] font-semibold rounded-full">
               {tag}
             </span>
           ))}
           {tool.tags.length > 3 && (
-            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+            <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-semibold rounded-full">
               +{tool.tags.length - 3}
             </span>
           )}
         </div>
-      </div>
+      )}
 
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between mt-auto">
         {tool.pricing && (
-          <span className="text-sm text-gray-600 capitalize">{tool.pricing}</span>
+          <span className="text-xs text-gray-400 capitalize">{tool.pricing}</span>
         )}
         <a
           href={tool.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-2 text-primary-600 hover:text-primary-700 font-medium"
+          className="flex items-center gap-1.5 text-xs font-semibold text-[#3b49df] hover:text-[#2d3aba] transition-colors ml-auto"
         >
-          Visiter <ExternalLink className="w-4 h-4" />
+          Visit <ExternalLink className="w-3.5 h-3.5" />
         </a>
       </div>
     </div>

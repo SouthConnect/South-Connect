@@ -8,9 +8,10 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  MaxLength,
 } from 'class-validator';
 
-// Enums locaux alignés sur les valeurs Prisma, pour éviter les problèmes d'import en prod
+// Local enums mirroring Prisma values to avoid circular import issues in production builds.
 export enum OpportunityTypeEnum {
   JOB_OPPORTUNITY = 'JOB_OPPORTUNITY',
   TALENT_PROFILE = 'TALENT_PROFILE',
@@ -43,14 +44,17 @@ export enum OpportunityStatusEnum {
 
 export class CreateOpportunityDto {
   @IsString()
+  @MaxLength(200)
   name: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(300)
   punchline?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   description?: string;
 
   @IsEnum(OpportunityTypeEnum)
@@ -62,18 +66,22 @@ export class CreateOpportunityDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   featureId?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   city?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   country?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   region?: string;
 
   @IsOptional()
@@ -94,6 +102,7 @@ export class CreateOpportunityDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   applicationProcessId?: string;
 
   @IsOptional()
@@ -101,15 +110,18 @@ export class CreateOpportunityDto {
   needToCheckApplicant?: boolean;
 
   @IsOptional()
-  @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(2000)
   image?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(2000)
   backgroundImage?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(2000)
   file?: string;
 
   @IsOptional()
@@ -138,14 +150,17 @@ export class CreateOpportunityDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10)
   currency?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   pricingUnit?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   pricingDetails?: string;
 
   @IsOptional()
@@ -154,10 +169,12 @@ export class CreateOpportunityDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   aiPrompt?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20000)
   aiOutput?: string;
 
   @IsOptional()

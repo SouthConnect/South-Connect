@@ -2,6 +2,11 @@ import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { OpportunityStatusEnum, OpportunityTypeEnum } from './create-opportunity.dto';
 
+export enum SortEnum {
+  NEWEST = 'newest',
+  TRENDING = 'trending',
+}
+
 export class ListOpportunitiesDto {
   @IsOptional()
   @Type(() => Number)
@@ -32,4 +37,8 @@ export class ListOpportunitiesDto {
   @IsString()
   @MaxLength(100)
   search?: string;
+
+  @IsOptional()
+  @IsEnum(SortEnum)
+  sort?: SortEnum;
 }

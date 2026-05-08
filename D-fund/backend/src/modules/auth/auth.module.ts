@@ -5,8 +5,11 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { PrismaModule } from '../prisma/prisma.module';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Module({
   imports: [
@@ -16,24 +19,37 @@ import { NotificationsModule } from '../notifications/notifications.module';
       useFactory: (config: ConfigService) => {
         const secret = config.get<string>('JWT_SECRET');
         if (!secret) {
-          // On préfère échouer fort au démarrage plutôt que tourner avec une clé faible.
           throw new Error(
             'JWT_SECRET is not configured. Please set it in your environment variables.',
           );
         }
-
         return {
           secret,
-          signOptions: { expiresIn: '7d' },
+          signOptions: { expiresIn: '15m' },
         };
       },
     }),
     UsersModule,
     NotificationsModule,
+    PrismaModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    {
+      provide: GoogleStrategy,
+      useFactory: (config: ConfigService, prisma: PrismaService) => {
+        const clientID = config.get<string>('GOOGLE_CLIENT_ID');
+        const clientSecret = config.get<string>('GOOGLE_CLIENT_SECRET');
+        if (!clientID || !clientSecret) {
+          return null; // Google OAuth non configuré, on skip silencieusement
+        }
+        return new GoogleStrategy(config, prisma);
+      },
+      inject: [ConfigService, PrismaService],
+    },
+  ],
   exports: [AuthService],
 })
 export class AuthModule {}
-

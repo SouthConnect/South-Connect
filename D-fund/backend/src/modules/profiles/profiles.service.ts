@@ -3,70 +3,102 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateBtoCProfileDto, UpdateBtoBProfileDto } from './dto';
 
 /**
- * Service de gestion des profils utilisateurs
- * Gère les profils BtoC (talents) et BtoB (entreprises)
+ * Manages user profiles: individual (BtoC) and company (BtoB).
  */
 @Injectable()
 export class ProfilesService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Récupère le profil complet d'un utilisateur
-   * Inclut les profils BtoC et BtoB s'ils existent
-   * @param userId - Identifiant de l'utilisateur
-   * @returns Utilisateur avec ses profils associés
+   * Returns the full profile for a given user, including BtoC and BtoB sub-profiles.
+   *
+   * Private profiles (visibility = false) are only accessible to the owner or an admin.
+   *
+   * @param userId      - ID of the user whose profile is requested.
+   * @param requesterId - ID of the requesting user (optional, for visibility check).
+   * @param requesterRole - Role of the requesting user (optional, 'ADMIN' bypasses visibility).
+   * @returns User profile or null when the user does not exist.
+   * @throws NotFoundException when the profile is private and the requester is not authorised.
    */
-  async findByUserId(userId: string) {
-    return this.prisma.user.findUnique({
+  async findByUserId(userId: string, requesterId?: string, requesterRole?: string) {
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        firstName: true,
+        lastName: true,
+        bio: true,
+        profilePic: true,
+        phone: true,
+        city: true,
+        country: true,
+        linkedinUrl: true,
+        website: true,
+        visibility: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
         btoCProfile: true,
         btoBProfile: true,
       },
     });
+
+    if (!user) return null;
+
+    if (!user.visibility && user.id !== requesterId && requesterRole !== 'ADMIN') {
+      throw new NotFoundException('Profile not found');
+    }
+
+    return user;
   }
 
   /**
-   * Liste tous les profils talents (BtoC)
-   * Triés par date de création décroissante
-   * @returns Liste des profils talents avec leurs utilisateurs associés
+   * Returns a paginated list of individual (BtoC) talent profiles, sorted by creation date.
+   *
+   * @param take - Maximum number of records to return (capped by the caller).
+   * @param skip - Number of records to skip for pagination.
    */
-  async listTalents() {
+  listTalents(take = 30, skip = 0) {
     return this.prisma.btoCProfile.findMany({
       orderBy: { createdAt: 'desc' },
+      take,
+      skip,
       include: {
-        user: true,
+        user: {
+          select: { id: true, name: true, profilePic: true, city: true, country: true, bio: true },
+        },
       },
     });
   }
 
   /**
-   * Liste tous les profils entreprises (BtoB)
-   * Triés par date de création décroissante
-   * @returns Liste des profils entreprises avec leurs utilisateurs associés
+   * Returns a paginated list of company (BtoB) profiles, sorted by creation date.
+   *
+   * @param take - Maximum number of records to return (capped by the caller).
+   * @param skip - Number of records to skip for pagination.
    */
-  async listCompanies() {
+  listCompanies(take = 30, skip = 0) {
     return this.prisma.btoBProfile.findMany({
       orderBy: { createdAt: 'desc' },
+      take,
+      skip,
       include: {
-        user: true,
+        user: {
+          select: { id: true, name: true, profilePic: true, city: true, country: true },
+        },
       },
     });
   }
 
   /**
-   * Met à jour un profil talent (BtoC)
-   * Vérifie que le profil existe et que l'utilisateur a les permissions
-   * @param userId - Identifiant de l'utilisateur propriétaire du profil
-   * @param dto - Données de mise à jour
-   * @returns Profil mis à jour avec informations utilisateur
-   * @throws NotFoundException si le profil n'existe pas
-   * @throws ForbiddenException si l'utilisateur n'a pas les permissions
+   * Updates an individual (BtoC) profile.
+   *
+   * @throws NotFoundException when the profile does not exist for the given userId.
    */
   async updateBtoCProfile(userId: string, dto: UpdateBtoCProfileDto) {
-    const profile = await this.prisma.btoCProfile.findUnique({
-      where: { userId },
-    });
+    const profile = await this.prisma.btoCProfile.findUnique({ where: { userId } });
 
     if (!profile) {
       throw new NotFoundException('BtoC profile not found');
@@ -90,31 +122,18 @@ export class ProfilesService {
         opportunityTypes: dto.opportunityTypes,
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            profilePic: true,
-          },
-        },
+        user: { select: { id: true, name: true, email: true, profilePic: true } },
       },
     });
   }
 
   /**
-   * Met à jour un profil entreprise (BtoB)
-   * Vérifie que le profil existe et que l'utilisateur a les permissions
-   * @param userId - Identifiant de l'utilisateur propriétaire du profil
-   * @param dto - Données de mise à jour
-   * @returns Profil mis à jour avec informations utilisateur
-   * @throws NotFoundException si le profil n'existe pas
-   * @throws ForbiddenException si l'utilisateur n'a pas les permissions
+   * Updates a company (BtoB) profile.
+   *
+   * @throws NotFoundException when the profile does not exist for the given userId.
    */
   async updateBtoBProfile(userId: string, dto: UpdateBtoBProfileDto) {
-    const profile = await this.prisma.btoBProfile.findUnique({
-      where: { userId },
-    });
+    const profile = await this.prisma.btoBProfile.findUnique({ where: { userId } });
 
     if (!profile) {
       throw new NotFoundException('BtoB profile not found');
@@ -139,36 +158,51 @@ export class ProfilesService {
         marketFocus: dto.marketFocus,
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            profilePic: true,
-          },
-        },
+        user: { select: { id: true, name: true, email: true, profilePic: true } },
       },
     });
   }
 
   /**
-   * Liste tous les membres (users) visibles
-   * Inclut les profils BtoC/BtoB s'ils existent, pour exposer les compteurs
+   * Returns a paginated list of all publicly visible users, including their BtoC/BtoB
+   * sub-profiles when they exist.
+   *
+   * @param take - Maximum number of records to return (capped by the caller).
+   * @param skip - Number of records to skip for pagination.
    */
-  async listMembers() {
+  listMembers(take = 30, skip = 0, search?: string) {
+    const q = search?.trim()
     return this.prisma.user.findMany({
       where: {
         visibility: true,
+        ...(q && q.length >= 2
+          ? {
+              OR: [
+                { name: { contains: q, mode: 'insensitive' } },
+                { bio: { contains: q, mode: 'insensitive' } },
+                { btoBProfile: { companyName: { contains: q, mode: 'insensitive' } } },
+              ],
+            }
+          : {}),
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        btoCProfile: true,
-        btoBProfile: true,
+      orderBy: { createdAt: 'desc' },
+      take,
+      skip,
+      select: {
+        id: true,
+        name: true,
+        bio: true,
+        profilePic: true,
+        city: true,
+        country: true,
+        createdAt: true,
+        btoCProfile: {
+          select: { tags: true, industries: true, seniorityLevel: true, followersCount: true },
+        },
+        btoBProfile: {
+          select: { companyName: true, punchline: true, logo: true, followersCount: true },
+        },
       },
     });
   }
 }
-
-

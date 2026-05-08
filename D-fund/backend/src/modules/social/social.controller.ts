@@ -1,133 +1,82 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SocialService } from './social.service';
 
 /**
- * Controller pour les fonctionnalités sociales
- * Gère les follows, likes et sauvegardes d'opportunités
+ * Exposes social interaction endpoints: follows, opportunity likes, and opportunity saves.
+ * All mutation routes require a valid JWT.
  */
+@ApiTags('social')
+@ApiBearerAuth('JWT')
 @Controller('social')
 export class SocialController {
   constructor(private readonly socialService: SocialService) {}
 
-  /**
-   * Suivre un utilisateur
-   * Requiert une authentification JWT
-   * @param userId - ID de l'utilisateur à suivre
-   * @param user - Utilisateur authentifié (injecté via CurrentUser)
-   */
+  /** Returns whether the authenticated user is following the given user. */
+  @Get('is-following/:userId')
+  @UseGuards(JwtAuthGuard)
+  isFollowing(@Param('userId') userId: string, @CurrentUser() user: User) {
+    return this.socialService.isFollowing(user.id, userId);
+  }
+
+  /** Follows the given user. */
   @Post('follow/:userId')
   @UseGuards(JwtAuthGuard)
   follow(@Param('userId') userId: string, @CurrentUser() user: User) {
     return this.socialService.follow(user.id, userId);
   }
 
-  /**
-   * Ne plus suivre un utilisateur
-   * Requiert une authentification JWT
-   * @param userId - ID de l'utilisateur à ne plus suivre
-   * @param user - Utilisateur authentifié
-   */
+  /** Unfollows the given user. */
   @Delete('follow/:userId')
   @UseGuards(JwtAuthGuard)
   unfollow(@Param('userId') userId: string, @CurrentUser() user: User) {
     return this.socialService.unfollow(user.id, userId);
   }
 
-  /**
-   * Liste des followers d'un utilisateur
-   * Endpoint public
-   * @param userId - ID de l'utilisateur
-   */
+  /** Returns the list of followers for the given user. Public endpoint. */
   @Get('followers/:userId')
   getFollowers(@Param('userId') userId: string) {
     return this.socialService.getFollowers(userId);
   }
 
-  /**
-   * Liste des utilisateurs suivis par un utilisateur
-   * Endpoint public
-   * @param userId - ID de l'utilisateur
-   */
+  /** Returns the list of users the given user is following. Public endpoint. */
   @Get('following/:userId')
   getFollowing(@Param('userId') userId: string) {
     return this.socialService.getFollowing(userId);
   }
 
-  /**
-   * Liker une opportunité
-   * Requiert une authentification JWT
-   * @param opportunityId - ID de l'opportunité à liker
-   * @param user - Utilisateur authentifié
-   */
+  /** Likes the given opportunity. */
   @Post('like/:opportunityId')
   @UseGuards(JwtAuthGuard)
-  likeOpportunity(
-    @Param('opportunityId') opportunityId: string,
-    @CurrentUser() user: User,
-  ) {
+  likeOpportunity(@Param('opportunityId') opportunityId: string, @CurrentUser() user: User) {
     return this.socialService.likeOpportunity(user.id, opportunityId);
   }
 
-  /**
-   * Retirer le like d'une opportunité
-   * Requiert une authentification JWT
-   * @param opportunityId - ID de l'opportunité
-   * @param user - Utilisateur authentifié
-   */
+  /** Removes a like from the given opportunity. */
   @Delete('like/:opportunityId')
   @UseGuards(JwtAuthGuard)
-  unlikeOpportunity(
-    @Param('opportunityId') opportunityId: string,
-    @CurrentUser() user: User,
-  ) {
+  unlikeOpportunity(@Param('opportunityId') opportunityId: string, @CurrentUser() user: User) {
     return this.socialService.unlikeOpportunity(user.id, opportunityId);
   }
 
-  /**
-   * Sauvegarder une opportunité
-   * Requiert une authentification JWT
-   * @param opportunityId - ID de l'opportunité à sauvegarder
-   * @param user - Utilisateur authentifié
-   */
+  /** Bookmarks the given opportunity. */
   @Post('save/:opportunityId')
   @UseGuards(JwtAuthGuard)
-  saveOpportunity(
-    @Param('opportunityId') opportunityId: string,
-    @CurrentUser() user: User,
-  ) {
+  saveOpportunity(@Param('opportunityId') opportunityId: string, @CurrentUser() user: User) {
     return this.socialService.saveOpportunity(user.id, opportunityId);
   }
 
-  /**
-   * Retirer une opportunité des sauvegardes
-   * Requiert une authentification JWT
-   * @param opportunityId - ID de l'opportunité
-   * @param user - Utilisateur authentifié
-   */
+  /** Removes a bookmark from the given opportunity. */
   @Delete('save/:opportunityId')
   @UseGuards(JwtAuthGuard)
-  unsaveOpportunity(
-    @Param('opportunityId') opportunityId: string,
-    @CurrentUser() user: User,
-  ) {
+  unsaveOpportunity(@Param('opportunityId') opportunityId: string, @CurrentUser() user: User) {
     return this.socialService.unsaveOpportunity(user.id, opportunityId);
   }
 
-  /**
-   * Liste des opportunités sauvegardées par l'utilisateur authentifié
-   * Requiert une authentification JWT
-   * @param user - Utilisateur authentifié
-   */
+  /** Returns all opportunities bookmarked by the authenticated user. */
   @Get('saved')
   @UseGuards(JwtAuthGuard)
   getSavedOpportunities(@CurrentUser() user: User) {

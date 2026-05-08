@@ -2,7 +2,12 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
+import { Request } from 'express';
 import { AuthService } from '../auth.service';
+
+/** Extracts the JWT from the HttpOnly access_token cookie. */
+const fromCookie = (req: Request): string | null =>
+  (req?.cookies as Record<string, string> | undefined)?.['access_token'] ?? null;
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -12,16 +17,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ) {
     const secret = configService.get<string>('JWT_SECRET');
     if (!secret) {
-      // Échec explicite si la clé JWT n'est pas définie.
       throw new Error(
         'JWT_SECRET is not configured. Please set it in your environment variables.',
       );
     }
 
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      // Try cookie first (browser clients), fall back to Bearer header (Swagger / API clients)
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        fromCookie,
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ]),
       ignoreExpiration: false,
       secretOrKey: secret,
+      passReqToCallback: false,
     });
   }
 

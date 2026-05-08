@@ -17,38 +17,39 @@ interface ProgramCardProps {
 
 export default function ProgramCard({ program }: ProgramCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-      <div className="mb-4">
-        <h3 className="text-xl font-semibold text-gray-900 mb-1">{program.name}</h3>
-        <p className="text-sm text-gray-500 capitalize">{program.type}</p>
+    <div className="bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
+      <div className="mb-3">
+        <span className="inline-block text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-orange-50 text-orange-600 mb-2 capitalize">
+          {program.type}
+        </span>
+        <h3 className="text-sm font-bold text-gray-900 leading-snug">{program.name}</h3>
+        {(program.city || program.country) && (
+          <p className="text-xs text-gray-400 mt-0.5">
+            {[program.city, program.country].filter(Boolean).join(', ')}
+          </p>
+        )}
       </div>
 
-      <p className="text-gray-600 mb-4 line-clamp-3">{program.description}</p>
+      <p className="text-xs text-gray-500 mb-4 line-clamp-2 leading-relaxed">{program.description}</p>
 
-      <div className="mb-4">
-        <div className="flex flex-wrap gap-2">
-          {program.tags.slice(0, 3).map((tag, index) => (
-            <span
-              key={index}
-              className="px-2 py-1 bg-orange-100 text-orange-700 text-xs rounded-full"
-            >
+      {program.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {program.tags.slice(0, 3).map((tag, i) => (
+            <span key={i} className="px-2 py-0.5 bg-orange-50 text-orange-600 text-[10px] font-semibold rounded-full">
               {tag}
             </span>
           ))}
           {program.tags.length > 3 && (
-            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+            <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-semibold rounded-full">
               +{program.tags.length - 3}
             </span>
           )}
         </div>
-      </div>
+      )}
 
-      <div className="flex justify-between items-center text-sm text-gray-600 mb-4">
+      <div className="flex items-center justify-between text-xs text-gray-400 mb-4">
         {program.duration && <span>{program.duration}</span>}
-        {program.cost && <span className="capitalize">{program.cost}</span>}
-        {(program.city || program.country) && (
-          <span>{[program.city, program.country].filter(Boolean).join(', ')}</span>
-        )}
+        {program.cost && <span className="capitalize font-semibold text-gray-600">{program.cost}</span>}
       </div>
 
       {program.url ? (
@@ -56,16 +57,16 @@ export default function ProgramCard({ program }: ProgramCardProps) {
           href={program.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block text-center bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+          className="block text-center bg-[#3b49df] text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-[#2d3aba] transition-colors"
         >
-          En savoir plus
+          Learn more
         </a>
       ) : (
         <Link
           href={`/resources/programs/${program.id}`}
-          className="block text-center bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors"
+          className="block text-center bg-[#3b49df] text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-[#2d3aba] transition-colors"
         >
-          En savoir plus
+          Learn more
         </Link>
       )}
     </div>

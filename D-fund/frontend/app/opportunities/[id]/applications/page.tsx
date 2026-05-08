@@ -16,6 +16,9 @@ import {
   Archive,
   ExternalLink,
 } from 'lucide-react'
+import AuthGuard from '@/components/AuthGuard'
+import { toast } from 'sonner'
+import type { Application } from '@/app/lib/types'
 
 type ReviewStage = 'OWNER_REVIEW' | 'SUCCESS' | 'ARCHIVED'
 
@@ -51,7 +54,7 @@ export default function OpportunityApplicationsPage() {
     enabled: !!opportunityId && !!user?.id,
   })
 
-  const selectedApplication = applications?.find((a: any) => a.id === selectedAppId)
+  const selectedApplication = (applications as Application[] | undefined)?.find((a) => a.id === selectedAppId)
 
   useEffect(() => {
     if (selectedApplication) {
@@ -84,17 +87,11 @@ export default function OpportunityApplicationsPage() {
       setReviewSaved(true)
       setTimeout(() => setReviewSaved(false), 3000)
     },
+    onError: (err: any) => toast.error(err.message || 'Failed to save review'),
   })
 
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-gray-500 text-sm">Please sign in to view applications.</p>
-      </div>
-    )
-  }
-
   return (
+    <AuthGuard>
     <div className="container mx-auto px-6 py-8 max-w-5xl">
       <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
         <button
@@ -142,7 +139,7 @@ export default function OpportunityApplicationsPage() {
             </div>
           ) : (
             <ul className="divide-y divide-gray-100">
-              {applications.map((app: any) => {
+              {(applications as Application[]).map((app) => {
                 const createdAt = new Date(app.createdAt).toLocaleDateString('fr-FR')
                 const isSelected = app.id === selectedAppId
                 return (
@@ -362,6 +359,7 @@ export default function OpportunityApplicationsPage() {
         </div>
       </div>
     </div>
+    </AuthGuard>
   )
 }
 

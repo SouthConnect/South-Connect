@@ -1,7 +1,7 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsUrl } from 'class-validator';
 
 export class UpdateProfilePicDto {
-  @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsNotEmpty()
   profilePic: string;
 }

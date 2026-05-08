@@ -1,77 +1,77 @@
 import { IsArray, IsDateString, IsOptional, IsString, IsUrl } from 'class-validator';
 
 /**
- * DTO pour la mise à jour d'un profil entreprise (BtoB)
- * Tous les champs sont optionnels pour permettre des mises à jour partielles
+ * DTO for updating a company profile (BtoB).
+ * All fields are optional to support partial updates.
  */
 export class UpdateBtoBProfileDto {
-  /** Nom de l'entreprise */
+  /** Company display name. */
   @IsOptional()
   @IsString()
   companyName?: string;
 
-  /** URL ou chemin du logo de l'entreprise */
+  /** URL or storage path of the company logo. */
   @IsOptional()
   @IsString()
   logo?: string;
 
-  /** URL ou chemin de l'image d'en-tête */
+  /** URL or storage path of the company header image. */
   @IsOptional()
   @IsString()
   headerImage?: string;
 
-  /** Phrase d'accroche de l'entreprise */
+  /** Short tagline for the company. */
   @IsOptional()
   @IsString()
   punchline?: string;
 
-  /** Description courte de l'entreprise */
+  /** Short description of the company. */
   @IsOptional()
   @IsString()
   description?: string;
 
-  /** Description détaillée de l'entreprise */
+  /** Long-form description of the company. */
   @IsOptional()
   @IsString()
   longDescription?: string;
 
-  /** URL du site web de l'entreprise */
+  /** Company website URL. */
   @IsOptional()
   @IsUrl()
   website?: string;
 
-  /** URL du profil LinkedIn de l'entreprise */
+  /** Company LinkedIn profile URL. */
   @IsOptional()
   @IsUrl()
   linkedinUrl?: string;
 
-  /** Ville où se trouve l'entreprise */
+  /** City where the company is based. */
   @IsOptional()
   @IsString()
   city?: string;
 
-  /** Pays où se trouve l'entreprise */
+  /** Country where the company is based. */
   @IsOptional()
   @IsString()
   country?: string;
 
-  /** Date de fondation de l'entreprise (format ISO 8601) */
+  /** Company founding date (ISO 8601). */
   @IsOptional()
   @IsDateString()
   foundationDate?: string;
 
-  /** Stade de développement (Ideation, MVP, Growth, Scale) */
+  /** Development stage (e.g. Ideation, MVP, Growth, Scale). */
   @IsOptional()
   @IsString()
   developmentStage?: string;
 
-  /** Industries dans lesquelles l'entreprise opère */
+  /** Industries the company operates in. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   industries?: string[];
 
-  /** Marchés géographiques ciblés par l'entreprise */
+  /** Target geographic markets. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

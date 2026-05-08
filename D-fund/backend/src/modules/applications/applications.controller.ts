@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -6,11 +7,26 @@ import { ApplicationOwnerGuard } from '../../common/guards/application-owner.gua
 import { ApplicationsService } from './applications.service';
 import { CreateApplicationDto, ReviewApplicationDto, UpdateApplicationDto } from './dto';
 
+/**
+ * Exposes endpoints for managing job/opportunity applications.
+ *
+ * Two perspectives are supported:
+ * - **Candidate** — creates, edits, and submits their own applications.
+ * - **Opportunity owner** — lists and reviews applications for their opportunities.
+ *
+ * The `ApplicationOwnerGuard` ensures mutation routes are only accessible to the
+ * application's candidate.
+ */
+@ApiTags('applications')
+@ApiBearerAuth('JWT')
 @Controller('applications')
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
 
-  // Candidatures pour une opportunité (vue Owner)
+  /**
+   * Returns all applications for an opportunity.
+   * Only the opportunity owner may call this endpoint.
+   */
   @Get('opportunity/:opportunityId')
   @UseGuards(JwtAuthGuard)
   findByOpportunity(
@@ -20,48 +36,44 @@ export class ApplicationsController {
     return this.applicationsService.findByOpportunityForOwner(opportunityId, user.id);
   }
 
-  // Candidatures d'un user (vue candidat)
+  /**
+   * Returns the authenticated user's own applications.
+   * Users may only access their own application list.
+   */
   @Get('user/:userId')
   @UseGuards(JwtAuthGuard)
   findForUser(@Param('userId') userId: string, @CurrentUser() user: User) {
-    // On ne permet pas de récupérer les candidatures d'un autre user
     if (user.id !== userId) {
       throw new ForbiddenException('You can only access your own applications');
     }
     return this.applicationsService.findForUser(userId);
   }
 
+  /** Creates a new application in DRAFT stage for the authenticated user. */
   @Post()
   @UseGuards(JwtAuthGuard)
   create(@CurrentUser() user: User, @Body() dto: CreateApplicationDto) {
     return this.applicationsService.create(user.id, dto);
   }
 
+  /** Updates a DRAFT application's content. Only the applicant may call this. */
   @Put(':id')
   @UseGuards(JwtAuthGuard, ApplicationOwnerGuard)
-  update(
-    @Param('id') id: string,
-    @CurrentUser() user: User,
-    @Body() dto: UpdateApplicationDto,
-  ) {
+  update(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: UpdateApplicationDto) {
     return this.applicationsService.update(id, user.id, dto);
   }
 
+  /** Submits a DRAFT application for review. Only the applicant may call this. */
   @Post(':id/submit')
   @UseGuards(JwtAuthGuard, ApplicationOwnerGuard)
   submit(@Param('id') id: string, @CurrentUser() user: User) {
     return this.applicationsService.submit(id, user.id);
   }
 
+  /** Allows the opportunity owner to review and update the stage of an application. */
   @Put(':id/review')
-  @UseGuards(JwtAuthGuard, ApplicationOwnerGuard)
-  review(
-    @Param('id') id: string,
-    @CurrentUser() user: User,
-    @Body() dto: ReviewApplicationDto,
-  ) {
+  @UseGuards(JwtAuthGuard)
+  review(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: ReviewApplicationDto) {
     return this.applicationsService.review(id, user.id, dto);
   }
 }
-
-

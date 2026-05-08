@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { RedisModule } from './modules/redis/redis.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { OpportunitiesModule } from './modules/opportunities/opportunities.module';
@@ -14,6 +16,16 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { StorageModule } from './modules/storage/storage.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { ReferralModule } from './modules/referral/referral.module';
+import { SearchModule } from './modules/search/search.module';
+import { HealthModule } from './modules/health/health.module';
+import { FeedbackModule } from './modules/feedback/feedback.module';
+import { RatingsModule } from './modules/ratings/ratings.module';
+import { IndustriesModule } from './modules/industries/industries.module';
+import { MarketsModule } from './modules/markets/markets.module';
+import { FeaturesModule } from './modules/features/features.module';
+import { AiModule } from './modules/ai/ai.module';
+import { CronModule } from './modules/cron/cron.module';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -21,14 +33,36 @@ import { ReferralModule } from './modules/referral/referral.module';
       isGlobal: true,
       envFilePath: ['.env', '../.env'],
     }),
-    // Rate limiting global : 20 requêtes max par minute par IP
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000,
-        limit: 20,
-      },
-    ]),
+    ScheduleModule.forRoot(),
+    /**
+     * Named throttler profiles — applied globally by ThrottlerGuard.
+     * Per-route overrides reference these names via @Throttle({ <name>: {} }).
+     *
+     *  default   — general API traffic (20 req / min)
+     *  auth      — sensitive auth flows (5 req / min)
+     *  strict    — password-reset (3 req / min)
+     *  messaging — chat message creation (30 req / min)
+     *
+     * In the test environment all limits are set very high so E2E tests are
+     * never blocked by rate limiting.
+     */
+    ThrottlerModule.forRoot(
+      process.env.NODE_ENV === 'test'
+        ? [
+            { name: 'default',   ttl: 60_000, limit: 10_000 },
+            { name: 'auth',      ttl: 60_000, limit: 10_000 },
+            { name: 'strict',    ttl: 60_000, limit: 10_000 },
+            { name: 'messaging', ttl: 60_000, limit: 10_000 },
+          ]
+        : [
+            { name: 'default',   ttl: 60_000, limit: 20 },
+            { name: 'auth',      ttl: 60_000, limit: 5  },
+            { name: 'strict',    ttl: 60_000, limit: 3  },
+            { name: 'messaging', ttl: 60_000, limit: 30 },
+          ],
+    ),
     PrismaModule,
+    RedisModule,
     AuthModule,
     UsersModule,
     OpportunitiesModule,
@@ -40,6 +74,16 @@ import { ReferralModule } from './modules/referral/referral.module';
     StorageModule,
     TasksModule,
     ReferralModule,
+    SearchModule,
+    HealthModule,
+    FeedbackModule,
+    RatingsModule,
+    IndustriesModule,
+    MarketsModule,
+    FeaturesModule,
+    AiModule,
+    CronModule,
+    AuditModule,
   ],
   providers: [
     {

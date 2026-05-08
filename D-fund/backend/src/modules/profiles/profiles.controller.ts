@@ -1,63 +1,67 @@
-import { Body, Controller, ForbiddenException, Get, Param, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Param, Put, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtOptionalGuard } from '../auth/guards/jwt-optional.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ProfilesService } from './profiles.service';
 import { UpdateBtoCProfileDto, UpdateBtoBProfileDto } from './dto';
 
 /**
- * Controller pour la gestion des profils utilisateurs
- * Expose les endpoints pour consulter et mettre à jour les profils BtoC et BtoB
+ * Exposes endpoints for reading and updating user profiles (BtoC and BtoB).
+ *
+ * Public read endpoints use the optional-JWT guard so that authenticated users
+ * receive visibility-gated responses while unauthenticated requests still work
+ * for public profiles.
  */
+@ApiTags('profiles')
 @Controller('profiles')
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
   /**
-   * Récupère le profil complet d'un utilisateur
-   * Endpoint public, accessible sans authentification
-   * @param userId - Identifiant de l'utilisateur
+   * Returns the full profile of a user including BtoC/BtoB sub-profiles.
+   * Accessible without authentication for public profiles.
    */
   @Get(':userId')
-  findByUserId(@Param('userId') userId: string) {
-    return this.profilesService.findByUserId(userId);
+  @UseGuards(JwtOptionalGuard)
+  findByUserId(@Param('userId') userId: string, @CurrentUser() requester?: User) {
+    return this.profilesService.findByUserId(userId, requester?.id, requester?.role);
   }
 
-  /**
-   * Liste tous les profils talents
-   * Endpoint public
-   */
+  /** Returns a paginated list of individual talent profiles. */
   @Get('lists/talents')
-  listTalents() {
-    return this.profilesService.listTalents();
+  listTalents(@Query('take') take?: string, @Query('skip') skip?: string) {
+    return this.profilesService.listTalents(Math.min(Number(take) || 30, 100), Number(skip) || 0);
   }
 
-  /**
-   * Liste tous les profils entreprises
-   * Endpoint public
-   */
+  /** Returns a paginated list of company profiles. */
   @Get('lists/companies')
-  listCompanies() {
-    return this.profilesService.listCompanies();
+  listCompanies(@Query('take') take?: string, @Query('skip') skip?: string) {
+    return this.profilesService.listCompanies(
+      Math.min(Number(take) || 30, 100),
+      Number(skip) || 0,
+    );
   }
 
-  /**
-   * Liste tous les membres (users) avec leurs profils éventuels
-   * Endpoint public
-   */
+  /** Returns a paginated list of all publicly visible members, with optional name/bio search. */
   @Get('lists/members')
-  listMembers() {
-    return this.profilesService.listMembers();
+  listMembers(
+    @Query('take') take?: string,
+    @Query('skip') skip?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.profilesService.listMembers(
+      Math.min(Number(take) || 30, 100),
+      Number(skip) || 0,
+      search,
+    );
   }
 
   /**
-   * Met à jour un profil talent (BtoC)
-   * Requiert une authentification JWT
-   * Vérifie que l'utilisateur authentifié est le propriétaire du profil
-   * @param userId - Identifiant de l'utilisateur propriétaire du profil
-   * @param user - Utilisateur authentifié (injecté via CurrentUser)
-   * @param dto - Données de mise à jour
-   * @throws ForbiddenException si l'utilisateur tente de modifier un autre profil
+   * Updates the authenticated user's individual (BtoC) profile.
+   *
+   * @throws ForbiddenException when the requester attempts to update another user's profile.
    */
   @Put('bto-c/:userId')
   @UseGuards(JwtAuthGuard)
@@ -73,13 +77,9 @@ export class ProfilesController {
   }
 
   /**
-   * Met à jour un profil entreprise (BtoB)
-   * Requiert une authentification JWT
-   * Vérifie que l'utilisateur authentifié est le propriétaire du profil
-   * @param userId - Identifiant de l'utilisateur propriétaire du profil
-   * @param user - Utilisateur authentifié (injecté via CurrentUser)
-   * @param dto - Données de mise à jour
-   * @throws ForbiddenException si l'utilisateur tente de modifier un autre profil
+   * Updates the authenticated user's company (BtoB) profile.
+   *
+   * @throws ForbiddenException when the requester attempts to update another user's profile.
    */
   @Put('bto-b/:userId')
   @UseGuards(JwtAuthGuard)
@@ -94,5 +94,3 @@ export class ProfilesController {
     return this.profilesService.updateBtoBProfile(userId, dto);
   }
 }
-
-

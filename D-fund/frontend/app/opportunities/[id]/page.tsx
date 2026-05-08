@@ -6,6 +6,8 @@ import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { MapPin, Calendar, Clock, Tag, ArrowLeft, Send, MessageSquare, ThumbsUp, Bookmark, Share2 } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from 'sonner'
+import type { Opportunity, Application, PublicDiscussion, PrivateDiscussion } from '@/app/lib/types'
 
 export default function OpportunityDetailPage() {
   const params = useParams()
@@ -14,59 +16,67 @@ export default function OpportunityDetailPage() {
   const id = params?.id as string
   const queryClient = useQueryClient()
 
-  const { data: opportunity, isLoading } = useQuery({
+  const { data: opportunity, isLoading, isError, error } = useQuery({
     queryKey: ['opportunity', id],
     queryFn: () => apiJson(`/opportunities/${id}`),
     enabled: !!id,
+    retry: (failureCount, err: any) => err?.status !== 404 && failureCount < 2,
   })
 
   const toggleLikeMutation = useMutation({
-    mutationFn: async () => {
-      try {
-        await apiJson(`/social/like/${id}`, {
-          method: 'POST',
-        })
-      } catch (error: any) {
-        // Si déjà liké, on tente un unlike
-        if (error?.message?.includes('already liked')) {
-          await apiJson(`/social/like/${id}`, {
-            method: 'DELETE',
-          })
-        } else {
-          throw error
-        }
-      }
+    mutationFn: async (currentlyLiked: boolean) => {
+      await apiJson(`/social/like/${id}`, {
+        method: currentlyLiked ? 'DELETE' : 'POST',
+      })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['opportunity', id] })
+    onMutate: async (currentlyLiked) => {
+      await queryClient.cancelQueries({ queryKey: ['opportunity', id] })
+      const prev = queryClient.getQueryData(['opportunity', id])
+      queryClient.setQueryData(['opportunity', id], (old: Opportunity) => ({
+        ...old,
+        likesCount: currentlyLiked ? (old.likesCount ?? 1) - 1 : (old.likesCount ?? 0) + 1,
+        isLiked: !currentlyLiked,
+      }))
+      return { prev }
     },
-    onError: (error: any) => {
-      alert(error.message || 'Unable to update like status')
+    onError: (error: any, _, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
+      toast.error(error.message || 'Impossible de mettre à jour le like')
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
   })
 
   const toggleSaveMutation = useMutation({
-    mutationFn: async () => {
-      try {
-        await apiJson(`/social/save/${id}`, {
-          method: 'POST',
-        })
-      } catch (error: any) {
-        // Si déjà sauvegardée, on tente un unsave
-        if (error?.message?.includes('already saved')) {
-          await apiJson(`/social/save/${id}`, {
-            method: 'DELETE',
-          })
-        } else {
-          throw error
-        }
-      }
+    mutationFn: async (currentlySaved: boolean) => {
+      await apiJson(`/social/save/${id}`, {
+        method: currentlySaved ? 'DELETE' : 'POST',
+      })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['opportunity', id] })
+    onMutate: async (currentlySaved) => {
+      await queryClient.cancelQueries({ queryKey: ['opportunity', id] })
+      const prev = queryClient.getQueryData(['opportunity', id])
+      queryClient.setQueryData(['opportunity', id], (old: Opportunity) => ({
+        ...old,
+        savedCount: currentlySaved ? (old.savedCount ?? 1) - 1 : (old.savedCount ?? 0) + 1,
+        isSaved: !currentlySaved,
+      }))
+      return { prev }
+    },
+    onError: (error: any, _, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
+      toast.error(error.message || 'Impossible de mettre à jour l\'enregistrement')
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
+  })
+
+  const startConversationMutation = useMutation({
+    mutationFn: (ownerId: string) =>
+      apiJson(`/messages/private/start/${ownerId}`, { method: 'POST' }),
+    onSuccess: (discussion: Pick<PrivateDiscussion, 'id'>) => {
+      if (discussion?.id) router.push(`/chat/private/${discussion.id}`)
     },
     onError: (error: any) => {
-      alert(error.message || 'Unable to update saved status')
+      toast.error(error.message || 'Impossible de démarrer la conversation')
     },
   })
 
@@ -76,11 +86,12 @@ export default function OpportunityDetailPage() {
         method: 'POST',
         body: JSON.stringify({ opportunityId: id }),
       }),
-    onSuccess: (app: any) => {
+    onSuccess: (app: Pick<Application, 'id'>) => {
+      toast.success('Brouillon de candidature créé ! Complétez et soumettez-le.')
       router.push(`/applications/${app.id}`)
     },
     onError: (error: any) => {
-      alert(error.message)
+      toast.error(error.message || 'Impossible de créer la candidature')
     },
   })
 
@@ -96,11 +107,21 @@ export default function OpportunityDetailPage() {
     )
   }
 
-  if (!opportunity) {
+  if (isError || !opportunity) {
+    const is404 = (error as any)?.status === 404 || !opportunity
     return (
       <div className="container mx-auto px-4 py-12 text-center">
-        <h1 className="text-2xl font-bold mb-4">Opportunity not found</h1>
-        <Link href="/" className="text-[#3b49df] hover:underline">Return home</Link>
+        <h1 className="text-2xl font-bold mb-2">
+          {is404 ? 'Opportunité introuvable' : 'Erreur de chargement'}
+        </h1>
+        <p className="text-sm text-gray-500 mb-4">
+          {is404
+            ? "Cette opportunité n'existe pas ou a été supprimée."
+            : (error as Error)?.message || 'Une erreur est survenue.'}
+        </p>
+        <Link href="/" className="text-[#3b49df] hover:underline text-sm font-semibold">
+          Retour à l'accueil
+        </Link>
       </div>
     )
   }
@@ -127,7 +148,7 @@ export default function OpportunityDetailPage() {
             className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-sm font-bold text-gray-900 shadow-sm hover:bg-gray-50 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back
+            Retour
           </button>
         </div>
       </div>
@@ -152,16 +173,16 @@ export default function OpportunityDetailPage() {
               <div className="flex flex-wrap gap-4 text-sm text-gray-500 mb-8 border-y border-gray-100 py-6">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
-                  {opportunity.city && opportunity.country ? `${opportunity.city}, ${opportunity.country}` : 'Remote'}
+                  {opportunity.city && opportunity.country ? `${opportunity.city}, ${opportunity.country}` : 'Télétravail'}
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  Posted on {date}
+                  Publié le {date}
                 </div>
                 {opportunity.expirationDate && (
                   <div className="flex items-center gap-2 text-red-500 font-medium">
                     <Clock className="w-4 h-4" />
-                    Expires {new Date(opportunity.expirationDate).toLocaleDateString()}
+                    Expire le {new Date(opportunity.expirationDate).toLocaleDateString('fr-FR')}
                   </div>
                 )}
               </div>
@@ -169,7 +190,7 @@ export default function OpportunityDetailPage() {
               <div className="prose prose-blue max-w-none text-gray-700 leading-relaxed mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Description</h3>
                 <div className="whitespace-pre-wrap">
-                  {opportunity.description || 'No description provided.'}
+                  {opportunity.description || 'Aucune description disponible.'}
                 </div>
               </div>
 
@@ -205,13 +226,13 @@ export default function OpportunityDetailPage() {
                       href={`/opportunities/${id}/edit`}
                       className="flex items-center justify-center w-full py-3 bg-gray-100 text-gray-900 rounded-xl font-bold hover:bg-gray-200 transition-colors"
                     >
-                      Edit Opportunity
+                      Modifier l'opportunité
                     </Link>
                     <Link
                       href={`/opportunities/${id}/applications`}
                       className="flex items-center justify-center w-full py-2 border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
                     >
-                      View applications ({opportunity.applicationsCount})
+                      Voir les candidatures ({opportunity.applicationsCount})
                     </Link>
                   </div>
                 ) : (
@@ -222,27 +243,19 @@ export default function OpportunityDetailPage() {
                       className="flex items-center justify-center gap-2 w-full py-3 bg-[#3b49df] text-white rounded-xl font-bold hover:bg-[#2d3aba] transition-colors shadow-sm disabled:opacity-50"
                     >
                       <Send className="w-5 h-5" />
-                      {applyMutation.isPending ? 'Creating draft...' : 'Apply Now'}
+                      {applyMutation.isPending ? 'Création en cours…' : 'Postuler'}
                     </button>
                     <button
                       type="button"
-                      onClick={async () => {
-                        if (!user) {
-                          router.push('/login')
-                          return
-                        }
-                        const discussion = await apiJson(
-                          `/messages/private/start/${opportunity.ownerId}`,
-                          { method: 'POST' },
-                        )
-                        if (discussion?.id) {
-                          router.push(`/chat/private/${discussion.id}`)
-                        }
+                      disabled={startConversationMutation.isPending}
+                      onClick={() => {
+                        if (!user) { router.push('/login'); return }
+                        startConversationMutation.mutate(opportunity.ownerId)
                       }}
-                      className="flex items-center justify-center gap-2 w-full py-2 border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors"
+                      className="flex items-center justify-center gap-2 w-full py-2 border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
                     >
                       <MessageSquare className="w-4 h-4" />
-                      Message owner
+                      {startConversationMutation.isPending ? 'Ouverture…' : 'Contacter le créateur'}
                     </button>
                   </div>
                 )
@@ -251,7 +264,7 @@ export default function OpportunityDetailPage() {
                   href="/login"
                   className="flex items-center justify-center w-full py-3 bg-[#3b49df] text-white rounded-xl font-bold hover:bg-[#2d3aba] transition-colors shadow-sm"
                 >
-                  Sign in to Apply
+                  Se connecter pour postuler
                 </Link>
               )}
 
@@ -259,58 +272,67 @@ export default function OpportunityDetailPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (!user) {
-                      router.push('/login')
-                      return
-                    }
-                    toggleLikeMutation.mutate()
+                    if (!user) { router.push('/login'); return }
+                    toggleLikeMutation.mutate(!!opportunity.isLiked)
                   }}
-                  disabled={toggleLikeMutation.isPending}
-                  className="flex items-center justify-center gap-2 py-2 border border-gray-100 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className={`flex items-center justify-center gap-2 py-2 border rounded-lg text-sm font-semibold transition-colors ${
+                    opportunity.isLiked
+                      ? 'border-[#3b49df] bg-[#3b49df]/5 text-[#3b49df]'
+                      : 'border-gray-100 text-gray-600 hover:bg-gray-50'
+                  }`}
                 >
                   <ThumbsUp className="w-4 h-4" />
-                  Like
+                  {opportunity.isLiked ? 'Aimé' : 'Aimer'}
+                  {(opportunity.likesCount ?? 0) > 0 && (
+                    <span className="text-xs opacity-60">{opportunity.likesCount}</span>
+                  )}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    if (!user) {
-                      router.push('/login')
-                      return
-                    }
-                    toggleSaveMutation.mutate()
+                    if (!user) { router.push('/login'); return }
+                    toggleSaveMutation.mutate(!!opportunity.isSaved)
                   }}
-                  disabled={toggleSaveMutation.isPending}
-                  className="flex items-center justify-center gap-2 py-2 border border-gray-100 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  className={`flex items-center justify-center gap-2 py-2 border rounded-lg text-sm font-semibold transition-colors ${
+                    opportunity.isSaved
+                      ? 'border-[#3b49df] bg-[#3b49df]/5 text-[#3b49df]'
+                      : 'border-gray-100 text-gray-600 hover:bg-gray-50'
+                  }`}
                 >
                   <Bookmark className="w-4 h-4" />
-                  Save
+                  {opportunity.isSaved ? 'Enregistré' : 'Enregistrer'}
                 </button>
               </div>
               
-              <button className="flex items-center justify-center gap-2 w-full py-2 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href)
+                  toast.success('Lien copié !')
+                }}
+                className="flex items-center justify-center gap-2 w-full py-2 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+              >
                 <Share2 className="w-4 h-4" />
-                Share Opportunity
+                Partager
               </button>
 
               <hr className="border-gray-100" />
 
               <div className="pt-2">
                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-4">
-                  Posted by
+                  Publié par
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-xl font-bold text-[#3b49df]">
-                    {opportunity.owner.profilePic ? (
+                    {opportunity.owner?.profilePic ? (
                       <img src={opportunity.owner.profilePic} alt="" className="w-full h-full object-cover rounded-xl" />
                     ) : (
-                      opportunity.owner.name[0]
+                      opportunity.owner?.name?.[0]
                     )}
                   </div>
                   <div>
-                    <div className="font-bold text-gray-900">{opportunity.owner.name}</div>
+                    <div className="font-bold text-gray-900">{opportunity.owner?.name}</div>
                     <Link href={`/profiles/${opportunity.ownerId}`} className="text-xs text-[#3b49df] font-bold hover:underline">
-                      View Profile
+                      Voir le profil
                     </Link>
                   </div>
                 </div>
@@ -319,10 +341,10 @@ export default function OpportunityDetailPage() {
 
             {/* Stats Card */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Activity</h4>
+              <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Activité</h4>
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Applications</span>
+                  <span className="text-gray-500">Candidatures</span>
                   <span className="font-bold text-gray-900">{opportunity.applicationsCount}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -330,8 +352,8 @@ export default function OpportunityDetailPage() {
                   <span className="font-bold text-gray-900">{opportunity.likesCount}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Saved by</span>
-                  <span className="font-bold text-gray-900">{opportunity.savedCount} users</span>
+                  <span className="text-gray-500">Enregistré par</span>
+                  <span className="font-bold text-gray-900">{opportunity.savedCount} utilisateurs</span>
                 </div>
               </div>
             </div>
@@ -354,15 +376,15 @@ function DiscussionSection({
     queryFn: () => apiJson('/messages/public?type=OPPORTUNITY_RELATED'),
   })
 
-  const linked = (discussions as any[])?.find(
-    (d: any) => d.opportunityId === opportunityId || d.opportunity?.id === opportunityId,
+  const linked = (discussions as PublicDiscussion[] | undefined)?.find(
+    (d) => d.opportunityId === opportunityId || d.opportunity?.id === opportunityId,
   )
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-bold text-gray-900">Discussion</h3>
-        <span className="text-gray-500 text-sm">{messagesCount ?? 0} messages</span>
+        <span className="text-gray-500 text-sm">{messagesCount ?? 0} message{(messagesCount ?? 0) !== 1 ? 's' : ''}</span>
       </div>
 
       {isLoading ? (
@@ -384,16 +406,16 @@ function DiscussionSection({
             <div>
               <div className="text-sm font-semibold text-gray-900">{linked.title}</div>
               <div className="text-xs text-gray-500">
-                {linked.membersCount ?? 0} members · {messagesCount ?? 0} messages
+                {linked.membersCount ?? 0} membres · {messagesCount ?? 0} messages
               </div>
             </div>
           </div>
-          <span className="text-xs font-semibold text-[#3b49df]">Join →</span>
+          <span className="text-xs font-semibold text-[#3b49df]">Rejoindre →</span>
         </Link>
       ) : (
         <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-200">
           <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-20" />
-          <p className="text-sm">No public discussion linked to this opportunity yet.</p>
+          <p className="text-sm">Aucune discussion publique liée à cette opportunité pour l'instant.</p>
         </div>
       )}
     </div>

@@ -8,19 +8,26 @@ export class UpdateApplicationDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   goalLetter?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @MaxLength(500)
   externalLink?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @MaxLength(500)
   externalLink2?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   referralCodeUsed?: string;
+
+  @IsOptional()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(2000)
+  attachmentUrl?: string;
 }

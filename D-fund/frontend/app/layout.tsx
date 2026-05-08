@@ -4,6 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@/app/lib/AuthContext'
 import Sidebar from '@/components/Sidebar'
 import Providers from './Providers'
+import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,8 +21,8 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className={inter.className}>
-        <AuthProvider>
-          <Providers>
+        <Providers>
+          <AuthProvider>
             <div className="flex min-h-screen bg-gray-50">
               <Sidebar />
               <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
@@ -30,8 +31,9 @@ export default function RootLayout({
                 </main>
               </div>
             </div>
-          </Providers>
-        </AuthProvider>
+            <Toaster position="bottom-right" richColors closeButton />
+          </AuthProvider>
+        </Providers>
       </body>
     </html>
   )

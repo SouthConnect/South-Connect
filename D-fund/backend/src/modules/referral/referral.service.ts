@@ -1,11 +1,17 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReferralType, ReferralStatus } from '@prisma/client';
 
+/** Manages referral codes and tracks usage statistics. */
 @Injectable()
 export class ReferralService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Returns all referral codes for a user along with aggregated stats
+   * (total referrals, potential earnings, and completed earnings).
+   */
   async findAllForUser(userId: string) {
     const codes = await this.prisma.referralCode.findMany({
       where: { ownerId: userId },
@@ -21,16 +27,12 @@ export class ReferralService {
 
     return {
       codes,
-      stats: {
-        totalCodes: codes.length,
-        totalReferrals,
-        totalPotentialAmount,
-        totalEarned,
-      },
+      stats: { totalCodes: codes.length, totalReferrals, totalPotentialAmount, totalEarned },
     };
   }
 
-  async create(userId: string, opportunityId?: string, type?: ReferralType) {
+  /** Creates a new referral code for the given user, optionally linked to an opportunity. */
+  create(userId: string, opportunityId?: string, type?: ReferralType) {
     const code = this.generateCode();
     return this.prisma.referralCode.create({
       data: {
@@ -44,10 +46,21 @@ export class ReferralService {
     });
   }
 
+  /**
+   * Looks up a referral code and returns it with owner and opportunity details.
+   *
+   * @throws NotFoundException when no code matches.
+   */
   async findByCode(code: string) {
     const referral = await this.prisma.referralCode.findUnique({
       where: { code },
-      include: {
+      select: {
+        id: true,
+        code: true,
+        type: true,
+        status: true,
+        usesCount: true,
+        createdAt: true,
         owner: { select: { id: true, name: true } },
         opportunity: { select: { id: true, name: true } },
       },
@@ -56,7 +69,8 @@ export class ReferralService {
     return referral;
   }
 
+  /** Generates a cryptographically random 10-character uppercase hex code. */
   private generateCode(): string {
-    return Math.random().toString(36).substring(2, 10).toUpperCase();
+    return randomBytes(5).toString('hex').toUpperCase();
   }
 }

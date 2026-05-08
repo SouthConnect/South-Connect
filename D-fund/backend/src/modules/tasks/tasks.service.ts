@@ -1,12 +1,15 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTaskDto } from './dto/create-task.dto';
+import { UpdateTaskDto } from './dto/update-task.dto';
 import { TaskStatus } from '@prisma/client';
 
+/** Manages personal task management for authenticated users. */
 @Injectable()
 export class TasksService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Returns all tasks for the given user, ordered by status then most recently created. */
   findAll(userId: string) {
     return this.prisma.task.findMany({
       where: { userId },
@@ -14,6 +17,7 @@ export class TasksService {
     });
   }
 
+  /** Creates a new task for the given user. Defaults to TODO status. */
   create(userId: string, dto: CreateTaskDto) {
     return this.prisma.task.create({
       data: {
@@ -29,7 +33,13 @@ export class TasksService {
     });
   }
 
-  async update(id: string, userId: string, dto: Partial<CreateTaskDto>) {
+  /**
+   * Updates an existing task.
+   *
+   * @throws NotFoundException  when the task does not exist.
+   * @throws ForbiddenException when the requester does not own the task.
+   */
+  async update(id: string, userId: string, dto: UpdateTaskDto) {
     const task = await this.prisma.task.findUnique({ where: { id } });
     if (!task) throw new NotFoundException('Task not found');
     if (task.userId !== userId) throw new ForbiddenException('Not your task');
@@ -46,6 +56,12 @@ export class TasksService {
     });
   }
 
+  /**
+   * Deletes a task.
+   *
+   * @throws NotFoundException  when the task does not exist.
+   * @throws ForbiddenException when the requester does not own the task.
+   */
   async remove(id: string, userId: string) {
     const task = await this.prisma.task.findUnique({ where: { id } });
     if (!task) throw new NotFoundException('Task not found');

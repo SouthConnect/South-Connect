@@ -22,6 +22,11 @@ COPY --from=builder /app/frontend/public ./public
 
 RUN npm install --omit=dev
 
+# Run as non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN chown -R appuser:appgroup /app/frontend
+USER appuser
+
 EXPOSE 3000
 
 CMD ["npm", "start"]

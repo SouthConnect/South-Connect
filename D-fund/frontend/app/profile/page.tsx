@@ -6,6 +6,8 @@ import { useAuth } from '@/app/lib/AuthContext'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiJson, uploadImage } from '@/app/lib/api'
 import { User, Mail, Phone, MapPin, Linkedin, Globe, Shield, UserCircle, Building2, Save } from 'lucide-react'
+import AuthGuard from '@/components/AuthGuard'
+import MultiSelect from '@/components/MultiSelect'
 
 // Cette page lit les search params et des données utilisateur côté client,
 // on force un rendu dynamique pour éviter les erreurs de pré-rendu.
@@ -46,6 +48,18 @@ function ProfilePageContent() {
   const [savedBtoB, setSavedBtoB] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
 
+  // Controlled multi-selects for Industries / Markets
+  const [btocIndustries, setBtocIndustries] = useState<string[]>([])
+  const [btobIndustries, setBtobIndustries] = useState<string[]>([])
+  const [btobMarkets, setBtobMarkets] = useState<string[]>([])
+
+  // Pre-fill multi-selects when profile data arrives
+  useEffect(() => {
+    if (profile?.btoCProfile?.industries?.length) setBtocIndustries(profile.btoCProfile.industries)
+    if (profile?.btoBProfile?.industries?.length) setBtobIndustries(profile.btoBProfile.industries)
+    if (profile?.btoBProfile?.marketFocus?.length) setBtobMarkets(profile.btoBProfile.marketFocus)
+  }, [profile])
+
   const updateMeMutation = useMutation({
     mutationFn: (data: any) => apiJson('/users/me', {
       method: 'PUT',
@@ -84,14 +98,6 @@ function ProfilePageContent() {
     },
   })
 
-  if (!authUser) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <p className="text-gray-500 text-lg">Please sign in to view your profile.</p>
-      </div>
-    )
-  }
-
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-12 max-w-4xl">
@@ -104,13 +110,39 @@ function ProfilePageContent() {
   }
 
   return (
+    <AuthGuard
+      skeleton={
+        <div className="container mx-auto px-4 py-12 max-w-4xl">
+          <div className="animate-pulse space-y-8">
+            <div className="h-32 bg-gray-200 rounded-xl" />
+            <div className="h-64 bg-gray-200 rounded-xl" />
+          </div>
+        </div>
+      }
+    >
     <div className="container mx-auto px-4 py-12 max-w-4xl">
       {isOnboarding && (
-        <div className="mb-6 rounded-2xl bg-[#3b49df]/5 border border-[#3b49df]/20 px-6 py-4">
-          <p className="text-sm font-bold text-[#3b49df] mb-1">Welcome to D-fund!</p>
-          <p className="text-xs text-gray-600">
-            Complete your profile to unlock all features — add a photo, fill in your bio, and set up your professional profile.
-          </p>
+        <div className="mb-8 rounded-2xl bg-gradient-to-br from-[#3b49df] to-[#2d3aba] px-6 py-6 text-white">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-lg shrink-0">D</div>
+            <div className="flex-1">
+              <p className="text-base font-bold mb-1">Bienvenue sur D-Fund, {authUser?.firstName || authUser?.name} !</p>
+              <p className="text-sm text-white/80 mb-4">
+                Complétez votre profil en 3 étapes pour commencer à vous connecter avec l&apos;écosystème.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold ${profile?.profilePic ? 'bg-green-400/30 text-white' : 'bg-white/10 text-white/70'}`}>
+                  {profile?.profilePic ? '✓' : '1'} Ajouter ma photo
+                </div>
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold ${profile?.bio ? 'bg-green-400/30 text-white' : 'bg-white/10 text-white/70'}`}>
+                  {profile?.bio ? '✓' : '2'} Écrire ma bio
+                </div>
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold ${(profile?.btoCProfile || profile?.btoBProfile) ? 'bg-green-400/30 text-white' : 'bg-white/10 text-white/70'}`}>
+                  {(profile?.btoCProfile || profile?.btoBProfile) ? '✓' : '3'} Configurer mon profil pro
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -140,7 +172,7 @@ function ProfilePageContent() {
                     const file = e.target.files?.[0]
                     if (!file || !authUser) return
                     if (file.size > 5 * 1024 * 1024) {
-                      setUploadError('Image size must be less than 5MB')
+                      setUploadError('L\'image ne doit pas dépasser 5 Mo')
                       return
                     }
                     setAvatarFile(file)
@@ -159,7 +191,7 @@ function ProfilePageContent() {
                       await refreshUser()
                       queryClient.invalidateQueries({ queryKey: ['profile', authUser.id] })
                     } catch (error: any) {
-                      setUploadError(error?.message || 'Failed to update profile picture')
+                      setUploadError(error?.message || 'Impossible de mettre à jour la photo de profil')
                     }
                   }}
                 />
@@ -175,7 +207,7 @@ function ProfilePageContent() {
         {uploadError && (
           <div className="mx-8 mb-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
             {uploadError}
-            <button onClick={() => setUploadError(null)} className="ml-2 font-bold">✕</button>
+            <button onClick={() => setUploadError(null)} className="ml-2 font-bold" aria-label="Dismiss">&times;</button>
           </div>
         )}
 
@@ -188,7 +220,7 @@ function ProfilePageContent() {
             }`}
           >
             <User className="w-4 h-4" />
-            Basic Info
+            Informations
           </button>
           <button
             onClick={() => setActiveTab('btoc')}
@@ -197,7 +229,7 @@ function ProfilePageContent() {
             }`}
           >
             <UserCircle className="w-4 h-4" />
-            Individual Profile
+            Profil individuel
           </button>
           <button
             onClick={() => setActiveTab('btob')}
@@ -206,7 +238,7 @@ function ProfilePageContent() {
             }`}
           >
             <Building2 className="w-4 h-4" />
-            Company Profile
+            Profil entreprise
           </button>
         </div>
       </div>
@@ -218,7 +250,7 @@ function ProfilePageContent() {
           {profile?.btoCProfile && (
             <div>
               <p className="text-[10px] font-bold text-[#3b49df] uppercase tracking-widest mb-2 px-1">
-                Your BtoC Profile
+                Profil individuel
               </p>
               <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center justify-between hover:shadow-sm transition-shadow">
                 <div className="flex items-center gap-4">
@@ -233,8 +265,8 @@ function ProfilePageContent() {
                   <div>
                     <div className="text-sm font-semibold text-gray-900">{profile.name}</div>
                     <div className="text-xs text-gray-500">
-                      {profile.btoCProfile.opportunitiesCount ?? 0} Opportunities •{' '}
-                      {profile.btoCProfile.followersCount ?? 0} Followers
+                      {profile.btoCProfile.opportunitiesCount ?? 0} Opportunités •{' '}
+                      {profile.btoCProfile.followersCount ?? 0} Abonnés
                     </div>
                   </div>
                 </div>
@@ -242,7 +274,7 @@ function ProfilePageContent() {
                   onClick={() => setActiveTab('btoc')}
                   className="text-xs font-semibold text-[#3b49df] hover:underline"
                 >
-                  Edit
+                  Modifier
                 </button>
               </div>
             </div>
@@ -252,7 +284,7 @@ function ProfilePageContent() {
           {profile?.btoBProfile && (
             <div>
               <p className="text-[10px] font-bold text-[#3b49df] uppercase tracking-widest mb-2 px-1">
-                Your BtoB Profile
+                Profil entreprise
               </p>
               <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center justify-between hover:shadow-sm transition-shadow">
                 <div className="flex items-center gap-4">
@@ -269,8 +301,8 @@ function ProfilePageContent() {
                       {profile.btoBProfile.companyName || 'My Company'}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {profile.btoBProfile.opportunitiesCount ?? 0} Opportunities •{' '}
-                      {profile.btoBProfile.followersCount ?? 0} Followers
+                      {profile.btoBProfile.opportunitiesCount ?? 0} Opportunités •{' '}
+                      {profile.btoBProfile.followersCount ?? 0} Abonnés
                     </div>
                   </div>
                 </div>
@@ -288,8 +320,8 @@ function ProfilePageContent() {
           {!profile?.btoBProfile && (
             <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-gray-900">Ready to showcase your company?</p>
-                <p className="text-xs text-gray-500 mt-0.5">Add a BtoB profile and gain traction &amp; visibility.</p>
+                <p className="text-sm font-semibold text-gray-900">Prêt à présenter votre entreprise ?</p>
+                <p className="text-xs text-gray-500 mt-0.5">Ajoutez un profil entreprise et gagnez en visibilité.</p>
               </div>
               <button
                 onClick={() => setActiveTab('btob')}
@@ -314,12 +346,12 @@ function ProfilePageContent() {
               updateMeMutation.mutate(data)
             }}
           >
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Basic Information</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Informations générales</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  <User className="w-3 h-3 inline mr-1" />First Name
+                  <User className="w-3 h-3 inline mr-1" />Prénom
                 </label>
                 <input
                   name="firstName"
@@ -330,7 +362,7 @@ function ProfilePageContent() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  <User className="w-3 h-3 inline mr-1" />Last Name
+                  <User className="w-3 h-3 inline mr-1" />Nom
                 </label>
                 <input
                   name="lastName"
@@ -341,7 +373,7 @@ function ProfilePageContent() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  <Phone className="w-3 h-3 inline mr-1" />Phone
+                  <Phone className="w-3 h-3 inline mr-1" />Téléphone
                 </label>
                 <input
                   name="phone"
@@ -352,7 +384,7 @@ function ProfilePageContent() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  <MapPin className="w-3 h-3 inline mr-1" />City
+                  <MapPin className="w-3 h-3 inline mr-1" />Ville
                 </label>
                 <input
                   name="city"
@@ -363,7 +395,7 @@ function ProfilePageContent() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  <MapPin className="w-3 h-3 inline mr-1" />Country
+                  <MapPin className="w-3 h-3 inline mr-1" />Pays
                 </label>
                 <input
                   name="country"
@@ -410,13 +442,13 @@ function ProfilePageContent() {
                 defaultValue={profile?.bio || ''}
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df] resize-none"
-                placeholder="A short bio about yourself..."
+                placeholder="Une courte présentation de vous-même…"
               />
             </div>
 
             {savedInfo && (
               <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700 font-medium">
-                Profile updated successfully.
+                Profil mis à jour avec succès.
               </div>
             )}
             {updateMeMutation.isError && (
@@ -432,7 +464,7 @@ function ProfilePageContent() {
                 className="flex items-center gap-2 px-6 py-2 bg-[#3b49df] text-white rounded-lg font-bold hover:bg-[#2d3aba] transition-colors disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
-                {updateMeMutation.isPending ? 'Saving...' : 'Save Changes'}
+                {updateMeMutation.isPending ? 'Enregistrement…' : 'Sauvegarder'}
               </button>
             </div>
           </form>
@@ -446,32 +478,32 @@ function ProfilePageContent() {
             // Conversion simple pour l'exemple
             updateBtoCMutation.mutate({
               ...data,
-              tags: (data.tags as string).split(',').map(t => t.trim()),
-              industries: (data.industries as string).split(',').map(t => t.trim()),
+              tags: (data.tags as string).split(',').map((t: string) => t.trim()).filter(Boolean),
+              industries: btocIndustries,
               lookingForOpportunities: !!data.lookingForOpportunities,
             })
           }}>
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Individual Professional Profile</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Profil professionnel individuel</h2>
             {!profile?.btoCProfile && (
               <div className="p-4 bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-xl text-sm mb-6">
-                You haven't set up your individual profile yet. Complete the form below to start.
+                Vous n'avez pas encore configuré votre profil individuel. Remplissez le formulaire ci-dessous pour commencer.
               </div>
             )}
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Professional Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description professionnelle</label>
                 <textarea
                   name="description"
                   defaultValue={profile?.btoCProfile?.description || ''}
                   rows={4}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm"
-                  placeholder="Describe your professional background and what you're looking for..."
+                  placeholder="Décrivez votre parcours professionnel et ce que vous recherchez…"
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Skills (comma separated)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Compétences (séparées par des virgules)</label>
                   <input
                     name="tags"
                     defaultValue={profile?.btoCProfile?.tags?.join(', ') || ''}
@@ -479,25 +511,33 @@ function ProfilePageContent() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Seniority Level</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Niveau d'expérience</label>
                   <select
                     name="seniorityLevel"
                     defaultValue={profile?.btoCProfile?.seniorityLevel || ''}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm"
                   >
-                    <option value="">Select Level</option>
+                    <option value="">Choisir un niveau</option>
                     <option value="junior">Junior</option>
-                    <option value="mid">Mid-level</option>
+                    <option value="mid">Intermédiaire</option>
                     <option value="senior">Senior</option>
                     <option value="expert">Expert / C-Level</option>
                   </select>
                 </div>
               </div>
+
+              <MultiSelect
+                endpoint="/industries"
+                value={btocIndustries}
+                onChange={setBtocIndustries}
+                label="Industries"
+                placeholder="Select industries…"
+              />
             </div>
 
             {savedBtoC && (
               <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700 font-medium">
-                Individual profile updated.
+                Profil individuel mis à jour.
               </div>
             )}
 
@@ -508,7 +548,7 @@ function ProfilePageContent() {
                 className="flex items-center gap-2 px-6 py-2 bg-[#3b49df] text-white rounded-lg font-bold hover:bg-[#2d3aba] transition-colors disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
-                {updateBtoCMutation.isPending ? 'Saving...' : 'Save BtoC Profile'}
+                {updateBtoCMutation.isPending ? 'Enregistrement…' : 'Sauvegarder'}
               </button>
             </div>
           </form>
@@ -526,20 +566,8 @@ function ProfilePageContent() {
 
               const data: any = {
                 ...raw,
-              }
-
-              if (data.industries) {
-                data.industries = (data.industries as string)
-                  .split(',')
-                  .map((v: string) => v.trim())
-                  .filter(Boolean)
-              }
-
-              if (data.marketFocus) {
-                data.marketFocus = (data.marketFocus as string)
-                  .split(',')
-                  .map((v: string) => v.trim())
-                  .filter(Boolean)
+                industries: btobIndustries,
+                marketFocus: btobMarkets,
               }
 
               try {
@@ -565,14 +593,14 @@ function ProfilePageContent() {
 
                 updateBtoBMutation.mutate(data)
               } catch (error: any) {
-                setUploadError(error?.message || 'Failed to upload images')
+                setUploadError(error?.message || 'Impossible d\'uploader les images')
               }
             }}
           >
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Company / Organization Profile</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Profil entreprise / organisation</h2>
             {!profile?.btoBProfile && (
               <div className="p-4 bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-xl text-sm mb-6">
-                You haven't set up your company profile yet.
+                Vous n'avez pas encore configuré votre profil entreprise.
               </div>
             )}
             
@@ -580,7 +608,7 @@ function ProfilePageContent() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Company Logo
+                    Logo de l'entreprise
                   </label>
                   {companyLogoPreview || profile?.btoBProfile?.logo ? (
                     <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
@@ -604,7 +632,7 @@ function ProfilePageContent() {
                     </div>
                   ) : (
                     <label className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 text-xs text-gray-500">
-                      Upload
+                      Uploader
                       <input
                         ref={logoInputRef}
                         type="file"
@@ -614,7 +642,7 @@ function ProfilePageContent() {
                           const file = e.target.files?.[0]
                           if (!file) return
                           if (file.size > 5 * 1024 * 1024) {
-                            setUploadError('Image size must be less than 5MB')
+                            setUploadError('L\'image ne doit pas dépasser 5 Mo')
                             return
                           }
                           setCompanyLogoFile(file)
@@ -630,7 +658,7 @@ function ProfilePageContent() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Header Image
+                    Image d'en-tête
                   </label>
                   {headerImagePreview || profile?.btoBProfile?.headerImage ? (
                     <div className="relative w-full h-24 rounded-lg overflow-hidden border border-gray-200">
@@ -654,7 +682,7 @@ function ProfilePageContent() {
                     </div>
                   ) : (
                     <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 text-xs text-gray-500">
-                      Upload header
+                      Uploader l'en-tête
                       <input
                         ref={headerInputRef}
                         type="file"
@@ -664,7 +692,7 @@ function ProfilePageContent() {
                           const file = e.target.files?.[0]
                           if (!file) return
                           if (file.size > 5 * 1024 * 1024) {
-                            setUploadError('Image size must be less than 5MB')
+                            setUploadError('L\'image ne doit pas dépasser 5 Mo')
                             return
                           }
                           setHeaderImageFile(file)
@@ -681,7 +709,7 @@ function ProfilePageContent() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nom de l'entreprise</label>
                   <input
                     name="companyName"
                     defaultValue={profile?.btoBProfile?.companyName || ''}
@@ -690,17 +718,17 @@ function ProfilePageContent() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Development Stage</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Stade de développement</label>
                   <select
                     name="developmentStage"
                     defaultValue={profile?.btoBProfile?.developmentStage || ''}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm"
                   >
-                    <option value="">Select Stage</option>
-                    <option value="ideation">Ideation</option>
+                    <option value="">Choisir un stade</option>
+                    <option value="ideation">Idéation</option>
                     <option value="mvp">MVP</option>
-                    <option value="growth">Growth</option>
-                    <option value="scaling">Scaling</option>
+                    <option value="growth">Croissance</option>
+                    <option value="scaling">Mise à l'échelle</option>
                   </select>
                 </div>
               </div>
@@ -710,11 +738,11 @@ function ProfilePageContent() {
                   name="punchline"
                   defaultValue={profile?.btoBProfile?.punchline || ''}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm"
-                  placeholder="A short one-liner about your company"
+                  placeholder="Une phrase courte sur votre entreprise"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Company Description</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description de l'entreprise</label>
                 <textarea
                   name="description"
                   defaultValue={profile?.btoBProfile?.description || ''}
@@ -722,11 +750,28 @@ function ProfilePageContent() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm"
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <MultiSelect
+                  endpoint="/industries"
+                  value={btobIndustries}
+                  onChange={setBtobIndustries}
+                  label="Industries"
+                  placeholder="Select industries…"
+                />
+                <MultiSelect
+                  endpoint="/markets"
+                  value={btobMarkets}
+                  onChange={setBtobMarkets}
+                  label="Marchés / Géographies"
+                  placeholder="Sélectionner des marchés…"
+                />
+              </div>
             </div>
 
             {savedBtoB && (
               <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700 font-medium">
-                Company profile updated.
+                Profil entreprise mis à jour.
               </div>
             )}
 
@@ -737,19 +782,20 @@ function ProfilePageContent() {
                 className="flex items-center gap-2 px-6 py-2 bg-[#3b49df] text-white rounded-lg font-bold hover:bg-[#2d3aba] transition-colors disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
-                {updateBtoBMutation.isPending ? 'Saving...' : 'Save BtoB Profile'}
+                {updateBtoBMutation.isPending ? 'Enregistrement…' : 'Sauvegarder'}
               </button>
             </div>
           </form>
         )}
       </div>
     </div>
+    </AuthGuard>
   )
 }
 
 export default function ProfilePage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading profile...</div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">Chargement du profil…</div>}>
       <ProfilePageContent />
     </Suspense>
   )

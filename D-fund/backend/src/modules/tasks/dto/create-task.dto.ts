@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsDateString, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsDateString, IsUrl, MaxLength } from 'class-validator';
 
 enum TaskStatus {
   TODO = 'TODO',
@@ -14,6 +14,7 @@ export class CreateTaskDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @IsOptional()
@@ -25,15 +26,17 @@ export class CreateTaskDto {
   dueDate?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(500)
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @MaxLength(2000)
   url?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   relatedItemId?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   relatedItemType?: string;
 }

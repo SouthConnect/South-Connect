@@ -1,4 +1,12 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  MaxLength,
+  IsOptional,
+  IsEnum,
+  Matches,
+} from 'class-validator';
 
 enum AllowedRole {
   USER = 'USER',
@@ -6,28 +14,33 @@ enum AllowedRole {
 
 export class RegisterDto {
   @IsEmail()
+  @MaxLength(254)
   email: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
+  @MaxLength(128)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, {
+    message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+  })
   password: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(50)
   firstName?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(50)
   lastName?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(100)
   name?: string;
 
-  // Seul le rôle USER est autorisé à l'inscription publique
-  // Le rôle ADMIN ne peut être attribué que manuellement en base
   @IsOptional()
   @IsEnum(AllowedRole)
   role?: AllowedRole;
 }
-

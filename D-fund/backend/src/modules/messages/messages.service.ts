@@ -1,226 +1,239 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { DiscussionType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { ChatGateway } from './chat.gateway';
 
+/**
+ * Handles all messaging logic: public discussion threads and private (1-to-1) discussions.
+ *
+ * Every mutation that creates a message also broadcasts a real-time `newMessage` event
+ * via {@link ChatGateway} so connected Socket.IO clients receive updates without polling.
+ */
 @Injectable()
 export class MessagesService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(MessagesService.name);
 
-  async createPublicDiscussion(ownerId: string, title: string, description?: string) {
+  constructor(
+    private prisma: PrismaService,
+    private notificationsService: NotificationsService,
+    private chatGateway: ChatGateway,
+  ) {}
+
+  /** Creates a new public discussion thread owned by the given user. */
+  createPublicDiscussion(ownerId: string, title: string, description?: string) {
     return this.prisma.publicDiscussion.create({
       data: {
         ownerId,
         title,
         description,
-        type: 'OPEN_FORUM' as any,
+        type: DiscussionType.OPEN_FORUM,
         lastMessageAt: new Date(),
       },
-      include: {
-        owner: {
-          select: { id: true, name: true, profilePic: true },
-        },
-      },
+      include: { owner: { select: { id: true, name: true, profilePic: true } } },
     });
   }
 
+  /**
+   * Returns all public discussion threads, optionally filtered by type.
+   *
+   * @param type - Optional filter: 'OPEN_FORUM' or 'OPPORTUNITY_RELATED'.
+   */
   findPublicDiscussions(type?: string) {
     const where: Prisma.PublicDiscussionWhereInput = {};
 
-    if (type === 'OPEN_FORUM' || type === 'OPPORTUNITY_RELATED') {
-      where.type = type as any;
+    if (type === DiscussionType.OPEN_FORUM || type === DiscussionType.OPPORTUNITY_RELATED) {
+      where.type = type;
     }
 
     return this.prisma.publicDiscussion.findMany({
       where,
       orderBy: { lastMessageAt: 'desc' },
       include: {
-        owner: {
-          select: {
-            id: true,
-            name: true,
-            profilePic: true,
-          },
-        },
-        opportunity: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            backgroundImage: true,
-          },
-        },
+        owner: { select: { id: true, name: true, profilePic: true } },
+        opportunity: { select: { id: true, name: true, image: true, backgroundImage: true } },
       },
     });
   }
 
+  /**
+   * Returns all private discussions for a user, including the most recent message
+   * in each thread for use as a preview in the inbox list.
+   */
   findPrivateDiscussionsForUser(userId: string) {
     return this.prisma.privateDiscussion.findMany({
-      where: {
-        participants: {
-          some: {
-            userId,
-          },
-        },
-      },
+      where: { participants: { some: { userId } } },
       orderBy: { lastMessageAt: 'desc' },
       include: {
         participants: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                profilePic: true,
-              },
-            },
-          },
+          include: { user: { select: { id: true, name: true, profilePic: true } } },
+        },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { content: true, senderId: true, createdAt: true },
         },
       },
     });
   }
 
-  findPublicDiscussionMessages(discussionId: string) {
+  /**
+   * Returns messages for a public discussion, ordered chronologically.
+   *
+   * @param discussionId - ID of the public discussion.
+   * @param take         - Maximum number of messages to return (default 100).
+   * @param skip         - Number of messages to skip for pagination.
+   */
+  findPublicDiscussionMessages(discussionId: string, take = 100, skip = 0) {
     return this.prisma.message.findMany({
       where: { publicDiscussionId: discussionId },
       orderBy: { createdAt: 'asc' },
-      include: {
-        sender: true,
-      },
+      take,
+      skip,
+      include: { sender: { select: { id: true, name: true, profilePic: true } } },
     });
   }
 
+  /**
+   * Returns messages for a private discussion, ordered chronologically.
+   * Only participants may read the discussion.
+   *
+   * @throws NotFoundException  when the discussion does not exist.
+   * @throws ForbiddenException when the requester is not a participant.
+   */
   async findPrivateDiscussionMessages(discussionId: string, requesterId: string) {
     const discussion = await this.prisma.privateDiscussion.findUnique({
       where: { id: discussionId },
       include: { participants: true },
     });
 
-    if (!discussion) {
-      throw new NotFoundException('Discussion not found');
-    }
+    if (!discussion) throw new NotFoundException('Discussion not found');
 
-    const isParticipant = discussion.participants.some((p) => p.userId === requesterId);
-    if (!isParticipant) {
+    if (!discussion.participants.some((p) => p.userId === requesterId)) {
       throw new ForbiddenException('You are not allowed to read this discussion');
     }
 
     return this.prisma.message.findMany({
       where: { privateDiscussionId: discussionId },
       orderBy: { createdAt: 'asc' },
-      include: {
-        sender: true,
-        receiver: true,
-      },
+      take: 100,
+      include: { sender: { select: { id: true, name: true, profilePic: true } } },
     });
   }
 
+  /**
+   * Starts a private discussion between two users.
+   * Idempotent: returns the existing discussion when one already exists for the pair.
+   *
+   * Uses a database transaction to prevent duplicate discussions when two
+   * concurrent requests arrive at the same time (race condition guard).
+   *
+   * @throws ForbiddenException when a user attempts to message themselves.
+   */
   async startPrivateDiscussion(currentUserId: string, targetUserId: string) {
     if (currentUserId === targetUserId) {
       throw new ForbiddenException('You cannot start a conversation with yourself');
     }
 
-    const existing = await this.prisma.privateDiscussion.findFirst({
-      where: {
-        participants: {
-          every: {
-            userId: {
-              in: [currentUserId, targetUserId],
-            },
-          },
-        },
-      },
-      include: {
-        participants: true,
-      },
-    });
-
-    if (existing) {
-      return existing;
-    }
-
-    return this.prisma.privateDiscussion.create({
-      data: {
-        participants: {
-          create: [
-            { userId: currentUserId },
-            { userId: targetUserId },
+    return this.prisma.$transaction(async (tx) => {
+      // Re-check inside the transaction to eliminate the TOCTOU window
+      const existing = await tx.privateDiscussion.findFirst({
+        where: {
+          AND: [
+            { participants: { some: { userId: currentUserId } } },
+            { participants: { some: { userId: targetUserId } } },
           ],
         },
-        lastMessageAt: new Date(),
-      },
-      include: {
-        participants: true,
-      },
+        include: { participants: true },
+      });
+
+      if (existing) return existing;
+
+      return tx.privateDiscussion.create({
+        data: {
+          participants: {
+            create: [{ userId: currentUserId }, { userId: targetUserId }],
+          },
+          lastMessageAt: new Date(),
+        },
+        include: { participants: true },
+      });
     });
   }
 
+  /**
+   * Posts a message to a public discussion and broadcasts it to all connected
+   * Socket.IO clients subscribed to the discussion room.
+   *
+   * @throws NotFoundException when the discussion does not exist.
+   */
   async createPublicMessage(discussionId: string, senderId: string, content: string) {
     const discussion = await this.prisma.publicDiscussion.findUnique({
       where: { id: discussionId },
     });
-
-    if (!discussion) {
-      throw new NotFoundException('Discussion not found');
-    }
+    if (!discussion) throw new NotFoundException('Discussion not found');
 
     const message = await this.prisma.message.create({
-      data: {
-        content,
-        senderId,
-        publicDiscussionId: discussionId,
-      },
+      data: { content, senderId, publicDiscussionId: discussionId },
+      include: { sender: { select: { id: true, name: true, profilePic: true } } },
     });
 
     await this.prisma.publicDiscussion.update({
       where: { id: discussionId },
-      data: {
-        lastMessageAt: new Date(),
-        messagesCount: {
-          increment: 1,
-        },
-      },
+      data: { lastMessageAt: new Date(), messagesCount: { increment: 1 } },
     });
+
+    this.chatGateway.broadcastMessage(discussionId, message);
 
     return message;
   }
 
+  /**
+   * Resets the unread counter for a private discussion.
+   * Only participants may mark a discussion as read.
+   *
+   * @throws NotFoundException  when the discussion does not exist.
+   * @throws ForbiddenException when the requester is not a participant.
+   */
   async markPrivateDiscussionAsRead(discussionId: string, userId: string) {
     const discussion = await this.prisma.privateDiscussion.findUnique({
       where: { id: discussionId },
       include: { participants: true },
     });
 
-    if (!discussion) {
-      throw new NotFoundException('Discussion not found');
-    }
+    if (!discussion) throw new NotFoundException('Discussion not found');
 
-    const isParticipant = discussion.participants.some((p) => p.userId === userId);
-    if (!isParticipant) {
+    if (!discussion.participants.some((p) => p.userId === userId)) {
       throw new ForbiddenException('You are not allowed to access this discussion');
     }
 
-    await this.prisma.privateDiscussion.update({
-      where: { id: discussionId },
+    await this.prisma.participant.updateMany({
+      where: { userId, discussionId },
       data: { unreadCount: 0 },
     });
 
     return { success: true };
   }
 
+  /**
+   * Posts a message to a private discussion, broadcasts it via Socket.IO, and
+   * sends both an in-app notification and an email notification to the recipient.
+   *
+   * Notifications are non-critical and run inside a try/catch to prevent failures
+   * from blocking the message delivery.
+   *
+   * @throws NotFoundException  when the discussion does not exist.
+   * @throws ForbiddenException when the sender is not a participant.
+   */
   async createPrivateMessage(discussionId: string, senderId: string, content: string) {
     const discussion = await this.prisma.privateDiscussion.findUnique({
       where: { id: discussionId },
-      include: {
-        participants: true,
-      },
+      include: { participants: true },
     });
 
-    if (!discussion) {
-      throw new NotFoundException('Discussion not found');
-    }
+    if (!discussion) throw new NotFoundException('Discussion not found');
 
-    const isParticipant = discussion.participants.some((p) => p.userId === senderId);
-    if (!isParticipant) {
+    if (!discussion.participants.some((p) => p.userId === senderId)) {
       throw new ForbiddenException('You are not allowed to post in this discussion');
     }
 
@@ -233,19 +246,49 @@ export class MessagesService {
         receiverId: otherParticipant?.userId,
         privateDiscussionId: discussionId,
       },
+      include: { sender: { select: { id: true, name: true, profilePic: true } } },
     });
 
     await this.prisma.privateDiscussion.update({
       where: { id: discussionId },
-      data: {
-        lastMessageAt: new Date(),
-        unreadCount: {
-          increment: 1,
-        },
-      },
+      data: { lastMessageAt: new Date() },
     });
+
+    this.chatGateway.broadcastMessage(discussionId, message);
+
+    if (otherParticipant) {
+      try {
+        await this.prisma.participant.updateMany({
+          where: { userId: otherParticipant.userId, discussionId },
+          data: { unreadCount: { increment: 1 } },
+        });
+
+        const [sender, recipient] = await Promise.all([
+          this.prisma.user.findUnique({ where: { id: senderId }, select: { name: true } }),
+          this.prisma.user.findUnique({ where: { id: otherParticipant.userId } }),
+        ]);
+
+        const preview = content.length > 80 ? content.slice(0, 80) + '...' : content;
+        const senderName = sender?.name ?? 'Someone';
+
+        await this.notificationsService.createInApp(
+          otherParticipant.userId,
+          'NEW_MESSAGE',
+          `New message from ${senderName}`,
+          preview,
+          `/chat/private/${discussionId}`,
+        );
+
+        if (recipient) {
+          this.notificationsService
+            .sendNewMessageEmail(recipient, senderName, preview, discussionId)
+            .catch((err) => this.logger.error(`Failed to send message email: ${err.message}`));
+        }
+      } catch (err) {
+        this.logger.error(`Failed to create message notification: ${err.message}`);
+      }
+    }
 
     return message;
   }
 }
-

@@ -7,7 +7,8 @@ import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
 import { Search, Filter } from 'lucide-react'
 
-const STATUS_OPTIONS = ['ACTIVE', 'PENDING', 'DRAFT', 'CLOSED', 'ARCHIVED'] as const
+// DRAFT intentionally excluded — drafts are never shown in the public feed
+const STATUS_OPTIONS = ['ACTIVE', 'PENDING', 'CLOSED', 'ARCHIVED'] as const
 
 const TYPE_OPTIONS = [
   'JOB_OPPORTUNITY',
@@ -142,7 +143,7 @@ export default function OpportunitiesPage() {
 
         {!isLoading && !isError && (
           <>
-            {!opportunities || opportunities.length === 0 ? (
+            {!opportunities?.data || opportunities.data.length === 0 ? (
               <div className="text-center py-16 text-gray-500 bg-white rounded-2xl border border-dashed border-gray-200">
                 <p className="mb-4">
                   No opportunities match your current filters.
@@ -167,7 +168,10 @@ export default function OpportunitiesPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {opportunities.map((opportunity: any) => (
+                {opportunities.total !== undefined && (
+                  <p className="text-xs text-gray-400 mb-2">{opportunities.total} result{opportunities.total !== 1 ? 's' : ''}</p>
+                )}
+                {opportunities.data.map((opportunity: any) => (
                   <OpportunityCard key={opportunity.id} opportunity={opportunity} />
                 ))}
               </div>

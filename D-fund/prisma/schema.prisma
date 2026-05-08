@@ -2,12 +2,15 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+  output          = "../backend/node_modules/.prisma/client"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================
@@ -31,6 +34,14 @@ model User {
   linkedinUrl   String?
   website       String?
   visibility    Boolean  @default(true)
+  googleId      String?  @unique
+  passwordResetToken  String?  @unique
+  passwordResetExpiry DateTime?
+  isEmailVerified     Boolean  @default(false)
+  emailVerificationToken String? @unique
+  isBanned        Boolean  @default(false)
+  emailOptOut             Boolean  @default(false)
+  emailUnsubscribeToken   String?  @unique
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -51,7 +62,9 @@ model User {
   following      Follow[]       @relation("Following")
   savedOpportunities SavedOpportunity[]
   likedOpportunities LikedOpportunity[]
-  
+  adminAuditLogs          AdminAuditLog[]
+  notificationPreferences NotificationPreferences?
+
   @@index([email])
   @@map("users")
 }
@@ -147,12 +160,13 @@ model Opportunity {
   punchline       String?
   description     String?   @db.Text
   type            OpportunityType
-  featureId       String?   // Reference to Feature type
+  featureId       String?
+  feature         Feature?  @relation(fields: [featureId], references: [id], onDelete: SetNull)
   status          OpportunityStatus @default(DRAFT)
   
   // Owner
   ownerId         String
-  owner           User     @relation(fields: [ownerId], references: [id])
+  owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   
   // Location & Details
   city            String?
@@ -165,7 +179,7 @@ model Opportunity {
   
   // Application Process
   applicationProcessId String?
-  applicationProcess  ApplicationProcess? @relation(fields: [applicationProcessId], references: [id])
+  applicationProcess  ApplicationProcess? @relation(fields: [applicationProcessId], references: [id], onDelete: SetNull)
   needToCheckApplicant Boolean @default(false)
   
   // Media
@@ -218,9 +232,14 @@ model Opportunity {
   likedBy        LikedOpportunity[]
 
   @@index([ownerId])
+  @@index([ownerId, status])
+  @@index([featureId])
   @@index([type])
   @@index([status])
   @@index([createdAt])
+  @@index([expirationDate])
+  @@index([boostedUntil])
+  @@index([name])
   @@map("opportunities")
 }
 
@@ -296,14 +315,19 @@ model Application {
   
   // Referral
   referralCodeUsed String?
-  
+
+  // Attachment (single file URL from Supabase storage)
+  attachmentUrl String?
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@unique([opportunityId, candidateId])
   @@index([candidateId])
   @@index([opportunityId])
+  @@index([opportunityId, stage])
   @@index([stage])
+  @@index([createdAt])
   @@map("applications")
 }
 
@@ -351,8 +375,7 @@ model PrivateDiscussion {
   participants    Participant[] @relation("PrivateDiscussionParticipants")
   messages        Message[]
   lastMessageAt   DateTime?
-  unreadCount     Int      @default(0)
-  
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -365,7 +388,8 @@ model Participant {
   user            User     @relation("PrivateDiscussionParticipants", fields: [userId], references: [id], onDelete: Cascade)
   discussionId    String
   discussion      PrivateDiscussion @relation("PrivateDiscussionParticipants", fields: [discussionId], references: [id], onDelete: Cascade)
-  
+  unreadCount     Int      @default(0)
+
   joinedAt        DateTime @default(now())
 
   @@unique([userId, discussionId])
@@ -474,8 +498,9 @@ model Task {
   userId          String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  relatedItemId   String?  // Can be opportunity, application, etc.
-  relatedItemType String?  // "opportunity", "application", etc.
+  // Soft reference — no FK constraint (item may be deleted independently)
+  relatedItemId   String?
+  relatedItemType String?  // "opportunity" | "application"
   
   name            String
   description     String?  @db.Text
@@ -525,7 +550,9 @@ model ReferralCode {
   updatedAt     DateTime @updatedAt
 
   @@index([ownerId])
+  @@index([ownerId, status])
   @@index([code])
+  @@index([opportunityId])
   @@map("referral_codes")
 }
 
@@ -560,6 +587,7 @@ model Notification {
   createdAt   DateTime @default(now())
 
   @@index([userId, isRead])
+  @@index([userId, createdAt])
   @@map("notifications")
 }
 
@@ -588,21 +616,75 @@ model Feature {
   id              String   @id @default(cuid())
   name            String   @unique
   description     String?  @db.Text
-  category        String?  // Main category
+  category        String?
   order           Int?
-  
+
   // AI Configuration
   aiPrompt        String?  @db.Text
   seekerName      String?
   creatorName     String?
   seekerScenario  String?  @db.Text
   creatorScenario String? @db.Text
-  
+
   // Settings
-  displayType     String?  // Post, Gallery, Map, etc.
+  displayType     String?
   noApplicationNeeded Boolean @default(false)
-  
+
   opportunitiesCount Int   @default(0)
-  
+
+  opportunities  Opportunity[]
+
   @@map("features")
+}
+
+// ============================================
+// ADMIN AUDIT LOG
+// ============================================
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  adminId     String
+  admin       User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  action      String   // e.g. "BAN_USER", "APPROVE_OPPORTUNITY", "CHANGE_ROLE"
+  targetId    String?
+  targetType  String?  // "user", "opportunity", etc.
+  details     String?  @db.Text
+
+  createdAt   DateTime @default(now())
+
+  @@index([adminId])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}
+
+// ============================================
+// NOTIFICATION PREFERENCES
+// ============================================
+
+model NotificationPreferences {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // Email preferences — global emailOptOut on User takes precedence
+  emailApplicationSubmitted Boolean @default(true)
+  emailApplicationReviewed  Boolean @default(true)
+  emailApplicationAccepted  Boolean @default(true)
+  emailOpportunityApproved  Boolean @default(true)
+  emailOpportunityRejected  Boolean @default(true)
+  emailNewMessage           Boolean @default(true)
+  emailNewFollower          Boolean @default(true)
+
+  // In-app notification preferences
+  inAppApplicationSubmitted Boolean @default(true)
+  inAppApplicationReviewed  Boolean @default(true)
+  inAppApplicationAccepted  Boolean @default(true)
+  inAppOpportunityApproved  Boolean @default(true)
+  inAppOpportunityRejected  Boolean @default(true)
+  inAppNewMessage           Boolean @default(true)
+  inAppNewFollower          Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }
