@@ -35,8 +35,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# prisma
-/prisma/migrations
+# prisma — migrations must be committed for `prisma migrate deploy` to work in production
+# /prisma/migrations
 
 # glide raw data
 data/glide/

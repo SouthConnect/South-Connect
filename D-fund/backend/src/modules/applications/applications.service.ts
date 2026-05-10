@@ -32,7 +32,12 @@ export class ApplicationsService {
    *
    * @throws ForbiddenException when the requester does not own the opportunity.
    */
-  async findByOpportunityForOwner(opportunityId: string, ownerId: string) {
+  async findByOpportunityForOwner(
+    opportunityId: string,
+    ownerId: string,
+    take = 50,
+    skip = 0,
+  ) {
     const opportunity = await this.prisma.opportunity.findUnique({
       where: { id: opportunityId },
       select: { ownerId: true },
@@ -42,9 +47,14 @@ export class ApplicationsService {
       throw new ForbiddenException('You are not allowed to access these applications');
     }
 
+    const cappedTake = Math.min(Math.max(take, 1), 100);
+    const cappedSkip = Math.max(skip, 0);
+
     return this.prisma.application.findMany({
       where: { opportunityId },
       orderBy: { createdAt: 'desc' },
+      take: cappedTake,
+      skip: cappedSkip,
       include: {
         candidate: {
           select: {
@@ -63,11 +73,15 @@ export class ApplicationsService {
     });
   }
 
-  /** Returns all applications submitted by the given user, with opportunity details. */
-  findForUser(userId: string) {
+  /** Returns applications submitted by the given user, with opportunity details. */
+  findForUser(userId: string, take = 50, skip = 0) {
+    const cappedTake = Math.min(Math.max(take, 1), 100);
+    const cappedSkip = Math.max(skip, 0);
     return this.prisma.application.findMany({
       where: { candidateId: userId },
       orderBy: { createdAt: 'desc' },
+      take: cappedTake,
+      skip: cappedSkip,
       include: {
         opportunity: {
           select: {

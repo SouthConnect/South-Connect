@@ -17,10 +17,23 @@ const logger = new Logger('Bootstrap');
 
 async function bootstrap() {
   // Fail fast if critical env vars are missing
-  const required = ['DATABASE_URL', 'JWT_SECRET'];
+  const required = ['DATABASE_URL', 'JWT_SECRET', 'REFRESH_TOKEN_SECRET', 'FRONTEND_URL'];
   for (const key of required) {
     if (!process.env[key]) {
       throw new Error(`Missing required environment variable: ${key}`);
+    }
+  }
+
+  // Warn about optional-but-important vars
+  const optional: Record<string, string> = {
+    RESEND_API_KEY: 'email notifications disabled',
+    SENTRY_DSN: 'error monitoring disabled',
+    REDIS_URL: 'token revocation and caching disabled',
+    GOOGLE_CLIENT_ID: 'Google OAuth disabled',
+  };
+  for (const [key, msg] of Object.entries(optional)) {
+    if (!process.env[key]) {
+      logger.warn(`${key} not set — ${msg}`);
     }
   }
 
@@ -54,10 +67,13 @@ async function bootstrap() {
     }),
   );
 
-  // CORS
-  const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000').split(',');
+  // CORS — trim each origin to guard against trailing whitespace/commas in env
+  const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -105,8 +121,27 @@ async function bootstrap() {
   }
 
   const port = process.env.PORT || 3001;
-  await app.listen(port);
+  const server = await app.listen(port);
   logger.log(`Application listening on port ${port}`);
+
+  // Graceful shutdown: let Railway / Docker finish in-flight requests before stopping
+  const shutdown = async (signal: string) => {
+    logger.log(`${signal} received — shutting down gracefully`);
+    // Stop accepting new connections
+    server.close(() => logger.log('HTTP server closed'));
+    // Force-exit after 10 s if requests are still hanging
+    const forceExit = setTimeout(() => {
+      logger.error('Shutdown timeout exceeded — forcing exit');
+      process.exit(1);
+    }, 10_000);
+    forceExit.unref();
+    await app.close();
+    clearTimeout(forceExit);
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 bootstrap();

@@ -194,7 +194,7 @@ describe('Tasks module (e2e)', () => {
   describe('4 — update', () => {
     it('should return 404 when updating a non-existent task', async () => {
       await request(app.getHttpServer())
-        .put('/api/v1/tasks/non-existent-id')
+        .put('/api/v1/tasks/cm00000000000000000000000')
         .set('Authorization', `Bearer ${tokenA}`)
         .send({ name: 'Ghost' })
         .expect(404);
@@ -252,7 +252,7 @@ describe('Tasks module (e2e)', () => {
   describe('5 — delete', () => {
     it('should return 404 when deleting a non-existent task', async () => {
       await request(app.getHttpServer())
-        .delete('/api/v1/tasks/non-existent-id')
+        .delete('/api/v1/tasks/cm00000000000000000000000')
         .set('Authorization', `Bearer ${tokenA}`)
         .expect(404);
     });

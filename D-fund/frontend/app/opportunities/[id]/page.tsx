@@ -7,6 +7,7 @@ import { useAuth } from '@/app/lib/AuthContext'
 import { MapPin, Calendar, Clock, Tag, ArrowLeft, Send, MessageSquare, ThumbsUp, Bookmark, Share2 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import DOMPurify from 'dompurify'
 import type { Opportunity, Application, PublicDiscussion, PrivateDiscussion } from '@/app/lib/types'
 
 export default function OpportunityDetailPage() {
@@ -189,9 +190,12 @@ export default function OpportunityDetailPage() {
 
               <div className="prose prose-blue max-w-none text-gray-700 leading-relaxed mb-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Description</h3>
-                <div className="whitespace-pre-wrap">
-                  {opportunity.description || 'Aucune description disponible.'}
-                </div>
+                <div
+                  className="whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(opportunity.description || 'Aucune description disponible.'),
+                  }}
+                />
               </div>
 
               {opportunity.tags?.length > 0 && (

@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole } from '@prisma/client';
 import { IsEnum, IsOptional } from 'class-validator';
@@ -51,7 +52,7 @@ export class UsersController {
   @ApiOperation({ summary: "Return a user's public profile (self or admin only)" })
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  findOne(@Param('id') id: string, @CurrentUser() requester: User) {
+  findOne(@Param('id', ParseIdPipe) id: string, @CurrentUser() requester: User) {
     if (requester.id !== id && requester.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Access denied');
     }
@@ -99,7 +100,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async adminUpdateRole(
-    @Param('id') id: string,
+    @Param('id', ParseIdPipe) id: string,
     @Body() dto: UpdateRoleDto,
     @CurrentUser() admin: User,
   ) {
@@ -113,7 +114,7 @@ export class UsersController {
   @Put('admin/:id/ban')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async adminBan(@Param('id') id: string, @CurrentUser() admin: User) {
+  async adminBan(@Param('id', ParseIdPipe) id: string, @CurrentUser() admin: User) {
     const result = await this.usersService.adminSetBan(id, true);
     this.auditService.log(admin.id, 'BAN_USER', id, 'user');
     return result;
@@ -124,7 +125,7 @@ export class UsersController {
   @Put('admin/:id/unban')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async adminUnban(@Param('id') id: string, @CurrentUser() admin: User) {
+  async adminUnban(@Param('id', ParseIdPipe) id: string, @CurrentUser() admin: User) {
     const result = await this.usersService.adminSetBan(id, false);
     this.auditService.log(admin.id, 'UNBAN_USER', id, 'user');
     return result;
@@ -135,7 +136,7 @@ export class UsersController {
   @Delete('admin/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async adminDelete(@Param('id') id: string, @CurrentUser() admin: User) {
+  async adminDelete(@Param('id', ParseIdPipe) id: string, @CurrentUser() admin: User) {
     const result = await this.usersService.adminDelete(id);
     this.auditService.log(admin.id, 'DELETE_USER', id, 'user');
     return result;

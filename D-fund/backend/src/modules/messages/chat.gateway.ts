@@ -6,14 +6,28 @@ import {
   OnGatewayDisconnect,
   ConnectedSocket,
   MessageBody,
+  WsException,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { IsString, MaxLength, validateSync } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
+import { forwardRef, Inject, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
+import { MessagesService } from './messages.service';
 
 /** Socket.IO client extended with the authenticated user's ID. */
 interface AuthenticatedSocket extends Socket {
   userId: string;
+}
+
+class TypingPayloadDto {
+  @IsString()
+  @MaxLength(36)
+  discussionId!: string;
+
+  @IsString()
+  @MaxLength(200)
+  name!: string;
 }
 
 /**
@@ -24,22 +38,26 @@ interface AuthenticatedSocket extends Socket {
  * client that does not provide a valid token.
  *
  * Room management: clients call the `join` / `leave` events with a `discussionId`
- * to subscribe or unsubscribe from a discussion room. Messages are broadcast to
- * all sockets in the room via {@link broadcastMessage}.
+ * to subscribe or unsubscribe from a discussion room. Membership is verified before
+ * joining — only participants of a discussion may subscribe to it.
  */
 @WebSocketGateway({
   namespace: '/chat',
   // CORS is configured via CorsIoAdapter in main.ts — do not set here.
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  @WebSocketServer() server: Server;
+  @WebSocketServer() server!: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
 
   /** Maps userId to the set of socket IDs currently active for that user. */
   private readonly onlineUsers = new Map<string, Set<string>>();
 
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    @Inject(forwardRef(() => MessagesService))
+    private readonly messagesService: MessagesService,
+  ) {}
 
   /**
    * Verifies the JWT on connection and stores the userId on the socket instance.
@@ -90,29 +108,43 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Disconnected: ${userId} (socket ${client.id})`);
   }
 
-  /** Subscribes the client socket to a discussion room. */
+  /**
+   * Subscribes the client socket to a discussion room after verifying membership.
+   * Throws WsException (closes the connection cleanly) if the user is not a participant.
+   */
   @SubscribeMessage('join')
-  handleJoin(@ConnectedSocket() client: Socket, @MessageBody() discussionId: string) {
+  async handleJoin(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() discussionId: unknown,
+  ) {
+    if (typeof discussionId !== 'string' || discussionId.length > 36 || !discussionId.trim()) {
+      throw new WsException('Invalid discussionId');
+    }
+    const allowed = await this.messagesService.isParticipant(client.userId, discussionId);
+    if (!allowed) throw new WsException('Unauthorized');
     client.join(discussionId);
   }
 
   /** Unsubscribes the client socket from a discussion room. */
   @SubscribeMessage('leave')
-  handleLeave(@ConnectedSocket() client: Socket, @MessageBody() discussionId: string) {
+  handleLeave(@ConnectedSocket() client: Socket, @MessageBody() discussionId: unknown) {
+    if (typeof discussionId !== 'string' || discussionId.length > 36) return;
     client.leave(discussionId);
   }
 
   /**
    * Relays a typing indicator to all other sockets in the discussion room.
-   *
-   * @param payload.discussionId - Target room (discussion ID).
-   * @param payload.name         - Display name of the typing user.
+   * Payload is validated with class-validator before broadcasting.
    */
   @SubscribeMessage('typing')
   handleTyping(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() payload: { discussionId: string; name: string },
+    @MessageBody() raw: unknown,
   ) {
+    const payload = plainToInstance(TypingPayloadDto, raw);
+    const errors = validateSync(payload);
+    if (errors.length) throw new WsException('Invalid payload');
+
     client.to(payload.discussionId).emit('typing', {
       userId: client.userId,
       name: payload.name,
@@ -121,14 +153,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /**
    * Relays a stop-typing signal to all other sockets in the discussion room.
-   *
-   * @param discussionId - Target room (discussion ID).
    */
   @SubscribeMessage('stopTyping')
   handleStopTyping(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() discussionId: string,
+    @MessageBody() discussionId: unknown,
   ) {
+    if (typeof discussionId !== 'string' || discussionId.length > 36) return;
     client.to(discussionId).emit('stopTyping', { userId: client.userId });
   }
 
@@ -143,15 +174,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   /**
    * Sends a real-time event directly to all active sockets of a specific user.
    * Used for personal notifications (application reviewed, new message, etc.).
-   *
-   * @param userId  - Target user ID.
-   * @param event   - Socket.IO event name (e.g. 'notification').
-   * @param payload - Any serialisable data to deliver.
    */
   sendToUser(userId: string, event: string, payload: unknown) {
     const sockets = this.onlineUsers.get(userId);
     if (!sockets || sockets.size === 0) return;
-
     for (const socketId of sockets) {
       this.server.to(socketId).emit(event, payload);
     }

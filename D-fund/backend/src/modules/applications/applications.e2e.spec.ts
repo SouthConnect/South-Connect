@@ -409,14 +409,14 @@ describe('Applications module (e2e)', () => {
 
     it('should return 404 when submitting a non-existent application', async () => {
       await request(app.getHttpServer())
-        .post('/api/v1/applications/non-existent-id/submit')
+        .post('/api/v1/applications/cm00000000000000000000000/submit')
         .set('Authorization', `Bearer ${candidateToken}`)
         .expect(404);
     });
 
     it('should return 404 when reviewing a non-existent application', async () => {
       await request(app.getHttpServer())
-        .put('/api/v1/applications/non-existent-id/review')
+        .put('/api/v1/applications/cm00000000000000000000000/review')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({ stage: 'SUCCESS' })
         .expect(404);

@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DiscussionType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -16,7 +16,9 @@ export class MessagesService {
 
   constructor(
     private prisma: PrismaService,
+    @Inject(forwardRef(() => NotificationsService))
     private notificationsService: NotificationsService,
+    @Inject(forwardRef(() => ChatGateway))
     private chatGateway: ChatGateway,
   ) {}
 
@@ -39,6 +41,16 @@ export class MessagesService {
    *
    * @param type - Optional filter: 'OPEN_FORUM' or 'OPPORTUNITY_RELATED'.
    */
+  /** Returns true when userId is a participant of a private discussion OR the owner of a public one. */
+  async isParticipant(userId: string, discussionId: string): Promise<boolean> {
+    const [priv, pub] = await Promise.all([
+      this.prisma.participant.findFirst({ where: { userId, discussionId } }),
+      this.prisma.publicDiscussion.findFirst({ where: { id: discussionId } }),
+    ]);
+    // Public discussions are open to all authenticated users; private ones require membership
+    return Boolean(priv) || Boolean(pub);
+  }
+
   findPublicDiscussions(type?: string) {
     const where: Prisma.PublicDiscussionWhereInput = {};
 
@@ -84,12 +96,14 @@ export class MessagesService {
    * @param take         - Maximum number of messages to return (default 100).
    * @param skip         - Number of messages to skip for pagination.
    */
-  findPublicDiscussionMessages(discussionId: string, take = 100, skip = 0) {
+  findPublicDiscussionMessages(discussionId: string, take = 50, skip = 0) {
+    const cappedTake = Math.min(Math.max(take, 1), 100);
+    const cappedSkip = Math.max(skip, 0);
     return this.prisma.message.findMany({
       where: { publicDiscussionId: discussionId },
       orderBy: { createdAt: 'asc' },
-      take,
-      skip,
+      take: cappedTake,
+      skip: cappedSkip,
       include: { sender: { select: { id: true, name: true, profilePic: true } } },
     });
   }
@@ -101,7 +115,7 @@ export class MessagesService {
    * @throws NotFoundException  when the discussion does not exist.
    * @throws ForbiddenException when the requester is not a participant.
    */
-  async findPrivateDiscussionMessages(discussionId: string, requesterId: string) {
+  async findPrivateDiscussionMessages(discussionId: string, requesterId: string, take = 50, skip = 0) {
     const discussion = await this.prisma.privateDiscussion.findUnique({
       where: { id: discussionId },
       include: { participants: true },
@@ -113,10 +127,13 @@ export class MessagesService {
       throw new ForbiddenException('You are not allowed to read this discussion');
     }
 
+    const cappedTake = Math.min(Math.max(take, 1), 100);
+    const cappedSkip = Math.max(skip, 0);
     return this.prisma.message.findMany({
       where: { privateDiscussionId: discussionId },
       orderBy: { createdAt: 'asc' },
-      take: 100,
+      take: cappedTake,
+      skip: cappedSkip,
       include: { sender: { select: { id: true, name: true, profilePic: true } } },
     });
   }

@@ -11,16 +11,41 @@ import { nodeProfilingIntegration } from '@sentry/profiling-node';
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
 
-  // Capture 100 % of transactions in dev, sample in production
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
-
-  // CPU profiling (requires @sentry/profiling-node)
   profilesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0.0,
 
   integrations: [nodeProfilingIntegration()],
 
   environment: process.env.NODE_ENV ?? 'development',
 
-  // Don't initialise if DSN is absent (local dev without Sentry account)
   enabled: Boolean(process.env.SENTRY_DSN),
+
+  // Strip sensitive data before sending to Sentry
+  beforeSend(event) {
+    // Remove Bearer tokens from exception messages and request context
+    const redact = (s: string) =>
+      s
+        .replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/g, 'Bearer [REDACTED]')
+        .replace(/[\w.-]+@[\w.-]+\.\w+/g, '[email]')
+        .replace(/"password"\s*:\s*"[^"]*"/g, '"password":"[REDACTED]"');
+
+    if (event.message) event.message = redact(event.message);
+
+    if (event.exception?.values) {
+      for (const ex of event.exception.values) {
+        if (ex.value) ex.value = redact(ex.value);
+      }
+    }
+
+    // Remove cookies and auth headers from request context
+    if (event.request) {
+      delete event.request.cookies;
+      if (event.request.headers) {
+        delete (event.request.headers as Record<string, unknown>)['authorization'];
+        delete (event.request.headers as Record<string, unknown>)['cookie'];
+      }
+    }
+
+    return event;
+  },
 });

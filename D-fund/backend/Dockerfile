@@ -6,8 +6,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package-lock.json ./backend/
 
-# Installation des dépendances à la racine (scripts / prisma) et pour le backend
-RUN npm install && cd backend && npm install
+# npm ci garantit une installation reproductible (lock file strict)
+RUN npm ci && cd backend && npm ci
 
 # Copie du code source monorepo (backend + prisma)
 COPY backend ./backend
@@ -35,7 +35,7 @@ COPY --from=builder /app/backend/dist ./dist
 COPY --from=builder /app/prisma ../prisma
 COPY --from=builder /app/backend/node_modules/.prisma ./node_modules/.prisma
 
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 # Hand off ownership to the unprivileged user before switching
 RUN chown -R dfund:dfund /app
@@ -46,6 +46,10 @@ ENV NODE_ENV=production
 
 EXPOSE 3001
 
-# Le build Nest génère l'entrée principale dans dist/src/main.js
-CMD ["node", "dist/src/main.js"]
+# Entrypoint: apply pending Prisma migrations then start the server.
+# Using migrate deploy (not dev) — safe for production, no interactive prompts.
+COPY --chown=dfund:dfund docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 

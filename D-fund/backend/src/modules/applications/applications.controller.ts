@@ -1,4 +1,5 @@
 import { Body, Controller, ForbiddenException, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -59,21 +60,21 @@ export class ApplicationsController {
   /** Updates a DRAFT application's content. Only the applicant may call this. */
   @Put(':id')
   @UseGuards(JwtAuthGuard, ApplicationOwnerGuard)
-  update(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: UpdateApplicationDto) {
+  update(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User, @Body() dto: UpdateApplicationDto) {
     return this.applicationsService.update(id, user.id, dto);
   }
 
   /** Submits a DRAFT application for review. Only the applicant may call this. */
   @Post(':id/submit')
   @UseGuards(JwtAuthGuard, ApplicationOwnerGuard)
-  submit(@Param('id') id: string, @CurrentUser() user: User) {
+  submit(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User) {
     return this.applicationsService.submit(id, user.id);
   }
 
   /** Allows the opportunity owner to review and update the stage of an application. */
   @Put(':id/review')
   @UseGuards(JwtAuthGuard)
-  review(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: ReviewApplicationDto) {
+  review(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User, @Body() dto: ReviewApplicationDto) {
     return this.applicationsService.review(id, user.id, dto);
   }
 }

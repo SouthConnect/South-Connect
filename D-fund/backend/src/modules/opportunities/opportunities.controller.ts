@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -70,7 +71,7 @@ export class OpportunitiesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   async adminUpdateStatus(
-    @Param('id') id: string,
+    @Param('id', ParseIdPipe) id: string,
     @Body() dto: AdminUpdateStatusDto,
     @CurrentUser() admin: User,
   ) {
@@ -106,21 +107,21 @@ export class OpportunitiesController {
   /** Updates an opportunity. Only the owner may call this endpoint. */
   @Put(':id')
   @UseGuards(JwtAuthGuard)
-  update(@Param('id') id: string, @CurrentUser() user: User, @Body() dto: UpdateOpportunityDto) {
+  update(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User, @Body() dto: UpdateOpportunityDto) {
     return this.opportunitiesService.update(id, user.id, dto);
   }
 
   /** Deletes an opportunity. Only the owner may call this endpoint. */
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  remove(@Param('id') id: string, @CurrentUser() user: User) {
+  remove(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User) {
     return this.opportunitiesService.remove(id, user.id);
   }
 
   /** Returns a single opportunity. Includes like/save state when the requester is authenticated. */
   @Get(':id')
   @UseGuards(JwtOptionalGuard)
-  findOne(@Param('id') id: string, @CurrentUser() requester?: User) {
+  findOne(@Param('id', ParseIdPipe) id: string, @CurrentUser() requester?: User) {
     return this.opportunitiesService.findOne(id, requester?.id);
   }
 }

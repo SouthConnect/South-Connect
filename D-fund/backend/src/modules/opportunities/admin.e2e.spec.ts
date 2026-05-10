@@ -255,7 +255,7 @@ describe('Admin — opportunity moderation (e2e)', () => {
   describe('5 — 404 on non-existent opportunity', () => {
     it('returns 404 when updating status of a non-existent opportunity', async () => {
       await request(app.getHttpServer())
-        .put('/api/v1/opportunities/admin/non-existent-id/status')
+        .put('/api/v1/opportunities/admin/cm00000000000000000000000/status')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: 'ACTIVE' })
         .expect(404);

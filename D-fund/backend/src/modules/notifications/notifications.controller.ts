@@ -10,6 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -54,7 +55,7 @@ export class NotificationsController {
   /** Marks a single notification as read. Only acts on notifications owned by the requester. */
   @Post(':id/read')
   @HttpCode(HttpStatus.OK)
-  markRead(@CurrentUser() user: User, @Param('id') id: string) {
+  markRead(@CurrentUser() user: User, @Param('id', ParseIdPipe) id: string) {
     return this.notificationsService.markRead(user.id, id);
   }
 

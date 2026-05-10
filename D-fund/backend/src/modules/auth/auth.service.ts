@@ -6,6 +6,7 @@ import {
   Logger,
   OnModuleDestroy,
   Optional,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -85,6 +86,7 @@ export class AuthService implements OnModuleDestroy {
         name: dto.name || `${dto.firstName} ${dto.lastName}`,
         role: (dto.role as UserRole) || UserRole.USER,
         emailVerificationToken: verificationToken,
+        emailVerificationTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 h
         emailUnsubscribeToken: unsubscribeToken,
         isEmailVerified: false,
       },
@@ -117,7 +119,10 @@ export class AuthService implements OnModuleDestroy {
     }
 
     const user = await this.prisma.user.findFirst({
-      where: { emailVerificationToken: token },
+      where: {
+        emailVerificationToken: token,
+        emailVerificationTokenExpiry: { gt: new Date() }, // reject expired tokens
+      },
     });
 
     if (!user) {
@@ -126,7 +131,11 @@ export class AuthService implements OnModuleDestroy {
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { isEmailVerified: true, emailVerificationToken: null },
+      data: {
+        isEmailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationTokenExpiry: null,
+      },
     });
 
     return { message: 'Email vérifié avec succès.' };
@@ -144,7 +153,10 @@ export class AuthService implements OnModuleDestroy {
     const token = crypto.randomBytes(32).toString('hex');
     await this.prisma.user.update({
       where: { id: userId },
-      data: { emailVerificationToken: token },
+      data: {
+        emailVerificationToken: token,
+        emailVerificationTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
     });
 
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
@@ -304,15 +316,31 @@ export class AuthService implements OnModuleDestroy {
 
   /**
    * Returns true when the token is present in the Redis blocklist.
-   * Always returns false when Redis is not configured (fail-open for availability).
+   *
+   * Fail behaviour:
+   * - Dev / test (no Redis): fail-open (return false) for convenience.
+   * - Production (Redis configured but unreachable): fail-closed — throw 503 so
+   *   the client retries rather than letting a revoked token through.
    */
   private async isRefreshTokenBlocked(token: string): Promise<boolean> {
-    if (!this.redis) return false;
+    if (!this.redis) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new ServiceUnavailableException(
+          'Auth service temporarily unavailable — please retry',
+        );
+      }
+      return false; // dev/test: no Redis, accept tokens
+    }
     try {
       const hash = crypto.createHash('sha256').update(token).digest('hex');
       return (await this.redis.exists(`blocklist:rt:${hash}`)) === 1;
     } catch {
-      return false; // Redis temporarily unavailable — fail-open
+      if (process.env.NODE_ENV === 'production') {
+        throw new ServiceUnavailableException(
+          'Auth service temporarily unavailable — please retry',
+        );
+      }
+      return false;
     }
   }
 

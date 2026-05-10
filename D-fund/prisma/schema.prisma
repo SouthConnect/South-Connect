@@ -39,6 +39,7 @@ model User {
   passwordResetExpiry DateTime?
   isEmailVerified     Boolean  @default(false)
   emailVerificationToken String? @unique
+  emailVerificationTokenExpiry DateTime?
   isBanned        Boolean  @default(false)
   emailOptOut             Boolean  @default(false)
   emailUnsubscribeToken   String?  @unique

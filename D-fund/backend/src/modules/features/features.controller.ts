@@ -8,6 +8,7 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
+import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { FeaturesService } from './features.service';
 import { CreateFeatureDto } from './dto/create-feature.dto';
 import { UpdateFeatureDto } from './dto/update-feature.dto';
@@ -28,7 +29,7 @@ export class FeaturesController {
 
   /** Public — returns a single feature by id. */
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseIdPipe) id: string) {
     return this.featuresService.findOne(id);
   }
 
@@ -44,7 +45,7 @@ export class FeaturesController {
   @Put(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  update(@Param('id') id: string, @Body() dto: UpdateFeatureDto) {
+  update(@Param('id', ParseIdPipe) id: string, @Body() dto: UpdateFeatureDto) {
     return this.featuresService.update(id, dto);
   }
 
@@ -52,7 +53,7 @@ export class FeaturesController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseIdPipe) id: string) {
     return this.featuresService.remove(id);
   }
 }

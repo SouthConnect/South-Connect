@@ -268,7 +268,7 @@ describe('Opportunities module (e2e)', () => {
   describe('4 — find one', () => {
     it('should return a 404 for a non-existent opportunity', async () => {
       await request(app.getHttpServer())
-        .get('/api/v1/opportunities/non-existent-id')
+        .get('/api/v1/opportunities/cm00000000000000000000000')
         .expect(404);
     });
 
@@ -344,7 +344,7 @@ describe('Opportunities module (e2e)', () => {
 
     it('should return 404 when updating a non-existent opportunity', async () => {
       await request(app.getHttpServer())
-        .put('/api/v1/opportunities/non-existent-id')
+        .put('/api/v1/opportunities/cm00000000000000000000000')
         .set('Authorization', `Bearer ${ownerToken}`)
         .send({ name: 'Ghost update' })
         .expect(404);
@@ -394,7 +394,7 @@ describe('Opportunities module (e2e)', () => {
 
     it('should return 404 when deleting a non-existent opportunity', async () => {
       await request(app.getHttpServer())
-        .delete('/api/v1/opportunities/non-existent-id')
+        .delete('/api/v1/opportunities/cm00000000000000000000000')
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(404);
     });

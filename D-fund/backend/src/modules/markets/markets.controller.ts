@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { MarketsService } from './markets.service';
@@ -40,7 +41,7 @@ export class MarketsController {
   @ApiBearerAuth('JWT')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  update(@Param('id') id: string, @Body() dto: UpdateMarketDto) {
+  update(@Param('id', ParseIdPipe) id: string, @Body() dto: UpdateMarketDto) {
     return this.marketsService.update(id, dto);
   }
 
@@ -50,7 +51,7 @@ export class MarketsController {
   @ApiBearerAuth('JWT')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseIdPipe) id: string) {
     return this.marketsService.remove(id);
   }
 }

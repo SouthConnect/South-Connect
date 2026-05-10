@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -128,25 +129,33 @@ export class SocialService {
   }
 
   /** Returns the list of users following the given user, sorted by most recent. */
-  async getFollowers(userId: string) {
+  async getFollowers(userId: string, take = 50, skip = 0) {
+    const cappedTake = Math.min(Math.max(take, 1), 200);
+    const cappedSkip = Math.max(skip, 0);
     const followers = await this.prisma.follow.findMany({
       where: { followingId: userId },
       include: {
         follower: { select: { id: true, name: true, profilePic: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: cappedTake,
+      skip: cappedSkip,
     });
     return followers.map((f) => f.follower);
   }
 
   /** Returns the list of users the given user is following, sorted by most recent. */
-  async getFollowing(userId: string) {
+  async getFollowing(userId: string, take = 50, skip = 0) {
+    const cappedTake = Math.min(Math.max(take, 1), 200);
+    const cappedSkip = Math.max(skip, 0);
     const following = await this.prisma.follow.findMany({
       where: { followerId: userId },
       include: {
         following: { select: { id: true, name: true, profilePic: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: cappedTake,
+      skip: cappedSkip,
     });
     return following.map((f) => f.following);
   }
@@ -161,18 +170,22 @@ export class SocialService {
     const opportunity = await this.prisma.opportunity.findUnique({ where: { id: opportunityId } });
     if (!opportunity) throw new NotFoundException('Opportunity not found');
 
-    const existing = await this.prisma.likedOpportunity.findUnique({
-      where: { userId_opportunityId: { userId, opportunityId } },
-    });
-    if (existing) throw new ConflictException('Opportunity already liked');
-
-    await this.prisma.$transaction([
-      this.prisma.likedOpportunity.create({ data: { userId, opportunityId } }),
-      this.prisma.opportunity.update({
-        where: { id: opportunityId },
-        data: { likesCount: { increment: 1 } },
-      }),
-    ]);
+    // Skip the pre-check — rely on the DB unique constraint caught inside the transaction.
+    // This eliminates the TOCTOU window between check and write.
+    try {
+      await this.prisma.$transaction([
+        this.prisma.likedOpportunity.create({ data: { userId, opportunityId } }),
+        this.prisma.opportunity.update({
+          where: { id: opportunityId },
+          data: { likesCount: { increment: 1 } },
+        }),
+      ]);
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('Opportunity already liked');
+      }
+      throw err;
+    }
 
     return { message: 'Opportunity liked successfully' };
   }
@@ -211,18 +224,20 @@ export class SocialService {
     const opportunity = await this.prisma.opportunity.findUnique({ where: { id: opportunityId } });
     if (!opportunity) throw new NotFoundException('Opportunity not found');
 
-    const existing = await this.prisma.savedOpportunity.findUnique({
-      where: { userId_opportunityId: { userId, opportunityId } },
-    });
-    if (existing) throw new ConflictException('Opportunity already saved');
-
-    await this.prisma.$transaction([
-      this.prisma.savedOpportunity.create({ data: { userId, opportunityId } }),
-      this.prisma.opportunity.update({
-        where: { id: opportunityId },
-        data: { savedCount: { increment: 1 } },
-      }),
-    ]);
+    try {
+      await this.prisma.$transaction([
+        this.prisma.savedOpportunity.create({ data: { userId, opportunityId } }),
+        this.prisma.opportunity.update({
+          where: { id: opportunityId },
+          data: { savedCount: { increment: 1 } },
+        }),
+      ]);
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('Opportunity already saved');
+      }
+      throw err;
+    }
 
     return { message: 'Opportunity saved successfully' };
   }
@@ -251,8 +266,10 @@ export class SocialService {
     return { message: 'Opportunity unsaved successfully' };
   }
 
-  /** Returns all opportunities bookmarked by the given user, sorted by most recently saved. */
-  async getSavedOpportunities(userId: string) {
+  /** Returns opportunities bookmarked by the given user, sorted by most recently saved. */
+  async getSavedOpportunities(userId: string, take = 50, skip = 0) {
+    const cappedTake = Math.min(Math.max(take, 1), 100);
+    const cappedSkip = Math.max(skip, 0);
     const saved = await this.prisma.savedOpportunity.findMany({
       where: { userId },
       include: {
@@ -261,6 +278,8 @@ export class SocialService {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: cappedTake,
+      skip: cappedSkip,
     });
     return saved.map((s) => s.opportunity);
   }

@@ -33,7 +33,9 @@ export class OpportunitiesService {
    * @returns `{ data, total, hasMore }` envelope.
    */
   async findAll(params?: ListOpportunitiesDto) {
-    const { take = 20, skip = 0, status, type, ownerId, search, sort } = params || {};
+    const { take: rawTake = 20, skip: rawSkip = 0, status, type, ownerId, search, sort } = params || {};
+    const take = Math.min(Math.max(rawTake, 1), 100);
+    const skip = Math.max(rawSkip, 0);
     const where: Prisma.OpportunityWhereInput = {};
 
     // Public feed never exposes DRAFT opportunities regardless of explicit status filter

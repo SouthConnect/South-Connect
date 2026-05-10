@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { jwtDecode } from 'jwt-decode';
 
 /**
  * Server-side route protection.
  *
- * If a request arrives for a protected path without an access_token cookie
- * the user is redirected to /login immediately — no client-side flash.
- *
- * Public paths (auth pages, landing, explore) are always accessible.
- * Admin paths additionally require the request to carry a token; role
- * enforcement happens on the backend — the middleware only checks presence.
+ * Protected paths require a valid access_token cookie.
+ * Admin paths additionally require the decoded JWT to carry role=ADMIN —
+ * this is a defence-in-depth check; the backend always enforces roles too.
  */
 
 const PROTECTED_PREFIXES = [
@@ -25,7 +23,6 @@ const PROTECTED_PREFIXES = [
   '/resources',
 ];
 
-// Paths that are always public (no redirect even without a token)
 const PUBLIC_PREFIXES = [
   '/login',
   '/register',
@@ -43,34 +40,56 @@ const PUBLIC_PREFIXES = [
   '/api',
 ];
 
+interface JwtPayload {
+  userId?: string;
+  role?: string;
+  exp?: number;
+}
+
+function decodeToken(token: string): JwtPayload | null {
+  try {
+    return jwtDecode<JwtPayload>(token);
+  } catch {
+    return null;
+  }
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Always allow public paths
   if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)) || pathname === '/') {
     return NextResponse.next();
   }
 
-  // Check if this path needs protection
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
-  if (!isProtected) {
-    return NextResponse.next();
-  }
+  if (!isProtected) return NextResponse.next();
 
-  // Check for access_token cookie (set by the backend as HttpOnly)
-  const token = request.cookies.get('access_token');
-
-  if (!token?.value) {
+  const tokenCookie = request.cookies.get('access_token');
+  if (!tokenCookie?.value) {
     const loginUrl = new URL('/login', request.url);
-    // Preserve the intended destination so we can redirect back after login
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // Decode the JWT (no verification — edge runtime can't import crypto easily;
+  // the backend always verifies the signature on every API call).
+  const payload = decodeToken(tokenCookie.value);
+
+  // Token is present but malformed / expired — send to login
+  if (!payload || (payload.exp && payload.exp * 1000 < Date.now())) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Admin routes: require ADMIN role
+  if (pathname.startsWith('/admin') && payload.role !== 'ADMIN') {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  // Run on all paths except static assets and Next.js internals
   matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 };

@@ -4,7 +4,7 @@ WORKDIR /app/frontend
 
 COPY frontend/package.json frontend/package-lock.json ./
 
-RUN npm install
+RUN npm ci
 
 COPY frontend ./
 
@@ -20,7 +20,7 @@ COPY --from=builder /app/frontend/package.json /app/frontend/package-lock.json .
 COPY --from=builder /app/frontend/.next ./.next
 COPY --from=builder /app/frontend/public ./public
 
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 # Run as non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
