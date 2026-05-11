@@ -6,14 +6,16 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import { Request, Response } from 'express';
 
 /**
  * Global exception filter that:
- *  1. Forwards unhandled / server errors to Sentry (5xx only — 4xx are
+ *  1. Maps Prisma P2002 (unique constraint) to 409 Conflict.
+ *  2. Forwards unhandled / server errors to Sentry (5xx only — 4xx are
  *     expected client errors and not worth cluttering Sentry with).
- *  2. Returns a consistent JSON error envelope to the client.
+ *  3. Returns a consistent JSON error envelope to the client.
  */
 @Catch()
 export class SentryExceptionFilter implements ExceptionFilter {
@@ -23,6 +25,19 @@ export class SentryExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+
+    // Map Prisma unique constraint violations to 409 so they never surface as 500
+    if (
+      exception instanceof Prisma.PrismaClientKnownRequestError &&
+      exception.code === 'P2002'
+    ) {
+      return response.status(HttpStatus.CONFLICT).json({
+        statusCode: HttpStatus.CONFLICT,
+        timestamp: new Date().toISOString(),
+        path: request.url,
+        message: 'A record with this value already exists',
+      });
+    }
 
     const status =
       exception instanceof HttpException

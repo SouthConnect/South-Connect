@@ -47,12 +47,12 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       if (user.isBanned) {
         return done(new UnauthorizedException('Account suspended'), undefined);
       }
-      // Link googleId if not set yet
+      // If the user registered with email/password and has no googleId, auto-linking
+      // is a security risk: an attacker who controls a Google account with the same
+      // email would silently take over the existing account.
+      // Instead, signal the conflict so the controller can redirect to a clear error page.
       if (!user.googleId) {
-        user = await this.prisma.user.update({
-          where: { id: user.id },
-          data: { googleId },
-        });
+        return done(null, { oauthError: 'EMAIL_EXISTS_DIFFERENT_METHOD' } as any);
       }
     } else {
       user = await this.prisma.user.create({

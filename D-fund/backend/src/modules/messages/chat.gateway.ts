@@ -4,16 +4,20 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
   MessageBody,
   WsException,
 } from '@nestjs/websockets';
 import { IsString, MaxLength, validateSync } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
-import { forwardRef, Inject, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import type Redis from 'ioredis';
 import { MessagesService } from './messages.service';
+import { REDIS_CLIENT } from '../redis/redis.module';
 
 /** Socket.IO client extended with the authenticated user's ID. */
 interface AuthenticatedSocket extends Socket {
@@ -45,19 +49,68 @@ class TypingPayloadDto {
   namespace: '/chat',
   // CORS is configured via CorsIoAdapter in main.ts — do not set here.
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy {
   @WebSocketServer() server!: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
 
-  /** Maps userId to the set of socket IDs currently active for that user. */
+  /** Maps userId to the set of socket IDs currently active for that user (local sockets only). */
   private readonly onlineUsers = new Map<string, Set<string>>();
+
+  /** Held so it can be disconnected on gateway destroy (prevents Redis connection leak). */
+  private redisSubClient: Redis | null = null;
+
+  /** Interval that periodically purges socket IDs no longer tracked by Socket.IO. */
+  private sanitizeInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly jwtService: JwtService,
     @Inject(forwardRef(() => MessagesService))
     private readonly messagesService: MessagesService,
+    @Optional() @Inject(REDIS_CLIENT) private readonly redis: Redis | null,
   ) {}
+
+  onModuleDestroy() {
+    if (this.sanitizeInterval) clearInterval(this.sanitizeInterval);
+    this.redisSubClient?.disconnect();
+  }
+
+  /**
+   * Attaches the Redis pub/sub adapter after the Socket.IO server is created.
+   * With the adapter, `server.to(room).emit(...)` and `server.to(socketId).emit(...)`
+   * are automatically forwarded to all backend instances via Redis pub/sub.
+   * Without Redis (dev / test), the gateway works as a single-instance in-memory server.
+   */
+  async afterInit(server: Server) {
+    if (this.redis) {
+      try {
+        const pubClient = this.redis;
+        const subClient = this.redis.duplicate();
+        // Silence connection errors on the subscriber duplicate — the main client
+        // already handles reconnect; errors here are surfaced via the pub client.
+        subClient.on('error', () => {});
+        this.redisSubClient = subClient; // keep reference for cleanup on destroy
+        server.adapter(createAdapter(pubClient, subClient));
+        this.logger.log('Socket.IO Redis adapter attached (multi-instance mode)');
+      } catch (err: any) {
+        this.logger.warn(`Failed to attach Redis adapter — falling back to in-memory: ${err.message}`);
+      }
+    }
+
+    // Periodic sanitization: remove socket IDs that Socket.IO no longer tracks.
+    // Guards against missed disconnect events (e.g. abrupt process restarts).
+    this.sanitizeInterval = setInterval(() => {
+      const connected = server.sockets.sockets;
+      for (const [userId, sockets] of this.onlineUsers) {
+        for (const socketId of sockets) {
+          if (!connected.has(socketId)) {
+            sockets.delete(socketId);
+          }
+        }
+        if (sockets.size === 0) this.onlineUsers.delete(userId);
+      }
+    }, 5 * 60 * 1000); // every 5 minutes
+  }
 
   /**
    * Verifies the JWT on connection and stores the userId on the socket instance.
@@ -89,7 +142,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.onlineUsers.get(payload.userId)!.add(client.id);
 
       this.logger.log(`Connected: ${payload.userId} (socket ${client.id})`);
-    } catch {
+    } catch (err: any) {
+      // Inform the client explicitly so it can trigger a token refresh
+      // instead of just retrying with the same expired token.
+      if (err?.name === 'TokenExpiredError') {
+        client.emit('tokenExpired');
+      }
       client.disconnect();
     }
   }
@@ -98,6 +156,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleDisconnect(client: AuthenticatedSocket) {
     const userId: string = client.userId;
     if (!userId) return;
+
+    // Broadcast stopTyping to every room this socket was in so the "typing…"
+    // indicator never gets stuck when a connection drops unexpectedly.
+    for (const roomId of client.rooms) {
+      if (roomId !== client.id) {
+        client.to(roomId).emit('stopTyping', { userId });
+      }
+    }
 
     const sockets = this.onlineUsers.get(userId);
     if (sockets) {

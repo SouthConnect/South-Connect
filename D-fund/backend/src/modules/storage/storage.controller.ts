@@ -70,6 +70,10 @@ export class StorageController {
       throw new BadRequestException(`Invalid file type. Allowed: ${allowed}`);
     }
 
+    if (!this.storageService.isMimeConsistentWithBuffer(file.buffer, file.mimetype)) {
+      throw new BadRequestException('File content does not match its declared type');
+    }
+
     if (file.size > StorageController.MAX_FILE_SIZE) {
       throw new BadRequestException('File size exceeds 5 MB limit');
     }

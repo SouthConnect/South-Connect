@@ -2,15 +2,15 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/app/lib/AuthContext'
-import Sidebar from '@/components/Sidebar'
+import AppShell from '@/components/AppShell'
 import Providers from './Providers'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'D-Fund - Connecter les entrepreneurs africains',
-  description: 'Plateforme connectant les entrepreneurs africains à leurs ressources: talents, outils, mentors, accompagnements et investisseurs',
+  title: 'D-Fund - La plateforme tout-en-un pour les entrepreneurs africains',
+  description: 'Connectez-vous avec des investisseurs, trouvez des co-fondateurs, accédez aux talents et opportunités de financement — tout en un seul endroit pour l\'écosystème startup africain.',
 }
 
 export default function RootLayout({
@@ -23,14 +23,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <Providers>
           <AuthProvider>
-            <div className="flex min-h-screen bg-gray-50">
-              <Sidebar />
-              <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
-                <main className="flex-1 pt-14 md:pt-0">
-                  {children}
-                </main>
-              </div>
-            </div>
+            <AppShell>{children}</AppShell>
             <Toaster position="bottom-right" richColors closeButton />
           </AuthProvider>
         </Providers>

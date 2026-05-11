@@ -396,6 +396,26 @@ export class NotificationsService {
   }
 
   /**
+   * Notifies a user that their password was just changed.
+   * This is a critical security email — delivered even if the user has opted out of marketing.
+   */
+  async sendPasswordChangedEmail(user: User) {
+    if (!this.hasEmailClient()) {
+      this.logger.warn(`[mock] Email service not configured — skipping password changed email to ${user.email}`);
+      return;
+    }
+
+    const subject = 'Votre mot de passe D-Fund a été modifié';
+    const html = `
+      <p>Bonjour ${user.firstName || ''},</p>
+      <p>Votre mot de passe a bien été réinitialisé. Toutes vos sessions actives ont été révoquées.</p>
+      <p>Si vous n'êtes pas à l'origine de cette action, contactez-nous immédiatement en répondant à cet email.</p>
+    `;
+
+    await this.sendEmail(user.email, subject, html, true); // critical: always deliver
+  }
+
+  /**
    * Sends a password-reset link to the given user.
    * Throws when the email client is not configured.
    */
@@ -459,7 +479,13 @@ export class NotificationsService {
     }
 
     try {
-      await this.resend!.emails.send({ from: this.fromEmail!, to, subject, html: finalHtml });
+      // Abort if Resend stalls for more than 10 s
+      const send = this.resend!.emails.send({ from: this.fromEmail!, to, subject, html: finalHtml });
+      let timeoutId: ReturnType<typeof setTimeout>;
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Resend timeout after 10 s')), 10_000);
+      });
+      await Promise.race([send, timeout]).finally(() => clearTimeout(timeoutId!));
     } catch (error) {
       this.logger.error(`Failed to send email to ${to}: ${error.message}`, error.stack);
     }

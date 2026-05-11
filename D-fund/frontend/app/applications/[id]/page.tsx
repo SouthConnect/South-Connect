@@ -58,9 +58,14 @@ export default function ApplicationDetailPage() {
   const [confirmSubmit, setConfirmSubmit] = useState(false)
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Guard: initialize form fields only once so background refetches don't overwrite user edits
+  const prefilled = useRef(false)
+  const [hasPendingSave, setHasPendingSave] = useState(false)
 
+  // Initialize form fields from server data — runs only on first load, not on every refetch
   useEffect(() => {
-    if (application) {
+    if (application && !prefilled.current) {
+      prefilled.current = true
       setHeadline(application.title || '')
       setGoalLetter(application.goalLetter || '')
       setExternalLink(application.externalLink || '')
@@ -69,6 +74,21 @@ export default function ApplicationDetailPage() {
       setAttachmentUrl(application.attachmentUrl || '')
     }
   }, [application])
+
+  // Clean up the autosave timer on unmount to avoid mutations on unmounted components
+  useEffect(() => {
+    return () => {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    }
+  }, [])
+
+  // Warn the user if they try to leave while an autosave is queued
+  useEffect(() => {
+    if (!hasPendingSave) return
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [hasPendingSave])
 
   const updateMutation = useMutation({
     mutationFn: (_: { silent: boolean }) =>
@@ -84,6 +104,7 @@ export default function ApplicationDetailPage() {
         }),
       }),
     onSuccess: (_, { silent }) => {
+      setHasPendingSave(false)
       queryClient.invalidateQueries({ queryKey: ['my-applications-full', user?.id] })
       if (!silent) toast.success('Brouillon sauvegardé !')
     },
@@ -105,6 +126,7 @@ export default function ApplicationDetailPage() {
 
   const triggerAutosave = () => {
     if (!isDraft) return
+    setHasPendingSave(true)
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
     autosaveTimer.current = setTimeout(() => {
       updateMutation.mutate({ silent: true })
@@ -114,11 +136,21 @@ export default function ApplicationDetailPage() {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
     if (!isDraft) return
+    if (autosaveTimer.current) {
+      clearTimeout(autosaveTimer.current)
+      autosaveTimer.current = null
+    }
     updateMutation.mutate({ silent: false })
   }
 
   const handleSubmit = () => {
     if (!isDraft) return
+    // Cancel any pending autosave before entering the submit flow
+    if (autosaveTimer.current) {
+      clearTimeout(autosaveTimer.current)
+      autosaveTimer.current = null
+    }
+    setHasPendingSave(false)
     setConfirmSubmit(true)
   }
 
@@ -405,7 +437,7 @@ export default function ApplicationDetailPage() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         type="submit"
-                        disabled={updateMutation.isPending}
+                        disabled={updateMutation.isPending || submitMutation.isPending}
                         className="px-4 py-2 text-xs font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                       >
                         {updateMutation.isPending ? 'Sauvegarde…' : 'Sauvegarder le brouillon'}

@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 function LoginPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { login } = useAuth()
+  const { login, user, loading: authLoading } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -22,11 +22,30 @@ function LoginPageContent() {
   const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Rediriger les utilisateurs déjà connectés
+  useEffect(() => {
+    if (!authLoading && user) {
+      const redirect = searchParams?.get('redirect') || '/'
+      const safe = redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
+      router.replace(safe)
+    }
+  }, [user, authLoading, router, searchParams])
+
   useEffect(() => {
     if (searchParams?.get('registered') === 'true') {
       setSuccess('Inscription réussie. Veuillez vous connecter pour continuer.')
     }
+    const oauthError = searchParams?.get('error')
+    if (oauthError === 'google_failed') {
+      setError('La connexion via Google a échoué. Réessaie ou connecte-toi avec ton email.')
+    } else if (oauthError === 'EMAIL_EXISTS_DIFFERENT_METHOD') {
+      setError(
+        'Un compte existe déjà avec cette adresse email. Connecte-toi avec ton email et mot de passe, puis lie ton compte Google depuis les paramètres de profil.',
+      )
+    }
   }, [searchParams])
+
+  if (authLoading || user) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,7 +65,7 @@ function LoginPageContent() {
       router.push(redirectTo)
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+        err instanceof Error ? err.message : 'Une erreur est survenue. Veuillez réessayer.',
       )
     } finally {
       setLoading(false)
@@ -90,6 +109,7 @@ function LoginPageContent() {
                 required
                 className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm transition-all"
                 placeholder="you@example.com"
+                autoFocus
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />

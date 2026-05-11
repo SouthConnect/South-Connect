@@ -21,8 +21,8 @@ export class ProfilesService {
    * @throws NotFoundException when the profile is private and the requester is not authorised.
    */
   async findByUserId(userId: string, requesterId?: string, requesterRole?: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
       select: {
         id: true,
         email: true,
@@ -62,6 +62,7 @@ export class ProfilesService {
    */
   listTalents(take = 30, skip = 0) {
     return this.prisma.btoCProfile.findMany({
+      where: { user: { deletedAt: null } },
       orderBy: { createdAt: 'desc' },
       take,
       skip,
@@ -81,6 +82,7 @@ export class ProfilesService {
    */
   listCompanies(take = 30, skip = 0) {
     return this.prisma.btoBProfile.findMany({
+      where: { user: { deletedAt: null } },
       orderBy: { createdAt: 'desc' },
       take,
       skip,
@@ -93,34 +95,31 @@ export class ProfilesService {
   }
 
   /**
-   * Updates an individual (BtoC) profile.
-   *
-   * @throws NotFoundException when the profile does not exist for the given userId.
+   * Creates or updates an individual (BtoC) profile.
+   * Uses upsert so users who signed up before the automatic profile creation
+   * was introduced can still save their profile without receiving a 404.
    */
   async updateBtoCProfile(userId: string, dto: UpdateBtoCProfileDto) {
-    const profile = await this.prisma.btoCProfile.findUnique({ where: { userId } });
+    const data = {
+      description: dto.description,
+      tags: dto.tags ?? [],
+      industries: dto.industries ?? [],
+      marketFocus: dto.marketFocus ?? [],
+      languages: dto.languages ?? [],
+      businessSkills: dto.businessSkills ?? [],
+      techSkills: dto.techSkills ?? [],
+      seniorityLevel: dto.seniorityLevel,
+      lookingForOpportunities: dto.lookingForOpportunities,
+      remote: dto.remote,
+      countries: dto.countries ?? [],
+      regions: dto.regions ?? [],
+      opportunityTypes: dto.opportunityTypes ?? [],
+    };
 
-    if (!profile) {
-      throw new NotFoundException('BtoC profile not found');
-    }
-
-    return this.prisma.btoCProfile.update({
+    return this.prisma.btoCProfile.upsert({
       where: { userId },
-      data: {
-        description: dto.description,
-        tags: dto.tags,
-        industries: dto.industries,
-        marketFocus: dto.marketFocus,
-        languages: dto.languages,
-        businessSkills: dto.businessSkills,
-        techSkills: dto.techSkills,
-        seniorityLevel: dto.seniorityLevel,
-        lookingForOpportunities: dto.lookingForOpportunities,
-        remote: dto.remote,
-        countries: dto.countries,
-        regions: dto.regions,
-        opportunityTypes: dto.opportunityTypes,
-      },
+      create: { userId, ...data },
+      update: data,
       include: {
         user: { select: { id: true, name: true, email: true, profilePic: true } },
       },
@@ -128,35 +127,32 @@ export class ProfilesService {
   }
 
   /**
-   * Updates a company (BtoB) profile.
-   *
-   * @throws NotFoundException when the profile does not exist for the given userId.
+   * Creates or updates a company (BtoB) profile.
+   * Uses upsert so users who signed up before the automatic profile creation
+   * was introduced can still save their company profile without receiving a 404.
    */
   async updateBtoBProfile(userId: string, dto: UpdateBtoBProfileDto) {
-    const profile = await this.prisma.btoBProfile.findUnique({ where: { userId } });
+    const data = {
+      companyName: dto.companyName ?? '',
+      logo: dto.logo,
+      headerImage: dto.headerImage,
+      punchline: dto.punchline,
+      description: dto.description,
+      longDescription: dto.longDescription,
+      website: dto.website,
+      linkedinUrl: dto.linkedinUrl,
+      city: dto.city,
+      country: dto.country,
+      foundationDate: dto.foundationDate ? new Date(dto.foundationDate) : undefined,
+      developmentStage: dto.developmentStage,
+      industries: dto.industries ?? [],
+      marketFocus: dto.marketFocus ?? [],
+    };
 
-    if (!profile) {
-      throw new NotFoundException('BtoB profile not found');
-    }
-
-    return this.prisma.btoBProfile.update({
+    return this.prisma.btoBProfile.upsert({
       where: { userId },
-      data: {
-        companyName: dto.companyName,
-        logo: dto.logo,
-        headerImage: dto.headerImage,
-        punchline: dto.punchline,
-        description: dto.description,
-        longDescription: dto.longDescription,
-        website: dto.website,
-        linkedinUrl: dto.linkedinUrl,
-        city: dto.city,
-        country: dto.country,
-        foundationDate: dto.foundationDate ? new Date(dto.foundationDate) : undefined,
-        developmentStage: dto.developmentStage,
-        industries: dto.industries,
-        marketFocus: dto.marketFocus,
-      },
+      create: { userId, ...data },
+      update: data,
       include: {
         user: { select: { id: true, name: true, email: true, profilePic: true } },
       },
@@ -175,6 +171,7 @@ export class ProfilesService {
     return this.prisma.user.findMany({
       where: {
         visibility: true,
+        deletedAt: null,
         ...(q && q.length >= 2
           ? {
               OR: [

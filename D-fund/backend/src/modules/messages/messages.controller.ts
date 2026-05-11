@@ -29,10 +29,19 @@ import { CreateDiscussionDto } from './dto/create-discussion.dto';
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 
-  /** Returns all public discussion threads, optionally filtered by type. */
+  /** Returns public discussion threads. Supports ?type, ?take (max 100), ?skip. */
   @Get('public')
-  findPublicDiscussions(@Query('type') type?: string) {
-    return this.messagesService.findPublicDiscussions(type);
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  findPublicDiscussions(
+    @Query('type') type?: string,
+    @Query('take') take?: string,
+    @Query('skip') skip?: string,
+  ) {
+    return this.messagesService.findPublicDiscussions(
+      type,
+      take ? parseInt(take, 10) : 50,
+      skip ? parseInt(skip, 10) : 0,
+    );
   }
 
   /** Creates a new public discussion thread. Requires authentication. */
@@ -51,6 +60,7 @@ export class MessagesController {
 
   /** Returns messages for a public discussion thread. */
   @Get('public/:discussionId')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   findPublicMessages(@Param('discussionId') discussionId: string) {
     return this.messagesService.findPublicDiscussionMessages(discussionId);
   }
@@ -77,7 +87,7 @@ export class MessagesController {
     @CurrentUser() user: User,
     @Body() dto: CreateMessageDto,
   ) {
-    return this.messagesService.createPublicMessage(discussionId, user.id, dto.content);
+    return this.messagesService.createPublicMessage(discussionId, user.id, dto.content, dto.clientMessageId);
   }
 
   /** Posts a message to a private discussion. Rate-limited to 30 per minute. */
@@ -89,7 +99,7 @@ export class MessagesController {
     @CurrentUser() user: User,
     @Body() dto: CreateMessageDto,
   ) {
-    return this.messagesService.createPrivateMessage(discussionId, user.id, dto.content);
+    return this.messagesService.createPrivateMessage(discussionId, user.id, dto.content, dto.clientMessageId);
   }
 
   /**

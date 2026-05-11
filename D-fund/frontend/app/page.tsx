@@ -1,8 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { Search, Filter, Plus, Clock, TrendingUp, Star, LayoutGrid, List, ChevronDown, X } from 'lucide-react'
+import {
+  Search, Filter, Plus, Clock, TrendingUp, Star,
+  LayoutGrid, List, ChevronDown, X,
+  ArrowRight, Zap, Users, DollarSign, Briefcase,
+} from 'lucide-react'
 import { apiJson } from '@/app/lib/api'
 import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
@@ -42,7 +46,263 @@ function useDebounce<T>(value: T, delay: number): T {
   return debounced
 }
 
+// ── Router ──────────────────────────────────────────────────────────────────
+
 export default function HomePage() {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-4 p-8">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-28 bg-gray-100 animate-pulse rounded-xl" />
+        ))}
+      </div>
+    )
+  }
+
+  return user ? <AppFeed /> : <LandingPage />
+}
+
+// ── Landing Page (non-logged) ────────────────────────────────────────────────
+
+function LandingPage() {
+  return (
+    <div className="flex flex-col">
+
+      {/* Hero */}
+      <section className="relative min-h-[88vh] flex flex-col items-center justify-center text-white overflow-hidden">
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #1e2d6d 100%)' }}
+        />
+        <div
+          className="absolute inset-0 opacity-50"
+          style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 100%, #f59e0b 0%, transparent 65%)' }}
+        />
+        {/* subtle grid pattern */}
+        <div
+          className="absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: 'linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)',
+            backgroundSize: '40px 40px',
+          }}
+        />
+
+        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-xs font-semibold mb-8 backdrop-blur-sm">
+            <Zap className="w-3.5 h-3.5 text-yellow-400" />
+            🌍 Built for African Entrepreneurs
+          </div>
+
+          <h1 className="text-4xl md:text-6xl font-extrabold mb-6 tracking-tight leading-[1.1]">
+            The All-in-One Platform
+            <br />
+            <span className="text-yellow-400">for African Entrepreneurs</span>
+          </h1>
+
+          <p className="text-lg md:text-xl text-white/75 mb-10 max-w-2xl mx-auto leading-relaxed">
+            Connect with investors, find co-founders, access talent and funding opportunities — all in one place built for the African startup ecosystem.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/register"
+              className="px-8 py-4 bg-yellow-400 text-gray-900 rounded-xl font-black text-base hover:bg-yellow-300 transition-all shadow-xl hover:shadow-yellow-400/25 hover:-translate-y-0.5 active:translate-y-0"
+            >
+              Start for free →
+            </Link>
+            <Link
+              href="/login"
+              className="px-8 py-4 bg-white/10 text-white rounded-xl font-bold text-base border border-white/25 hover:bg-white/20 transition-all backdrop-blur-sm"
+            >
+              Browse opportunities
+            </Link>
+          </div>
+        </div>
+
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/40 text-xs flex flex-col items-center gap-1">
+          <ChevronDown className="w-4 h-4 animate-bounce" />
+        </div>
+      </section>
+
+      {/* Stats bar */}
+      <section className="bg-white border-y border-gray-100 py-10">
+        <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8">
+          {[
+            { label: 'Entrepreneurs', value: '2 400+' },
+            { label: 'Opportunities', value: '850+' },
+            { label: 'Investors', value: '120+' },
+            { label: 'Countries', value: '28' },
+          ].map((stat) => (
+            <div key={stat.label} className="text-center">
+              <div className="text-3xl font-black text-gray-900">{stat.value}</div>
+              <div className="text-sm text-gray-500 mt-1">{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Value props */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-5xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-3">
+            Everything you need to grow
+          </h2>
+          <p className="text-gray-500 text-center mb-12 max-w-xl mx-auto">
+            One platform. All the connections your startup needs to scale across Africa and beyond.
+          </p>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                Icon: DollarSign,
+                bg: 'bg-green-50',
+                fg: 'text-green-600',
+                title: 'Funding & Investors',
+                desc: 'Connect with 120+ investors, business angels and VCs actively seeking African startups to back.',
+              },
+              {
+                Icon: Users,
+                bg: 'bg-blue-50',
+                fg: 'text-blue-600',
+                title: 'Talent & Co-Founders',
+                desc: 'Find the perfect co-founder or recruit top talent from a vetted pool of African professionals.',
+              },
+              {
+                Icon: Briefcase,
+                bg: 'bg-purple-50',
+                fg: 'text-purple-600',
+                title: 'Programs & Mentorship',
+                desc: "Access incubators, accelerators and mentors who've built and scaled African businesses.",
+              },
+            ].map(({ Icon, bg, fg, title, desc }) => (
+              <div
+                key={title}
+                className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className={`w-12 h-12 rounded-xl ${bg} ${fg} flex items-center justify-center mb-5`}>
+                  <Icon className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="py-20 bg-white">
+        <div className="max-w-4xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-gray-900 text-center mb-3">
+            Up and running in 3 steps
+          </h2>
+          <p className="text-gray-500 text-center mb-14">
+            No gatekeepers. No lengthy processes. Just connect and grow.
+          </p>
+
+          <div className="grid md:grid-cols-3 gap-10">
+            {[
+              {
+                step: '01',
+                title: 'Create your profile',
+                desc: "Tell us about your startup, your role and what you're looking for.",
+              },
+              {
+                step: '02',
+                title: 'Discover opportunities',
+                desc: 'Browse funding, talent, co-founders, mentors and programs filtered for Africa.',
+              },
+              {
+                step: '03',
+                title: 'Connect & grow',
+                desc: 'Message directly, save your favourites, and close deals faster.',
+              },
+            ].map((item) => (
+              <div key={item.step} className="flex flex-col">
+                <div className="text-7xl font-black text-gray-100 leading-none mb-4 select-none">
+                  {item.step}
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{item.title}</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Live opportunity preview */}
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Latest opportunities</h2>
+              <p className="text-gray-500 text-sm mt-1">Updated daily from across Africa</p>
+            </div>
+            <Link
+              href="/register"
+              className="flex items-center gap-2 text-[#3b49df] font-semibold text-sm hover:underline"
+            >
+              See all <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <OpportunityPreview />
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="py-20 bg-[#1e2d6d] text-white">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <h2 className="text-4xl font-black mb-4">Ready to grow your startup?</h2>
+          <p className="text-white/65 text-lg mb-10">
+            Join 2 400+ African entrepreneurs already building on D-fund.
+          </p>
+          <Link
+            href="/register"
+            className="inline-block px-10 py-4 bg-yellow-400 text-gray-900 rounded-xl font-black text-lg hover:bg-yellow-300 transition-all shadow-xl hover:-translate-y-0.5 active:translate-y-0"
+          >
+            Create your free account →
+          </Link>
+        </div>
+      </section>
+
+    </div>
+  )
+}
+
+function OpportunityPreview() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['opportunities-preview'],
+    queryFn: () => apiJson<OpportunityListResponse>('/opportunities?take=3&skip=0'),
+  })
+
+  if (isLoading) {
+    return (
+      <div className="grid md:grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-32 bg-gray-200 animate-pulse rounded-xl" />
+        ))}
+      </div>
+    )
+  }
+
+  const items = data?.data ?? []
+  if (!items.length) return null
+
+  return (
+    <div className="space-y-3">
+      {items.map((op) => (
+        <OpportunityCard key={op.id} opportunity={op} />
+      ))}
+    </div>
+  )
+}
+
+// ── App Feed (logged-in) ──────────────────────────────────────────────────────
+
+function AppFeed() {
   const { user } = useAuth()
   const [tab, setTab] = useState<'newest' | 'trending' | 'favorites'>('newest')
   const [viewMode, setViewMode] = useState<'post' | 'gallery'>('post')
@@ -52,7 +312,6 @@ export default function HomePage() {
   const debouncedSearch = useDebounce(search, 400)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
-  // Infinite query for newest + trending tabs
   const {
     data: pages,
     isLoading,
@@ -76,14 +335,12 @@ export default function HomePage() {
     enabled: tab !== 'favorites',
   })
 
-  // Saved (favorites tab)
   const { data: saved, isLoading: isLoadingSaved } = useQuery({
     queryKey: ['saved-opportunities'],
     queryFn: () => apiJson('/social/saved'),
     enabled: !!user && tab === 'favorites',
   })
 
-  // Intersection Observer — auto-load next page
   useEffect(() => {
     if (!sentinelRef.current || !hasNextPage) return
     const observer = new IntersectionObserver(
@@ -96,7 +353,6 @@ export default function HomePage() {
     return () => observer.disconnect()
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
-  // Flatten pages into a single list
   const allItems: Opportunity[] = tab === 'favorites'
     ? (saved ?? []).filter((op: Opportunity) => {
         if (!debouncedSearch) return true
@@ -110,8 +366,8 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Hero */}
-      <section className="relative h-[260px] flex items-center justify-center text-white overflow-hidden">
+      {/* Compact logged-in header */}
+      <section className="relative h-[140px] flex items-center justify-center text-white overflow-hidden">
         <div
           className="absolute inset-0"
           style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #2d1b4e 30%, #1a237e 60%, #3f51b5 100%)' }}
@@ -120,22 +376,11 @@ export default function HomePage() {
           className="absolute inset-0 opacity-30"
           style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, #f59e0b 0%, transparent 70%)' }}
         />
-        <div className="relative z-10 text-center px-4 max-w-4xl">
-          <h1 className="text-3xl md:text-4xl font-extrabold mb-3 tracking-tight">
-            Welcome to D-fund Platform
+        <div className="relative z-10 text-center px-4">
+          <p className="text-white/60 text-sm font-medium mb-1">Welcome back</p>
+          <h1 className="text-2xl font-extrabold tracking-tight">
+            {user?.name ? `${user.name.split(' ')[0]} 👋` : 'Your feed'}
           </h1>
-          <p className="text-base md:text-lg text-white/75 mb-6 max-w-2xl mx-auto leading-relaxed">
-            Startups meet investors. Investors meet opportunities. Companies meet innovation.
-            With D-fund, the right connections turn into real deals.
-          </p>
-          {!user && (
-            <Link
-              href="/register"
-              className="inline-block px-6 py-2.5 bg-[#3b49df] text-white rounded-lg font-bold hover:bg-[#2d3aba] transition-colors shadow-lg"
-            >
-              Join the Ecosystem
-            </Link>
-          )}
         </div>
       </section>
 
@@ -154,7 +399,6 @@ export default function HomePage() {
 
         {/* Tabs + toolbar */}
         <div className="flex flex-col gap-4 mb-6">
-          {/* Tabs */}
           <div className="flex items-center justify-between border-b border-gray-200">
             <div className="flex gap-6">
               {([
@@ -177,7 +421,6 @@ export default function HomePage() {
               ))}
             </div>
 
-            {/* View toggle */}
             <div className="hidden md:flex bg-gray-100 p-1 rounded-lg">
               {([
                 { id: 'post' as const, icon: List },
@@ -208,13 +451,15 @@ export default function HomePage() {
                 className="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-lg text-sm focus:ring-2 focus:ring-[#3b49df] transition-all"
               />
               {search && (
-                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
 
-            {/* Type filter */}
             <div className="relative">
               <button
                 onClick={() => setShowTypeFilter((v) => !v)}
@@ -258,7 +503,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Close dropdown on outside click */}
         {showTypeFilter && (
           <div className="fixed inset-0 z-10" onClick={() => setShowTypeFilter(false)} />
         )}
@@ -280,9 +524,7 @@ export default function HomePage() {
           ) : (
             <div className="col-span-full text-center py-12 text-gray-500 text-sm bg-white rounded-2xl border border-dashed border-gray-200">
               {tab === 'favorites' ? (
-                user
-                  ? 'No saved opportunities yet. Use the bookmark button on any opportunity.'
-                  : 'Sign in to see your favorites.'
+                'No saved opportunities yet. Use the bookmark button on any opportunity.'
               ) : debouncedSearch || typeFilter ? (
                 <div className="space-y-2">
                   <p>No results for your search.</p>

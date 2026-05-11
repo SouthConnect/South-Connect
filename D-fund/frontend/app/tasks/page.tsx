@@ -13,7 +13,7 @@ const STATUS_CONFIG: Record<
   { label: string; icon: React.ElementType; ring: string; bg: string; text: string; dot: string }
 > = {
   TODO: {
-    label: 'To Do',
+    label: 'À faire',
     icon: Circle,
     ring: 'border-gray-200',
     bg: 'bg-gray-50',
@@ -21,7 +21,7 @@ const STATUS_CONFIG: Record<
     dot: 'bg-gray-400',
   },
   WORKING_ON_IT: {
-    label: 'Working on it',
+    label: 'En cours',
     icon: Loader2,
     ring: 'border-blue-200',
     bg: 'bg-blue-50',
@@ -29,7 +29,7 @@ const STATUS_CONFIG: Record<
     dot: 'bg-blue-500',
   },
   IDEA: {
-    label: 'Ideas',
+    label: 'Idées',
     icon: Lightbulb,
     ring: 'border-yellow-200',
     bg: 'bg-yellow-50',
@@ -37,7 +37,7 @@ const STATUS_CONFIG: Record<
     dot: 'bg-yellow-400',
   },
   DONE: {
-    label: 'Done',
+    label: 'Terminé',
     icon: Check,
     ring: 'border-green-200',
     bg: 'bg-green-50',
@@ -79,9 +79,9 @@ function TasksContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setShowAdd(false)
-      toast.success('Task created')
+      toast.success('Tâche créée')
     },
-    onError: (e: any) => toast.error(e.message || 'Failed to create task'),
+    onError: (e: any) => toast.error(e.message || 'Impossible de créer la tâche.'),
   })
 
   const updateMutation = useMutation({
@@ -91,16 +91,16 @@ function TasksContent() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setEditingId(null)
     },
-    onError: (e: any) => toast.error(e.message || 'Failed to update task'),
+    onError: (e: any) => toast.error(e.message || 'Impossible de mettre à jour la tâche.'),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiJson(`/tasks/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      toast.success('Task deleted')
+      toast.success('Tâche supprimée')
     },
-    onError: (e: any) => toast.error(e.message || 'Failed to delete task'),
+    onError: (e: any) => toast.error(e.message || 'Impossible de supprimer la tâche.'),
   })
 
   const visibleTasks =
@@ -124,15 +124,15 @@ function TasksContent() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{tasks.length} task{tasks.length !== 1 ? 's' : ''} total</p>
+          <h1 className="text-2xl font-bold text-gray-900">Mes tâches</h1>
+          <p className="text-sm text-gray-500 mt-0.5">{tasks.length} tâche{tasks.length !== 1 ? 's' : ''} au total</p>
         </div>
         <button
           onClick={() => setShowAdd(true)}
           className="flex items-center gap-2 px-4 py-2 bg-[#3b49df] text-white rounded-lg font-semibold text-sm hover:bg-[#2d3aba] transition-colors self-start"
         >
           <Plus className="w-4 h-4" />
-          New task
+          Nouvelle tâche
         </button>
       </div>
 
@@ -141,7 +141,7 @@ function TasksContent() {
         <FilterTab
           active={filterStatus === 'ALL'}
           onClick={() => setFilterStatus('ALL')}
-          label="All"
+          label="Toutes"
           count={tasks.length}
         />
         {STATUS_ORDER.map((s) => (
@@ -181,7 +181,7 @@ function TasksContent() {
         <div className="text-center py-16 text-gray-400">
           <Circle className="w-10 h-10 mx-auto mb-3 text-gray-200" />
           <p className="text-sm">
-            {filterStatus === 'ALL' ? 'No tasks yet. Create your first one!' : `No ${STATUS_CONFIG[filterStatus]?.label.toLowerCase()} tasks.`}
+            {filterStatus === 'ALL' ? 'Aucune tâche. Créez-en une !' : `Aucune tâche "${STATUS_CONFIG[filterStatus]?.label}".`}
           </p>
         </div>
       )}
@@ -220,7 +220,7 @@ function TasksContent() {
                         }
                         onEdit={() => setEditingId(task.id)}
                         onDelete={() => {
-                          if (confirm('Delete this task?')) deleteMutation.mutate(task.id)
+                          if (confirm('Supprimer cette tâche ?')) deleteMutation.mutate(task.id)
                         }}
                         isAdvancing={updateMutation.isPending && updateMutation.variables?.id === task.id}
                       />
@@ -297,7 +297,7 @@ function TaskRow({
       <button
         onClick={onAdvance}
         disabled={isAdvancing}
-        title={task.status === 'DONE' ? 'Mark as To Do' : `Move to ${STATUS_CONFIG[NEXT_STATUS[task.status]].label}`}
+        title={task.status === 'DONE' ? 'Marquer comme À faire' : `Passer à "${STATUS_CONFIG[NEXT_STATUS[task.status]].label}"`}
         className={`shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
           task.status === 'DONE'
             ? 'bg-green-500 border-green-500 text-white'
@@ -334,7 +334,7 @@ function TaskRow({
             >
               <Calendar className="w-3 h-3" />
               {new Date(task.dueDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-              {isOverdue && ' · overdue'}
+              {isOverdue && ' · en retard'}
             </span>
           )}
           {task.relatedItemType && (
@@ -404,7 +404,7 @@ function TaskForm({
     >
       <div className="flex items-center justify-between mb-1">
         <span className="text-sm font-semibold text-gray-700">
-          {initial ? 'Edit task' : 'New task'}
+          {initial ? 'Modifier la tâche' : 'Nouvelle tâche'}
         </span>
         <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600">
           <X className="w-4 h-4" />
@@ -416,7 +416,7 @@ function TaskForm({
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Task name *"
+        placeholder="Nom de la tâche *"
         maxLength={200}
         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b49df] focus:border-[#3b49df]"
         required
@@ -425,7 +425,7 @@ function TaskForm({
       <textarea
         value={description}
         onChange={(e) => setDescription(e.target.value)}
-        placeholder="Description (optional)"
+        placeholder="Description (optionnelle)"
         rows={2}
         maxLength={5000}
         className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-[#3b49df] focus:border-[#3b49df]"
@@ -458,7 +458,7 @@ function TaskForm({
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Link (optional)"
+          placeholder="Lien (optionnel)"
           className="flex-1 min-w-[160px] px-3 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-700 focus:ring-2 focus:ring-[#3b49df]"
         />
       </div>
@@ -469,14 +469,14 @@ function TaskForm({
           disabled={isLoading || !name.trim()}
           className="px-4 py-1.5 bg-[#3b49df] text-white text-xs font-semibold rounded-lg hover:bg-[#2d3aba] disabled:opacity-50 transition-colors"
         >
-          {isLoading ? 'Saving…' : initial ? 'Save' : 'Create'}
+          {isLoading ? 'Enregistrement…' : initial ? 'Enregistrer' : 'Créer'}
         </button>
         <button
           type="button"
           onClick={onCancel}
           className="px-4 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
         >
-          Cancel
+          Annuler
         </button>
       </div>
     </form>

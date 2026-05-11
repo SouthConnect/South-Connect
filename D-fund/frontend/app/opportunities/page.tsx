@@ -66,16 +66,16 @@ export default function OpportunitiesPage() {
       <div className="bg-white border-b border-gray-100 py-6 mb-6">
         <div className="container mx-auto px-4 max-w-5xl flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Explore opportunities</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Explorer les opportunités</h1>
             <p className="text-sm text-gray-500">
-              Browse and filter all opportunities created by the community.
+              Parcourez et filtrez toutes les opportunités créées par la communauté.
             </p>
           </div>
           <Link
             href="/opportunities/new"
             className="inline-flex items-center px-4 py-2 rounded-lg bg-[#3b49df] text-white text-sm font-semibold hover:bg-[#2d3aba] transition-colors"
           >
-            Create opportunity
+            Créer une opportunité
           </Link>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function OpportunitiesPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by title, punchline or description"
+                placeholder="Rechercher par titre, accroche ou description"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3b49df] focus:border-transparent"
@@ -102,7 +102,7 @@ export default function OpportunitiesPage() {
                   onChange={(e) => setType(e.target.value as TypeFilter)}
                   className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#3b49df]"
                 >
-                  <option value="">All types</option>
+                  <option value="">Tous les types</option>
                   {TYPE_OPTIONS.map((value) => (
                     <option key={value} value={value}>
                       {value.replace(/_/g, ' ')}
@@ -116,7 +116,7 @@ export default function OpportunitiesPage() {
                 onChange={(e) => setStatus(e.target.value as StatusFilter)}
                 className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-[#3b49df]"
               >
-                <option value="">All statuses</option>
+                <option value="">Tous les statuts</option>
                 {STATUS_OPTIONS.map((value) => (
                   <option key={value} value={value}>
                     {value}
@@ -137,7 +137,7 @@ export default function OpportunitiesPage() {
 
         {isError && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {(error as Error)?.message || 'Unable to load opportunities.'}
+            {(error as Error)?.message || 'Impossible de charger les opportunités.'}
           </div>
         )}
 
@@ -146,7 +146,7 @@ export default function OpportunitiesPage() {
             {!opportunities?.data || opportunities.data.length === 0 ? (
               <div className="text-center py-16 text-gray-500 bg-white rounded-2xl border border-dashed border-gray-200">
                 <p className="mb-4">
-                  No opportunities match your current filters.
+                  Aucune opportunité ne correspond à vos filtres.
                 </p>
                 <button
                   type="button"
@@ -157,19 +157,19 @@ export default function OpportunitiesPage() {
                   }}
                   className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200 transition-colors mr-3"
                 >
-                  Reset filters
+                  Réinitialiser les filtres
                 </button>
                 <Link
                   href="/opportunities/new"
                   className="inline-flex items-center px-4 py-2 rounded-lg bg-[#3b49df] text-white text-sm font-semibold hover:bg-[#2d3aba] transition-colors"
                 >
-                  Create a new opportunity
+                  Créer une opportunité
                 </Link>
               </div>
             ) : (
               <div className="space-y-4">
                 {opportunities.total !== undefined && (
-                  <p className="text-xs text-gray-400 mb-2">{opportunities.total} result{opportunities.total !== 1 ? 's' : ''}</p>
+                  <p className="text-xs text-gray-400 mb-2">{opportunities.total} résultat{opportunities.total !== 1 ? 's' : ''}</p>
                 )}
                 {opportunities.data.map((opportunity: any) => (
                   <OpportunityCard key={opportunity.id} opportunity={opportunity} />

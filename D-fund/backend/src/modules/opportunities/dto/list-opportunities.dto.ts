@@ -29,6 +29,12 @@ export class ListOpportunitiesDto {
   @IsEnum(OpportunityTypeEnum)
   type?: OpportunityTypeEnum;
 
+  // Comma-separated list of types for multi-category filtering (e.g. "JOB_OPPORTUNITY,TALENT_PROFILE").
+  // Takes precedence over `type` when both are provided.
+  @IsOptional()
+  @IsString()
+  types?: string;
+
   @IsOptional()
   @IsString()
   ownerId?: string;

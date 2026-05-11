@@ -3,13 +3,24 @@
 import { useEffect, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useAuth } from '@/app/lib/AuthContext'
+import { toast } from 'sonner'
 
 let sharedSocket: Socket | null = null
+let currentUserId: string | null = null
 let connectedUsers = 0
 
 function getSocketUrl(): string {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
-  return apiUrl.replace('/api/v1', '')
+  return process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001'
+}
+
+function createSocket(): Socket {
+  return io(`${getSocketUrl()}/chat`, {
+    withCredentials: true,
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionAttempts: 5,
+  })
 }
 
 /**
@@ -17,24 +28,66 @@ function getSocketUrl(): string {
  * La connexion est partagée et ref-countée : le socket se déconnecte
  * uniquement quand tous les consommateurs sont démontés.
  *
- * L'authentification est assurée par le cookie HttpOnly access_token envoyé
- * automatiquement grâce à withCredentials: true — aucun token n'est lu
- * par JavaScript.
+ * Dépend de user?.id (et non de l'objet user entier) : un refresh de profil
+ * (refreshUser) ne provoque pas une reconnexion inutile.
+ *
+ * Sur logout ou changement d'utilisateur, le socket précédent est
+ * explicitement déconnecté pour éviter qu'User B hérite des rooms de User A.
  */
 export function useSocket(): Socket | null {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
-    if (!user) return
+    // User logged out — disconnect immediately and reset
+    if (!user) {
+      if (sharedSocket) {
+        sharedSocket.disconnect()
+        sharedSocket = null
+        currentUserId = null
+        connectedUsers = 0
+      }
+      socketRef.current = null
+      return
+    }
+
+    // User switched — disconnect the old socket before creating a new one
+    if (currentUserId && currentUserId !== user.id && sharedSocket) {
+      sharedSocket.disconnect()
+      sharedSocket = null
+      currentUserId = null
+      connectedUsers = 0
+    }
 
     if (!sharedSocket || !sharedSocket.connected) {
-      sharedSocket = io(`${getSocketUrl()}/chat`, {
-        withCredentials: true, // sends the access_token HttpOnly cookie automatically
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionAttempts: 5,
+      sharedSocket = createSocket()
+      currentUserId = user.id
+
+      // Token expired: the server disconnected us intentionally — silently
+      // refresh auth so the next reconnect attempt carries a fresh cookie.
+      sharedSocket.on('tokenExpired', () => {
+        refreshUser()
+      })
+
+      // "io server disconnect" = backend kicked us (token expired / banned).
+      // Any other reason = network blip that socket.io will retry automatically.
+      sharedSocket.on('disconnect', (reason: string) => {
+        if (reason === 'io server disconnect') {
+          refreshUser()
+        }
+      })
+
+      // Reconnect succeeded — no action needed, but log for debugging
+      sharedSocket.on('reconnect', () => {
+        toast.dismiss('socket-error')
+      })
+
+      sharedSocket.on('connect_error', () => {
+        // Only show the toast once (avoid spamming on repeated failures)
+        toast.error('Connexion temps réel perdue. Tentative de reconnexion…', {
+          id: 'socket-error',
+          duration: Infinity,
+        })
       })
     }
 
@@ -46,11 +99,14 @@ export function useSocket(): Socket | null {
       if (connectedUsers <= 0) {
         sharedSocket?.disconnect()
         sharedSocket = null
+        currentUserId = null
         connectedUsers = 0
       }
       socketRef.current = null
     }
-  }, [user])
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // refreshUser is stable (wrapped in useCallback in AuthContext), intentionally
+  // omitted from deps to avoid reconnection loops on profile refresh.
 
   return socketRef.current
 }

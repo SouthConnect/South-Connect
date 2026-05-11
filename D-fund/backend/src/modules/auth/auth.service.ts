@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   Logger,
   OnModuleDestroy,
   Optional,
@@ -62,6 +63,22 @@ export class AuthService implements OnModuleDestroy {
   ) {}
 
   /**
+   * Returns the SHA-256 hex digest of a token string.
+   *
+   * Raw tokens are sent to users (email links, unsubscribe footers) but NEVER
+   * persisted. Only their hash is stored so a DB dump cannot be used to trigger
+   * password resets or account takeovers.
+   *
+   * Lookup path: hash(input) → find in DB. Legacy plaintext tokens (pre-hash
+   * migration) are handled by a fallback query so existing email links keep
+   * working during the natural TTL window (max 24 h for verify/reset tokens;
+   * longer for unsubscribe tokens which have a plaintext fallback permanently).
+   */
+  private hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  /**
    * Creates a new user account.
    *
    * A cryptographic email-verification token is generated and sent via email
@@ -74,8 +91,8 @@ export class AuthService implements OnModuleDestroy {
     if (exists) throw new ConflictException('An account with this email address already exists.');
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const unsubscribeToken = crypto.randomBytes(32).toString('hex');
+    const rawVerificationToken = crypto.randomBytes(32).toString('hex');
+    const rawUnsubscribeToken  = crypto.randomBytes(32).toString('hex');
 
     const created = await this.prisma.user.create({
       data: {
@@ -85,10 +102,16 @@ export class AuthService implements OnModuleDestroy {
         lastName: dto.lastName,
         name: dto.name || `${dto.firstName} ${dto.lastName}`,
         role: (dto.role as UserRole) || UserRole.USER,
-        emailVerificationToken: verificationToken,
+        // Verification token hashed (high-security: prevents account takeover from DB dump)
+        emailVerificationToken: this.hashToken(rawVerificationToken),
         emailVerificationTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 h
-        emailUnsubscribeToken: unsubscribeToken,
+        // Unsubscribe token stored as-is: low-security, must be recoverable for email footers
+        emailUnsubscribeToken: rawUnsubscribeToken,
         isEmailVerified: false,
+        // Create sub-rows in the same transaction so new users can edit their profile
+        // and receive notification preferences immediately after signup.
+        btoCProfile: { create: {} },
+        notificationPreferences: { create: {} },
       },
     });
 
@@ -99,7 +122,7 @@ export class AuthService implements OnModuleDestroy {
     const tokens = this.generateTokens(created.id, created.email);
 
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    const verificationLink = `${frontendUrl}/verify-email?token=${verificationToken}`;
+    const verificationLink = `${frontendUrl}/verify-email?token=${rawVerificationToken}`;
 
     // Fire-and-forget: does not block the registration response
     this.notificationsService.sendEmailVerification(created, verificationLink)
@@ -118,12 +141,17 @@ export class AuthService implements OnModuleDestroy {
       throw new BadRequestException('Verification token is missing.');
     }
 
-    const user = await this.prisma.user.findFirst({
-      where: {
-        emailVerificationToken: token,
-        emailVerificationTokenExpiry: { gt: new Date() }, // reject expired tokens
-      },
+    const expiry = { gt: new Date() };
+    // Primary lookup by hash (new tokens). Fallback to plaintext for tokens
+    // created before the hash migration (expire within 24 h naturally).
+    let user = await this.prisma.user.findFirst({
+      where: { emailVerificationToken: this.hashToken(token), emailVerificationTokenExpiry: expiry },
     });
+    if (!user) {
+      user = await this.prisma.user.findFirst({
+        where: { emailVerificationToken: token, emailVerificationTokenExpiry: expiry },
+      });
+    }
 
     if (!user) {
       throw new BadRequestException('Invalid or expired verification link.');
@@ -150,17 +178,17 @@ export class AuthService implements OnModuleDestroy {
     if (!user) throw new BadRequestException('User not found.');
     if (user.isEmailVerified) return { message: 'Email déjà vérifié.' };
 
-    const token = crypto.randomBytes(32).toString('hex');
+    const rawToken = crypto.randomBytes(32).toString('hex');
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        emailVerificationToken: token,
+        emailVerificationToken: this.hashToken(rawToken),
         emailVerificationTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     });
 
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    const verificationLink = `${frontendUrl}/verify-email?token=${token}`;
+    const verificationLink = `${frontendUrl}/verify-email?token=${rawToken}`;
     await this.notificationsService.sendEmailVerification(user, verificationLink);
     return { message: 'Email de vérification renvoyé.' };
   }
@@ -182,6 +210,9 @@ export class AuthService implements OnModuleDestroy {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (raw.deletedAt) {
+      throw new UnauthorizedException('Account deleted');
+    }
     if (raw.isBanned) {
       throw new UnauthorizedException('Account suspended');
     }
@@ -201,16 +232,27 @@ export class AuthService implements OnModuleDestroy {
    *
    * @throws UnauthorizedException when no user matches the given ID.
    */
-  async validateUser(userId: string) {
+  async validateUser(userId: string, tokenIssuedAt?: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { ...USER_SAFE_SELECT, isBanned: true },
+      select: { ...USER_SAFE_SELECT, isBanned: true, deletedAt: true, passwordChangedAt: true },
     });
 
     if (!user) throw new UnauthorizedException();
+    if (user.deletedAt) throw new UnauthorizedException('Account deleted');
     if (user.isBanned) throw new UnauthorizedException('Account suspended');
 
-    return user;
+    // Reject tokens issued before the last password change (covers stolen tokens)
+    if (tokenIssuedAt && user.passwordChangedAt) {
+      const changedAtSec = Math.floor(user.passwordChangedAt.getTime() / 1000);
+      if (tokenIssuedAt < changedAtSec) {
+        throw new UnauthorizedException('Session expired — please log in again');
+      }
+    }
+
+    // Do not expose internal fields in the request context
+    const { passwordChangedAt: _omit, deletedAt: _del, ...safeUser } = user;
+    return safeUser;
   }
 
   /**
@@ -239,17 +281,29 @@ export class AuthService implements OnModuleDestroy {
    * Validates a refresh token and issues a fresh pair of tokens.
    *
    * Security properties:
-   * - Blocklist check: rejects any token that was previously revoked (via logout)
-   * - Token rotation: the consumed refresh token is immediately blocklisted so
-   *   it cannot be replayed even if an attacker captured it
+   * - Atomic consumption: the token is marked as used in Redis BEFORE any other
+   *   work is done, closing the TOCTOU window that existed between the old
+   *   "check then blocklist" approach. Concurrent requests with the same token
+   *   can no longer both generate fresh token pairs.
+   * - Token rotation: each refresh token is single-use — once consumed it is
+   *   permanently blocked for its remaining natural lifetime.
    *
-   * @throws UnauthorizedException when the token is missing, revoked, invalid, or expired.
+   * @throws UnauthorizedException when the token is missing, already consumed,
+   *         invalid, expired, or belongs to a banned / deleted user.
    */
   async refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     if (!refreshToken) throw new UnauthorizedException('No refresh token provided');
 
-    // Reject tokens that have been explicitly revoked (logout or previous rotation)
-    if (await this.isRefreshTokenBlocked(refreshToken)) {
+    // Decode first (without verifying signature) to get the expiry claim for the TTL.
+    const decoded = this.jwtService.decode(refreshToken) as { userId?: string; email?: string; exp?: number } | null;
+    const exp = decoded?.exp;
+
+    // Atomic consumption: SET the hash NX (only if not already set) with the
+    // token's remaining lifetime as TTL. If the key already exists, a prior
+    // request already consumed this token — reject immediately without revealing
+    // whether it was logout or a replay attack.
+    const consumed = await this.consumeRefreshTokenAtomically(refreshToken, exp);
+    if (!consumed) {
       throw new UnauthorizedException('Token has been revoked');
     }
 
@@ -264,13 +318,11 @@ export class AuthService implements OnModuleDestroy {
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, email: true, isBanned: true },
+        select: { id: true, email: true, isBanned: true, deletedAt: true },
       });
       if (!user) throw new UnauthorizedException('User not found');
+      if (user.deletedAt) throw new UnauthorizedException('Account deleted');
       if (user.isBanned) throw new UnauthorizedException('Account suspended');
-
-      // Blocklist the consumed token (rotation — prevents replay of captured tokens)
-      await this.invalidateRefreshToken(refreshToken, payload.exp);
 
       return this.generateTokens(user.id, user.email);
     } catch (err) {
@@ -282,15 +334,57 @@ export class AuthService implements OnModuleDestroy {
   // ─── Refresh token blocklist ─────────────────────────────────────────────────
 
   /**
+   * Atomically marks a refresh token as consumed using Redis SET NX EX.
+   *
+   * Returns true  → token was not previously consumed; caller may proceed.
+   * Returns false → token was already in the blocklist (replay or prior logout).
+   *
+   * The key is a SHA-256 hash of the raw token to avoid persisting credentials.
+   *
+   * Fail behaviour:
+   * - No Redis / dev: fail-open (return true) — token rotation is best-effort
+   *   without a shared store.
+   * - Redis unreachable in production: fail-closed (throw 503) so a revoked
+   *   token cannot slip through during a Redis outage.
+   */
+  private async consumeRefreshTokenAtomically(token: string, expClaim?: number): Promise<boolean> {
+    if (!this.redis) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new ServiceUnavailableException(
+          'Auth service temporarily unavailable — please retry',
+        );
+      }
+      return true; // dev/test without Redis: accept all tokens
+    }
+
+    try {
+      const ttl = expClaim
+        ? expClaim - Math.floor(Date.now() / 1000)
+        : 7 * 24 * 60 * 60; // fallback: 7 days (max refresh token lifetime)
+
+      if (ttl <= 0) return false; // token already expired — treat as consumed
+
+      const hash = crypto.createHash('sha256').update(token).digest('hex');
+      // SET key 1 EX ttl NX: returns 'OK' if the key was set (token not yet seen)
+      // or null if the key already existed (token was already consumed or revoked).
+      const result = await this.redis.set(`blocklist:rt:${hash}`, '1', 'EX', ttl, 'NX');
+      return result === 'OK';
+    } catch {
+      if (process.env.NODE_ENV === 'production') {
+        throw new ServiceUnavailableException(
+          'Auth service temporarily unavailable — please retry',
+        );
+      }
+      return true; // dev/test: Redis error → fail-open
+    }
+  }
+
+  /**
    * Adds a refresh token to the Redis blocklist until it naturally expires.
-   * The key is a SHA-256 hash of the raw token to avoid storing credentials.
+   * Used by logout to immediately revoke the current refresh token.
    *
    * No-ops silently when Redis is not configured — clearing the HttpOnly cookie
    * is still the primary defence in that case.
-   *
-   * @param token    - The raw refresh token JWT.
-   * @param expClaim - The `exp` claim from the token payload (Unix timestamp).
-   *                   When omitted the token is decoded on-the-fly.
    */
   async invalidateRefreshToken(token: string, expClaim?: number): Promise<void> {
     if (!this.redis || !token) return;
@@ -307,40 +401,11 @@ export class AuthService implements OnModuleDestroy {
       if (ttl <= 0) return; // already expired — nothing to blocklist
 
       const hash = crypto.createHash('sha256').update(token).digest('hex');
+      // Use SET (not NX) for logout — we want to overwrite even if somehow already set
       await this.redis.set(`blocklist:rt:${hash}`, '1', 'EX', ttl);
     } catch (err) {
       // Non-fatal: log and continue — cookie has already been cleared
       this.logger.warn(`Failed to blocklist refresh token: ${err.message}`);
-    }
-  }
-
-  /**
-   * Returns true when the token is present in the Redis blocklist.
-   *
-   * Fail behaviour:
-   * - Dev / test (no Redis): fail-open (return false) for convenience.
-   * - Production (Redis configured but unreachable): fail-closed — throw 503 so
-   *   the client retries rather than letting a revoked token through.
-   */
-  private async isRefreshTokenBlocked(token: string): Promise<boolean> {
-    if (!this.redis) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new ServiceUnavailableException(
-          'Auth service temporarily unavailable — please retry',
-        );
-      }
-      return false; // dev/test: no Redis, accept tokens
-    }
-    try {
-      const hash = crypto.createHash('sha256').update(token).digest('hex');
-      return (await this.redis.exists(`blocklist:rt:${hash}`)) === 1;
-    } catch {
-      if (process.env.NODE_ENV === 'production') {
-        throw new ServiceUnavailableException(
-          'Auth service temporarily unavailable — please retry',
-        );
-      }
-      return false;
     }
   }
 
@@ -367,7 +432,9 @@ export class AuthService implements OnModuleDestroy {
 
   /**
    * Stores a one-time OAuth code → JWT mapping with a 60-second TTL.
-   * Uses Redis when available, in-memory Map otherwise.
+   * Uses Redis when available, in-memory Map otherwise (dev only).
+   *
+   * @throws InternalServerErrorException in production when Redis is not configured.
    */
   async generateOAuthCode(token: string): Promise<string> {
     const code = crypto.randomBytes(32).toString('hex');
@@ -375,6 +442,9 @@ export class AuthService implements OnModuleDestroy {
     if (this.redis) {
       await this.redis.set(`oauth:${code}`, token, 'EX', 60);
     } else {
+      if (process.env.NODE_ENV === 'production') {
+        throw new InternalServerErrorException('Redis is required for OAuth in production');
+      }
       this.oauthCodesMap.set(code, { token, expiresAt: Date.now() + 60_000 });
     }
 
@@ -386,6 +456,7 @@ export class AuthService implements OnModuleDestroy {
    * The code is deleted atomically on first use (single-use guarantee).
    *
    * @throws UnauthorizedException when the code is missing, unknown, or expired.
+   * @throws InternalServerErrorException in production when Redis is not configured.
    */
   async exchangeOAuthCode(code: string): Promise<string> {
     if (this.redis) {
@@ -395,7 +466,11 @@ export class AuthService implements OnModuleDestroy {
       return token;
     }
 
-    // In-memory fallback
+    if (process.env.NODE_ENV === 'production') {
+      throw new InternalServerErrorException('Redis is required for OAuth in production');
+    }
+
+    // In-memory fallback (local dev only)
     const entry = this.oauthCodesMap.get(code);
     this.oauthCodesMap.delete(code); // always delete, even on failure
     if (!entry || entry.expiresAt < Date.now()) {
@@ -415,16 +490,16 @@ export class AuthService implements OnModuleDestroy {
 
     if (!user) return { message: 'If this email exists, a reset link has been sent.' };
 
-    const token = crypto.randomBytes(32).toString('hex');
+    const rawToken = crypto.randomBytes(32).toString('hex');
     const expiry = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
 
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { passwordResetToken: token, passwordResetExpiry: expiry },
+      data: { passwordResetToken: this.hashToken(rawToken), passwordResetExpiry: expiry },
     });
 
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    const resetLink = `${frontendUrl}/reset-password?token=${token}`;
+    const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
 
     try {
       await this.notificationsService.sendPasswordResetEmail(user, resetLink);
@@ -441,23 +516,43 @@ export class AuthService implements OnModuleDestroy {
    * @throws BadRequestException when the token is invalid or has expired.
    */
   async resetPassword(token: string, newPassword: string) {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        passwordResetToken: token,
-        passwordResetExpiry: { gt: new Date() },
-      },
+    const expiry = { gt: new Date() };
+    // Primary lookup by hash. Fallback to plaintext for tokens issued before
+    // the hash migration (they expire within 1 h).
+    let user = await this.prisma.user.findFirst({
+      where: { passwordResetToken: this.hashToken(token), passwordResetExpiry: expiry },
     });
+    if (!user) {
+      user = await this.prisma.user.findFirst({
+        where: { passwordResetToken: token, passwordResetExpiry: expiry },
+      });
+    }
 
     if (!user) {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
+    const now = new Date();
 
+    // passwordChangedAt invalidates all JWTs issued before this moment,
+    // forcing every session (incl. stolen tokens) to re-authenticate.
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { password: hashed, passwordResetToken: null, passwordResetExpiry: null },
+      data: {
+        password: hashed,
+        passwordResetToken: null,
+        passwordResetExpiry: null,
+        passwordChangedAt: now,
+      },
     });
+
+    // Non-blocking: send security notification email
+    try {
+      await this.notificationsService.sendPasswordChangedEmail(user);
+    } catch (err) {
+      this.logger.error(`Failed to send password-changed notification: ${err.message}`);
+    }
 
     return { message: 'Password updated successfully.' };
   }
@@ -472,9 +567,23 @@ export class AuthService implements OnModuleDestroy {
   async unsubscribeEmail(token: string) {
     if (!token) throw new BadRequestException('Token de désabonnement manquant.');
 
-    const user = await this.prisma.user.findFirst({
-      where: { emailUnsubscribeToken: token },
+    // Primary lookup by hash. Permanent plaintext fallback for unsubscribe tokens
+    // since old email footers in users' inboxes may contain pre-hash tokens.
+    let user = await this.prisma.user.findFirst({
+      where: { emailUnsubscribeToken: this.hashToken(token) },
     });
+    if (!user) {
+      user = await this.prisma.user.findFirst({
+        where: { emailUnsubscribeToken: token },
+      });
+      // Opportunistically upgrade the stored token to its hash on first use
+      if (user) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { emailUnsubscribeToken: this.hashToken(token) },
+        }).catch(() => undefined);
+      }
+    }
 
     if (!user) throw new BadRequestException('Lien de désabonnement invalide.');
 

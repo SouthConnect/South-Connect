@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { apiJson } from '@/app/lib/api'
@@ -10,7 +10,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, user, loading: authLoading } = useAuth()
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -21,6 +21,11 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
 
   const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/
+
+  // Rediriger les utilisateurs déjà connectés
+  useEffect(() => {
+    if (!authLoading && user) router.replace('/')
+  }, [user, authLoading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,12 +56,14 @@ export default function RegisterPage() {
       router.push('/profile?onboarding=true')
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+        err instanceof Error ? err.message : 'Une erreur est survenue. Veuillez réessayer.',
       )
     } finally {
       setLoading(false)
     }
   }
+
+  if (authLoading || user) return null
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -91,6 +98,7 @@ export default function RegisterPage() {
                   required
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm transition-all"
                   placeholder="John"
+                  autoFocus
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 />

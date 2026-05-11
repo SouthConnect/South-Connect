@@ -1,8 +1,10 @@
-import { ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DiscussionType, Prisma } from '@prisma/client';
+import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ChatGateway } from './chat.gateway';
+import { REDIS_CLIENT } from '../redis/redis.module';
 
 /**
  * Handles all messaging logic: public discussion threads and private (1-to-1) discussions.
@@ -10,6 +12,8 @@ import { ChatGateway } from './chat.gateway';
  * Every mutation that creates a message also broadcasts a real-time `newMessage` event
  * via {@link ChatGateway} so connected Socket.IO clients receive updates without polling.
  */
+const DEDUP_TTL_SECONDS = 60;
+
 @Injectable()
 export class MessagesService {
   private readonly logger = new Logger(MessagesService.name);
@@ -20,7 +24,28 @@ export class MessagesService {
     private notificationsService: NotificationsService,
     @Inject(forwardRef(() => ChatGateway))
     private chatGateway: ChatGateway,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis | null,
   ) {}
+
+  private async dedupGet(key: string): Promise<any | null> {
+    if (!this.redis) return null;
+    try {
+      const raw = await this.redis.get(`msgdedup:${key}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async dedupSet(key: string, value: any): Promise<void> {
+    if (!this.redis) return;
+    try {
+      await this.redis.set(`msgdedup:${key}`, JSON.stringify(value), 'EX', DEDUP_TTL_SECONDS);
+    } catch {
+      // Non-critical: a missed dedup entry may cause a duplicate insert on retry,
+      // which is far less harmful than blocking message delivery.
+    }
+  }
 
   /** Creates a new public discussion thread owned by the given user. */
   createPublicDiscussion(ownerId: string, title: string, description?: string) {
@@ -51,7 +76,9 @@ export class MessagesService {
     return Boolean(priv) || Boolean(pub);
   }
 
-  findPublicDiscussions(type?: string) {
+  findPublicDiscussions(type?: string, take = 50, skip = 0) {
+    const cappedTake = Math.min(Math.max(take, 1), 100);
+    const cappedSkip = Math.max(skip, 0);
     const where: Prisma.PublicDiscussionWhereInput = {};
 
     if (type === DiscussionType.OPEN_FORUM || type === DiscussionType.OPPORTUNITY_RELATED) {
@@ -61,6 +88,8 @@ export class MessagesService {
     return this.prisma.publicDiscussion.findMany({
       where,
       orderBy: { lastMessageAt: 'desc' },
+      take: cappedTake,
+      skip: cappedSkip,
       include: {
         owner: { select: { id: true, name: true, profilePic: true } },
         opportunity: { select: { id: true, name: true, image: true, backgroundImage: true } },
@@ -72,10 +101,14 @@ export class MessagesService {
    * Returns all private discussions for a user, including the most recent message
    * in each thread for use as a preview in the inbox list.
    */
-  findPrivateDiscussionsForUser(userId: string) {
+  findPrivateDiscussionsForUser(userId: string, take = 50, skip = 0) {
+    const cappedTake = Math.min(Math.max(take, 1), 100);
+    const cappedSkip = Math.max(skip, 0);
     return this.prisma.privateDiscussion.findMany({
       where: { participants: { some: { userId } } },
       orderBy: { lastMessageAt: 'desc' },
+      take: cappedTake,
+      skip: cappedSkip,
       include: {
         participants: {
           include: { user: { select: { id: true, name: true, profilePic: true } } },
@@ -152,6 +185,14 @@ export class MessagesService {
       throw new ForbiddenException('You cannot start a conversation with yourself');
     }
 
+    // Verify the target user exists and is not banned before touching the DB
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, isBanned: true },
+    });
+    if (!targetUser) throw new NotFoundException('User not found');
+    if (targetUser.isBanned) throw new BadRequestException('Cannot message this user');
+
     return this.prisma.$transaction(async (tx) => {
       // Re-check inside the transaction to eliminate the TOCTOU window
       const existing = await tx.privateDiscussion.findFirst({
@@ -184,9 +225,24 @@ export class MessagesService {
    *
    * @throws NotFoundException when the discussion does not exist.
    */
-  async createPublicMessage(discussionId: string, senderId: string, content: string) {
+  async createPublicMessage(discussionId: string, senderId: string, content: string, clientMessageId?: string) {
+    // Idempotency: return the same message if the client retries
+    if (clientMessageId) {
+      const cached = await this.dedupGet(`pub:${senderId}:${clientMessageId}`);
+      if (cached) return cached;
+    }
+
+    // Verify sender is active (not deleted or banned) before persisting
+    const sender = await this.prisma.user.findUnique({
+      where: { id: senderId },
+      select: { isBanned: true, deletedAt: true },
+    });
+    if (sender?.deletedAt) throw new ForbiddenException('Your account has been deleted');
+    if (sender?.isBanned) throw new ForbiddenException('Your account has been suspended');
+
     const discussion = await this.prisma.publicDiscussion.findUnique({
       where: { id: discussionId },
+      select: { id: true, opportunityId: true },
     });
     if (!discussion) throw new NotFoundException('Discussion not found');
 
@@ -200,7 +256,18 @@ export class MessagesService {
       data: { lastMessageAt: new Date(), messagesCount: { increment: 1 } },
     });
 
+    // Maintenir Opportunity.messagesCount si la discussion est liée à une opportunité
+    if (discussion.opportunityId) {
+      this.prisma.opportunity
+        .updateMany({ where: { id: discussion.opportunityId }, data: { messagesCount: { increment: 1 } } })
+        .catch(() => undefined);
+    }
+
     this.chatGateway.broadcastMessage(discussionId, message);
+
+    if (clientMessageId) {
+      await this.dedupSet(`pub:${senderId}:${clientMessageId}`, message);
+    }
 
     return message;
   }
@@ -242,7 +309,12 @@ export class MessagesService {
    * @throws NotFoundException  when the discussion does not exist.
    * @throws ForbiddenException when the sender is not a participant.
    */
-  async createPrivateMessage(discussionId: string, senderId: string, content: string) {
+  async createPrivateMessage(discussionId: string, senderId: string, content: string, clientMessageId?: string) {
+    // Idempotency: return the same message if the client retries
+    if (clientMessageId) {
+      const cached = await this.dedupGet(`priv:${senderId}:${clientMessageId}`);
+      if (cached) return cached;
+    }
     const discussion = await this.prisma.privateDiscussion.findUnique({
       where: { id: discussionId },
       include: { participants: true },
@@ -253,6 +325,14 @@ export class MessagesService {
     if (!discussion.participants.some((p) => p.userId === senderId)) {
       throw new ForbiddenException('You are not allowed to post in this discussion');
     }
+
+    // Verify sender is active before persisting
+    const sender = await this.prisma.user.findUnique({
+      where: { id: senderId },
+      select: { isBanned: true, deletedAt: true },
+    });
+    if (sender?.deletedAt) throw new ForbiddenException('Your account has been deleted');
+    if (sender?.isBanned) throw new ForbiddenException('Your account has been suspended');
 
     const otherParticipant = discussion.participants.find((p) => p.userId !== senderId);
 
@@ -280,6 +360,11 @@ export class MessagesService {
           data: { unreadCount: { increment: 1 } },
         });
 
+        // Always push a lightweight badge-update event to the recipient's socket,
+        // regardless of their in-app notification preferences. This keeps the
+        // unread-chat badge in sync even when inAppNewMessage is disabled.
+        this.chatGateway.sendToUser(otherParticipant.userId, 'chatBadgeUpdate', { discussionId });
+
         const [sender, recipient] = await Promise.all([
           this.prisma.user.findUnique({ where: { id: senderId }, select: { name: true } }),
           this.prisma.user.findUnique({ where: { id: otherParticipant.userId } }),
@@ -304,6 +389,10 @@ export class MessagesService {
       } catch (err) {
         this.logger.error(`Failed to create message notification: ${err.message}`);
       }
+    }
+
+    if (clientMessageId) {
+      await this.dedupSet(`priv:${senderId}:${clientMessageId}`, message);
     }
 
     return message;

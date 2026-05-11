@@ -7,8 +7,11 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole } from '@prisma/client';
@@ -46,6 +49,7 @@ export class OpportunitiesController {
 
   /** Returns a paginated list of non-draft opportunities for the public feed. */
   @Get()
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   findAll(@Query() query: ListOpportunitiesDto) {
     return this.opportunitiesService.findAll(query);
   }
@@ -97,9 +101,10 @@ export class OpportunitiesController {
     return this.opportunitiesService.findByOwner(userId, query, requester?.id);
   }
 
-  /** Creates a new opportunity. Defaults to DRAFT status. */
+  /** Creates a new opportunity. Defaults to DRAFT status. Rate-limited to 5 per 30s to prevent double-submit. */
   @Post()
   @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 30_000 } })
   create(@CurrentUser() user: User, @Body() dto: CreateOpportunityDto) {
     return this.opportunitiesService.create(user.id, dto);
   }
@@ -121,7 +126,23 @@ export class OpportunitiesController {
   /** Returns a single opportunity. Includes like/save state when the requester is authenticated. */
   @Get(':id')
   @UseGuards(JwtOptionalGuard)
-  findOne(@Param('id', ParseIdPipe) id: string, @CurrentUser() requester?: User) {
-    return this.opportunitiesService.findOne(id, requester?.id);
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  findOne(
+    @Param('id', ParseIdPipe) id: string,
+    @Req() req: Request,
+    @CurrentUser() requester?: User,
+  ) {
+    // Viewer key for view dedup: prefer userId (stable), fall back to IP
+    const xff = req.headers['x-forwarded-for'];
+    const ip = (Array.isArray(xff) ? xff[0] : xff?.split(',')[0]) ?? req.ip ?? 'unknown';
+    const viewerKey = requester?.id ?? ip;
+    return this.opportunitiesService.findOne(id, requester?.id, viewerKey);
+  }
+
+  /** Records a share action for an opportunity (increments sharedCount). */
+  @Post(':id/share')
+  @UseGuards(JwtOptionalGuard)
+  share(@Param('id', ParseIdPipe) id: string) {
+    return this.opportunitiesService.incrementShares(id);
   }
 }

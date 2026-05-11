@@ -173,12 +173,20 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   googleCallback(@Req() req: any, @Res() res: Response) {
+    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+
+    // Strategy signals a conflict: an account with this email exists but uses
+    // email/password auth. Redirect to login with an explicit error code so
+    // the user can connect their account intentionally.
+    if (req.user?.oauthError) {
+      return res.redirect(`${frontendUrl}/login?error=${req.user.oauthError}`);
+    }
+
     const { accessToken, refreshToken } = this.authService.generateTokens(
       req.user.id,
       req.user.email,
     );
     this.setAuthCookies(res, accessToken, refreshToken);
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     return res.redirect(`${frontendUrl}/auth/google/success`);
   }
 

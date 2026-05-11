@@ -7,7 +7,8 @@
  *
  * Transparent token refresh: when a 401 is received, one silent call to
  * POST /auth/refresh is attempted. If it succeeds the original request is
- * retried once. If it fails the caller receives the 401 as-is.
+ * retried once. If it fails the caller receives the 401 as-is and dispatches
+ * an 'auth:session-expired' event so the AuthContext can clear local state.
  *
  * Types are defined in app/lib/types.ts (single source of truth).
  */
@@ -16,10 +17,28 @@ import type { CreateOpportunityData, OpportunityType } from '@/app/lib/types'
 // Re-exports — source unique : app/lib/types.ts
 export type { AuthUser as User, Opportunity, ApplicationStage, Application, PrivateDiscussion, PublicDiscussion, Message, OpportunityType, OpportunityStatus, CreateOpportunityData, ApplicationCandidate } from '@/app/lib/types'
 
+/**
+ * HTTP-aware error that preserves the response status code.
+ * Use `instanceof ApiError` to detect API errors and `error.status` to branch on the code.
+ */
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
 const API_TIMEOUT_MS = 15000
 
-const getApiUrl = (): string =>
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'
+const getApiUrl = (): string => {
+  const url = process.env.NEXT_PUBLIC_API_URL
+  if (!url) {
+    // In production this means all API calls will fail — set NEXT_PUBLIC_API_URL in your deployment env.
+    console.error('[api] NEXT_PUBLIC_API_URL is not set. Falling back to localhost:3001 (dev only).')
+    return 'http://localhost:3001/api/v1'
+  }
+  return url
+}
 
 /**
  * Performs an HTTP request against the API.
@@ -53,13 +72,24 @@ export const apiCall = async (
 
     // Transparent token refresh on 401 (only one retry to avoid infinite loops)
     if (response.status === 401 && !_retry) {
-      const refreshed = await fetch(`${apiUrl}/auth/refresh`, {
+      const refreshResponse = await fetch(`${apiUrl}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
-      }).then((r) => r.ok).catch(() => false)
+      }).catch(() => null)
 
-      if (refreshed) {
+      if (refreshResponse?.ok) {
         return apiCall(endpoint, options, true)
+      }
+
+      // 429 on the refresh endpoint means the refresh itself was rate-limited,
+      // NOT that the session is expired — keep the user logged in and let them retry.
+      if (refreshResponse?.status === 429) {
+        return response
+      }
+
+      // Any other failure (401, 5xx, network) means the session is definitively expired.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:session-expired'))
       }
     }
 
@@ -90,7 +120,7 @@ export const apiJson = async <T = any>(
     const message = Array.isArray(error.message)
       ? error.message[0]
       : (error.message || error.error || `HTTP ${response.status}`)
-    throw new Error(message)
+    throw new ApiError(message, response.status)
   }
 
   return response.json()

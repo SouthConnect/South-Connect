@@ -10,8 +10,15 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       // Allow images from Supabase storage, Unsplash fallbacks and data URIs
       "img-src 'self' data: https:",
-      // API, WebSocket (ws/wss) and Sentry ingest
-      `connect-src 'self' ${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'} ${process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001'} https://*.sentry.io https://*.ingest.sentry.io`,
+      // API and WebSocket — both point to the backend (cross-origin in dev, same proxy in prod).
+      // Include both http:// and ws:// variants for socket.io (HTTP polling handshake + WS upgrade).
+      (() => {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+        const apiOrigin = apiUrl.replace(/\/api\/v1$/, '');
+        const wsOrigin = process.env.NEXT_PUBLIC_WS_URL || apiOrigin;
+        const wsScheme = wsOrigin.replace(/^http/, 'ws');
+        return `connect-src 'self' ${apiOrigin} ${wsOrigin} ${wsScheme} https://*.sentry.io https://*.ingest.sentry.io`;
+      })(),
       "font-src 'self' https:",
       "object-src 'none'",
       "frame-ancestors 'none'",
@@ -55,21 +62,16 @@ const nextConfig = {
 };
 
 module.exports = withSentryConfig(nextConfig, {
-  // Sentry organisation & project (used for source-map upload during build)
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
-
-  // Auth token for source-map upload — set in CI, not needed in dev
   authToken: process.env.SENTRY_AUTH_TOKEN,
-
-  // Suppress the "Sentry SDK is not configured" warning when DSN is absent
   silent: true,
-
-  // Upload source maps only in production builds so stack traces are readable
   widenClientFileUpload: true,
   hideSourceMaps: true,
-  disableLogger: true,
-
-  // Automatic instrumentation of Next.js server-side features
-  autoInstrumentServerFunctions: true,
+  webpack: {
+    autoInstrumentServerFunctions: true,
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 });

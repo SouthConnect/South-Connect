@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Suspense } from 'react'
 import { apiJson } from '@/app/lib/api'
@@ -16,6 +16,7 @@ function VerifyContent() {
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!token) {
@@ -24,19 +25,28 @@ function VerifyContent() {
       return
     }
 
+    let cancelled = false
     apiJson(`/auth/verify-email?token=${encodeURIComponent(token)}`)
       .then(async () => {
+        if (cancelled) return
         setStatus('success')
         setMessage('Votre adresse email a été confirmée avec succès !')
         // Await refreshUser so the AuthContext has isEmailVerified:true
         // before the redirect fires — prevents the banner flashing on /
         await refreshUser()
-        setTimeout(() => router.push('/'), 3000)
+        if (cancelled) return
+        timerRef.current = setTimeout(() => router.push('/'), 3000)
       })
       .catch((err: Error) => {
+        if (cancelled) return
         setStatus('error')
         setMessage(err.message || 'Lien invalide ou expiré.')
       })
+
+    return () => {
+      cancelled = true
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
   }, [token, refreshUser, router])
 
   return (

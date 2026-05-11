@@ -1,8 +1,9 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
+import { useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiJson } from '@/app/lib/api'
+import { apiJson, ApiError } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { MapPin, Calendar, Clock, Tag, ArrowLeft, Send, MessageSquare, ThumbsUp, Bookmark, Share2 } from 'lucide-react'
 import Link from 'next/link'
@@ -21,8 +22,23 @@ export default function OpportunityDetailPage() {
     queryKey: ['opportunity', id],
     queryFn: () => apiJson(`/opportunities/${id}`),
     enabled: !!id,
-    retry: (failureCount, err: any) => err?.status !== 404 && failureCount < 2,
+    retry: (failureCount, err) => !(err instanceof ApiError && err.status === 404) && failureCount < 2,
   })
+
+  // viewsCount est incrémenté côté backend dans findOne() — pas de double comptage nécessaire ici.
+  // sharedCount : on trackait déjà le clipboard, on envoie simplement l'événement share au backend.
+  const sharedRef = useRef(false)
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href)
+      .then(() => {
+        toast.success('Lien copié !')
+        if (!sharedRef.current) {
+          sharedRef.current = true
+          apiJson(`/opportunities/${id}/share`, { method: 'POST' }).catch(() => undefined)
+        }
+      })
+      .catch(() => toast.error('Impossible de copier le lien'))
+  }
 
   const toggleLikeMutation = useMutation({
     mutationFn: async (currentlyLiked: boolean) => {
@@ -109,7 +125,7 @@ export default function OpportunityDetailPage() {
   }
 
   if (isError || !opportunity) {
-    const is404 = (error as any)?.status === 404 || !opportunity
+    const is404 = (error instanceof ApiError && error.status === 404) || !opportunity
     return (
       <div className="container mx-auto px-4 py-12 text-center">
         <h1 className="text-2xl font-bold mb-2">
@@ -144,8 +160,8 @@ export default function OpportunityDetailPage() {
         />
         <div className="absolute inset-0 bg-black/20" />
         <div className="absolute top-8 left-8">
-          <button 
-            onClick={() => router.back()}
+          <button
+            onClick={() => router.push('/')}
             className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg text-sm font-bold text-gray-900 shadow-sm hover:bg-gray-50 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -193,7 +209,10 @@ export default function OpportunityDetailPage() {
                 <div
                   className="whitespace-pre-wrap"
                   dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(opportunity.description || 'Aucune description disponible.'),
+                    __html: DOMPurify.sanitize(opportunity.description || 'Aucune description disponible.', {
+                      ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'ul', 'ol', 'li', 'h2', 'h3', 'h4', 'blockquote'],
+                      ALLOWED_ATTR: [],
+                    }),
                   }}
                 />
               </div>
@@ -309,10 +328,7 @@ export default function OpportunityDetailPage() {
               </div>
               
               <button
-                onClick={() => {
-                  navigator.clipboard.writeText(window.location.href)
-                  toast.success('Lien copié !')
-                }}
+                onClick={handleShare}
                 className="flex items-center justify-center gap-2 w-full py-2 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors"
               >
                 <Share2 className="w-4 h-4" />

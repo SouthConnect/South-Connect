@@ -25,6 +25,16 @@ export class StorageService {
     } else {
       this.supabase = createClient(projectUrl, serviceRoleKey, {
         auth: { autoRefreshToken: false, persistSession: false },
+        global: {
+          // Abort any Supabase Storage request that stalls for more than 30 s
+          fetch: (url, init) => {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 30_000);
+            return fetch(url, { ...init, signal: controller.signal }).finally(() =>
+              clearTimeout(id),
+            );
+          },
+        },
       });
     }
   }
@@ -135,6 +145,53 @@ export class StorageService {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ];
     return allowedTypes.includes(contentType.toLowerCase());
+  }
+
+  /**
+   * Verifies the actual file content (magic bytes) matches the declared MIME type.
+   * Prevents MIME spoofing: a JS file renamed to .jpg and sent with image/jpeg Content-Type.
+   *
+   * Checks only the first few bytes — fast and allocation-free.
+   */
+  isMimeConsistentWithBuffer(buffer: Buffer, declaredMime: string): boolean {
+    if (!buffer || buffer.length < 4) return false;
+    const mime = declaredMime.toLowerCase();
+
+    // JPEG: FF D8 FF
+    if (mime === 'image/jpeg' || mime === 'image/jpg') {
+      return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    }
+    // PNG: 89 50 4E 47 0D 0A 1A 0A
+    if (mime === 'image/png') {
+      return buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+    }
+    // WebP: RIFF????WEBP (bytes 0-3 = RIFF, bytes 8-11 = WEBP)
+    if (mime === 'image/webp') {
+      return (
+        buffer.length >= 12 &&
+        buffer.toString('ascii', 0, 4) === 'RIFF' &&
+        buffer.toString('ascii', 8, 12) === 'WEBP'
+      );
+    }
+    // GIF: GIF87a or GIF89a
+    if (mime === 'image/gif') {
+      const sig = buffer.toString('ascii', 0, 6);
+      return sig === 'GIF87a' || sig === 'GIF89a';
+    }
+    // PDF: %PDF
+    if (mime === 'application/pdf') {
+      return buffer.toString('ascii', 0, 4) === '%PDF';
+    }
+    // DOC (OLE2 Compound): D0 CF 11 E0
+    if (mime === 'application/msword') {
+      return buffer[0] === 0xd0 && buffer[1] === 0xcf && buffer[2] === 0x11 && buffer[3] === 0xe0;
+    }
+    // DOCX (ZIP/PK): 50 4B 03 04
+    if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      return buffer[0] === 0x50 && buffer[1] === 0x4b && buffer[2] === 0x03 && buffer[3] === 0x04;
+    }
+    // Unknown MIME — reject
+    return false;
   }
 
   /**

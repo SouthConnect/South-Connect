@@ -59,16 +59,16 @@ export default function PrivateDiscussionPage() {
 
   // ── send mutation ──────────────────────────────────────────────────────────
   const mutation = useMutation({
-    mutationFn: (text: string) =>
+    mutationFn: ({ text, clientMessageId }: { text: string; clientMessageId: string }) =>
       apiJson(`/messages/private/${id}`, {
         method: 'POST',
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({ content: text, clientMessageId }),
       }),
     onSuccess: () => {
       // Le socket va broadcaster et mettre à jour le cache
       queryClient.invalidateQueries({ queryKey: ['private-discussions', user?.id] })
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to send message'),
+    onError: (err: any) => toast.error(err.message || 'Impossible d\'envoyer le message.'),
   })
 
   // ── socket : rejoindre la room + écouter les events ───────────────────────
@@ -123,6 +123,13 @@ export default function PrivateDiscussionPage() {
     apiJson(`/messages/private/${id}/read`, { method: 'POST' }).catch(() => {})
   }, [id, user?.id])
 
+  // ── cleanup typing timer on unmount to prevent zombie socket.emit calls ───
+  useEffect(() => {
+    return () => {
+      if (typingTimer.current) clearTimeout(typingTimer.current)
+    }
+  }, [])
+
   // ── typing indicator ───────────────────────────────────────────────────────
   const handleTypingInput = useCallback(() => {
     if (!socket || !user) return
@@ -137,7 +144,7 @@ export default function PrivateDiscussionPage() {
   const handleSend = () => {
     const text = content.trim()
     if (!text || mutation.isPending) return
-    mutation.mutate(text)
+    mutation.mutate({ text, clientMessageId: crypto.randomUUID() })
     setContent('')
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'

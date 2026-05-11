@@ -87,7 +87,7 @@ export default function OpportunityApplicationsPage() {
       setReviewSaved(true)
       setTimeout(() => setReviewSaved(false), 3000)
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to save review'),
+    onError: (err: any) => toast.error(err.message || 'Impossible d\'enregistrer la revue.'),
   })
 
   return (
@@ -110,17 +110,17 @@ export default function OpportunityApplicationsPage() {
       </div>
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Applications received</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-1">Candidatures reçues</h1>
         {applications && (
           <p className="text-sm text-gray-500">
-            {applications.length} candidate{applications.length !== 1 ? 's' : ''} applied
+            {applications.length} candidat{applications.length !== 1 ? 's' : ''} {applications.length !== 1 ? 'ont' : 'a'} postulé
           </p>
         )}
       </div>
 
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {(error as Error).message || 'Unable to load applications for this opportunity.'}
+          {(error as Error).message || 'Impossible de charger les candidatures pour cette opportunité.'}
         </div>
       )}
 
@@ -135,7 +135,7 @@ export default function OpportunityApplicationsPage() {
             </div>
           ) : !applications || applications.length === 0 ? (
             <div className="py-8 text-center text-sm text-gray-500">
-              No applications received for this opportunity yet.
+              Aucune candidature reçue pour cette opportunité.
             </div>
           ) : (
             <ul className="divide-y divide-gray-100">
@@ -157,7 +157,7 @@ export default function OpportunityApplicationsPage() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                            <span>{app.candidate?.name || 'Unknown candidate'}</span>
+                            <span>{app.candidate?.name || 'Candidat inconnu'}</span>
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${stageColor(app.stage)}`}>
                               {stageLabel(app.stage)}
                             </span>
@@ -199,7 +199,7 @@ export default function OpportunityApplicationsPage() {
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-gray-900">
-                      {selectedApplication.candidate?.name || 'Unknown'}
+                      {selectedApplication.candidate?.name || 'Inconnu'}
                     </div>
                     <div className="text-xs text-gray-500">{selectedApplication.candidate?.email}</div>
                   </div>
@@ -242,10 +242,10 @@ export default function OpportunityApplicationsPage() {
 
               <div className="mb-4">
                 <h2 className="text-sm font-semibold text-gray-900 mb-1">
-                  Review application
+                  Réviser la candidature
                 </h2>
                 <p className="text-xs text-gray-500">
-                  Provide a clear status and an optional feedback for the candidate.
+                  Donnez un statut clair et un retour optionnel au candidat.
                 </p>
               </div>
 
@@ -259,7 +259,7 @@ export default function OpportunityApplicationsPage() {
               >
                 <div className="space-y-2">
                   <label className="block text-xs font-semibold text-gray-700">
-                    Decision
+                    Décision
                   </label>
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
@@ -273,7 +273,7 @@ export default function OpportunityApplicationsPage() {
                       />
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3 text-gray-400" />
-                        In review
+                        En révision
                       </span>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
@@ -287,7 +287,7 @@ export default function OpportunityApplicationsPage() {
                       />
                       <span className="flex items-center gap-1">
                         <CheckCircle className="w-3 h-3 text-green-500" />
-                        Accepted
+                        Accepté
                       </span>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
@@ -301,7 +301,7 @@ export default function OpportunityApplicationsPage() {
                       />
                       <span className="flex items-center gap-1">
                         <Archive className="w-3 h-3 text-gray-400" />
-                        Archived / Not selected
+                        Archivé / Non retenu
                       </span>
                     </label>
                   </div>
@@ -309,7 +309,7 @@ export default function OpportunityApplicationsPage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Feedback title (optional)
+                    Titre du retour (optionnel)
                   </label>
                   <input
                     type="text"
@@ -317,26 +317,26 @@ export default function OpportunityApplicationsPage() {
                     onChange={(e) => setFeedbackTitle(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-[#3b49df] focus:border-[#3b49df]"
                     maxLength={120}
-                    placeholder="Short summary of your decision"
+                    placeholder="Résumé court de votre décision"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Feedback message (optional)
+                    Message de retour (optionnel)
                   </label>
                   <textarea
                     value={reviewFeedback}
                     onChange={(e) => setReviewFeedback(e.target.value)}
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs focus:ring-[#3b49df] focus:border-[#3b49df]"
-                    placeholder="Share constructive feedback to help the candidate understand your decision."
+                    placeholder="Partagez un retour constructif pour aider le candidat à comprendre votre décision."
                   />
                 </div>
 
                 {reviewSaved && (
                   <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700 font-medium">
-                    Review saved successfully.
+                    Revue enregistrée avec succès.
                   </div>
                 )}
 
@@ -346,14 +346,14 @@ export default function OpportunityApplicationsPage() {
                   className="w-full inline-flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg bg-[#3b49df] text-white hover:bg-[#2d3aba] disabled:opacity-50"
                 >
                   <UserIcon className="w-3 h-3" />
-                  {reviewMutation.isPending ? 'Saving review...' : 'Save review'}
+                  {reviewMutation.isPending ? 'Enregistrement…' : 'Enregistrer la revue'}
                 </button>
               </form>
             </>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center text-xs text-gray-500">
-              <p className="mb-1 font-semibold text-gray-700">Select an application</p>
-              <p>Click on a candidate in the list to review their application.</p>
+              <p className="mb-1 font-semibold text-gray-700">Sélectionnez une candidature</p>
+              <p>Cliquez sur un candidat dans la liste pour réviser sa candidature.</p>
             </div>
           )}
         </div>

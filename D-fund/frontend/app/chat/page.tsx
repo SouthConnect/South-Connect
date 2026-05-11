@@ -11,6 +11,7 @@ import {
   Search,
   Clock,
   Plus,
+  ThumbsUp,
   X,
 } from 'lucide-react'
 import Link from 'next/link'
@@ -45,7 +46,7 @@ export default function ChatPage() {
       setNewDescription('')
       if (discussion?.id) router.push(`/chat/public/${discussion.id}`)
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to create discussion'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de créer la discussion.'),
   })
 
   const {
@@ -109,7 +110,7 @@ export default function ChatPage() {
           }`}
         >
           <MessageCircle className="w-4 h-4" />
-          Open
+          Public
         </button>
         <button
           type="button"
@@ -121,7 +122,7 @@ export default function ChatPage() {
           }`}
         >
           <Lock className="w-4 h-4" />
-          Private
+          Privé
         </button>
       </div>
 
@@ -138,7 +139,7 @@ export default function ChatPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Opportunity-Related
+                Liées aux opportunités
               </button>
               <button
                 type="button"
@@ -149,7 +150,7 @@ export default function ChatPage() {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Open Forum
+                Forum ouvert
               </button>
             </div>
             <div className="relative w-56">
@@ -169,7 +170,7 @@ export default function ChatPage() {
               {showNewForum ? (
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-2 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-gray-900">New Open Forum discussion</p>
+                    <p className="text-sm font-semibold text-gray-900">Nouvelle discussion Forum ouvert</p>
                     <button onClick={() => setShowNewForum(false)}>
                       <X className="w-4 h-4 text-gray-400 hover:text-gray-600" />
                     </button>
@@ -179,7 +180,7 @@ export default function ChatPage() {
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
-                    placeholder="Discussion title"
+                    placeholder="Titre de la discussion"
                     maxLength={200}
                   />
                   <textarea
@@ -187,7 +188,7 @@ export default function ChatPage() {
                     onChange={(e) => setNewDescription(e.target.value)}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df] resize-none"
-                    placeholder="Optional description..."
+                    placeholder="Description (optionnelle)…"
                     maxLength={1000}
                   />
                   <div className="flex justify-end gap-2">
@@ -195,14 +196,14 @@ export default function ChatPage() {
                       onClick={() => setShowNewForum(false)}
                       className="px-4 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
                     >
-                      Cancel
+                      Annuler
                     </button>
                     <button
                       onClick={() => createForumMutation.mutate()}
                       disabled={!newTitle.trim() || createForumMutation.isPending}
                       className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-[#3b49df] text-white hover:bg-[#2d3aba] disabled:opacity-50"
                     >
-                      {createForumMutation.isPending ? 'Creating...' : 'Create'}
+                      {createForumMutation.isPending ? 'Création…' : 'Créer'}
                     </button>
                   </div>
                 </div>
@@ -212,7 +213,7 @@ export default function ChatPage() {
                   className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg border border-[#3b49df] text-[#3b49df] hover:bg-[#3b49df]/5 mb-2"
                 >
                   <Plus className="w-4 h-4" />
-                  New Discussion
+                  Nouvelle discussion
                 </button>
               )}
             </div>
@@ -269,6 +270,34 @@ function DiscussionList({
   discussions: PublicDiscussion[] | undefined
   isLoading: boolean
 }) {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+  // Track liked discussions for the current session (resets on refresh)
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set())
+
+  const toggleLike = useMutation({
+    mutationFn: ({ id, liked }: { id: string; liked: boolean }) =>
+      apiJson(`/social/discussion/like/${id}`, { method: liked ? 'DELETE' : 'POST' }),
+    onMutate: ({ id, liked }) => {
+      setLikedIds((prev) => {
+        const next = new Set(prev)
+        liked ? next.delete(id) : next.add(id)
+        return next
+      })
+    },
+    onError: (_, { id, liked }) => {
+      setLikedIds((prev) => {
+        const next = new Set(prev)
+        liked ? next.add(id) : next.delete(id)
+        return next
+      })
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['public-discussions', 'OPEN_FORUM'] })
+      queryClient.invalidateQueries({ queryKey: ['public-discussions', 'OPPORTUNITY_RELATED'] })
+    },
+  })
+
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -282,7 +311,7 @@ function DiscussionList({
   if (!discussions || discussions.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-sm text-gray-500">
-        No public discussions yet.
+        Aucune discussion publique pour l'instant.
       </div>
     )
   }
@@ -294,15 +323,16 @@ function DiscussionList({
           ? new Date(d.lastMessageAt).toLocaleDateString('fr-FR')
           : null
         const members = d.membersCount ?? 0
+        const liked = likedIds.has(d.id)
+        const likes = (d.likesCount ?? 0) + (liked ? 1 : 0)
 
         return (
-          <Link
-            key={d.id}
-            href={`/chat/public/${d.id}`}
-            className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-[#3b49df] overflow-hidden">
+          <div key={d.id} className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
+            <Link
+              href={`/chat/public/${d.id}`}
+              className="flex items-center gap-3 flex-1 min-w-0"
+            >
+              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-[#3b49df] overflow-hidden shrink-0">
                 {d.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={d.image} alt="" className="w-full h-full object-cover" />
@@ -310,25 +340,40 @@ function DiscussionList({
                   d.title?.[0] || 'D'
                 )}
               </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-gray-900 truncate">
                   {d.title}
                 </div>
                 <div className="text-xs text-gray-500">
-                  {members} members
+                  {members > 0 ? `${members} membres` : 'Discussion publique'}
                   {d.opportunity?.name ? ` • ${d.opportunity.name}` : ''}
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-gray-400">
+            </Link>
+            <div className="flex items-center gap-3 text-xs text-gray-400 shrink-0 ml-3">
               {date && (
-                <>
+                <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  <span>{date}</span>
-                </>
+                  {date}
+                </span>
+              )}
+              {user && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (toggleLike.isPending) return
+                    toggleLike.mutate({ id: d.id, liked })
+                  }}
+                  className={`flex items-center gap-1 transition-colors disabled:opacity-50 ${liked ? 'text-[#3b49df]' : 'hover:text-[#3b49df]'}`}
+                  title={liked ? 'Retirer le like' : 'Aimer cette discussion'}
+                >
+                  <ThumbsUp className={`w-3.5 h-3.5 ${liked ? 'fill-[#3b49df]' : ''}`} />
+                  <span>{likes}</span>
+                </button>
               )}
             </div>
-          </Link>
+          </div>
         )
       })}
     </div>

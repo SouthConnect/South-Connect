@@ -51,19 +51,15 @@ async function bootstrap() {
   // Security headers
   app.use(
     helmet({
-      crossOriginEmbedderPolicy: false, // allow external images/media
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", 'data:', 'https:'],
-          connectSrc: ["'self'"],
-          fontSrc: ["'self'", 'https:'],
-          objectSrc: ["'none'"],
-          frameAncestors: ["'none'"],
-        },
-      },
+      // This is a pure JSON API — no HTML pages are served.
+      // CSP (Content-Security-Policy) only makes sense on HTML responses;
+      // putting it on API responses adds no security and can confuse browsers
+      // (e.g. `upgrade-insecure-requests` on preflight responses breaks HTTP
+      // dev environments in Firefox).
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+      // API is consumed cross-origin (frontend on a different port/domain)
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
 

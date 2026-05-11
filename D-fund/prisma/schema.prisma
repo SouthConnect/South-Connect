@@ -41,8 +41,11 @@ model User {
   emailVerificationToken String? @unique
   emailVerificationTokenExpiry DateTime?
   isBanned        Boolean  @default(false)
+  deletedAt               DateTime?  // Soft-delete: set on account deletion, null = active
   emailOptOut             Boolean  @default(false)
   emailUnsubscribeToken   String?  @unique
+  // Set on every password change so JWTs issued before this date are invalidated
+  passwordChangedAt       DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -212,6 +215,8 @@ model Opportunity {
   savedCount          Int @default(0)
   sharedCount         Int @default(0)
   viewsCount          Int @default(0)
+  // Pre-computed trending score: updated hourly by cron, used for fast ORDER BY without raw SQL
+  trendingScore       Float @default(0)
   
   // Premium Features
   boosted            Boolean @default(false)
@@ -365,6 +370,7 @@ model Message {
   createdAt     DateTime @default(now())
 
   @@index([senderId])
+  @@index([senderId, createdAt])
   @@index([receiverId])
   @@index([privateDiscussionId])
   @@index([publicDiscussionId])
@@ -394,6 +400,8 @@ model Participant {
   joinedAt        DateTime @default(now())
 
   @@unique([userId, discussionId])
+  @@index([userId])
+  @@index([discussionId])
   @@map("participants")
 }
 
@@ -459,6 +467,8 @@ model SavedOpportunity {
   createdAt     DateTime @default(now())
 
   @@unique([userId, opportunityId])
+  @@index([userId])
+  @@index([opportunityId])
   @@map("saved_opportunities")
 }
 
@@ -472,6 +482,8 @@ model LikedOpportunity {
   createdAt     DateTime @default(now())
 
   @@unique([userId, opportunityId])
+  @@index([userId])
+  @@index([opportunityId])
   @@map("liked_opportunities")
 }
 
@@ -487,6 +499,7 @@ model Rating {
 
   @@unique([itemId, userId])
   @@index([itemId])
+  @@index([userId])
   @@map("ratings")
 }
 
@@ -552,8 +565,10 @@ model ReferralCode {
 
   @@index([ownerId])
   @@index([ownerId, status])
+  @@index([ownerId, createdAt])
   @@index([code])
   @@index([opportunityId])
+  @@index([createdAt])
   @@map("referral_codes")
 }
 
@@ -589,6 +604,7 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([userId, createdAt])
+  @@index([userId, isRead, createdAt])
   @@map("notifications")
 }
 
@@ -656,6 +672,7 @@ model AdminAuditLog {
 
   @@index([adminId])
   @@index([createdAt])
+  @@index([targetId, targetType])
   @@map("admin_audit_logs")
 }
 

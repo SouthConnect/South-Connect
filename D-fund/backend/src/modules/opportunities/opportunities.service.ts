@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { OpportunityStatus, Prisma } from '@prisma/client';
 import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,11 +17,17 @@ const ADMIN_STATS_TTL_SECONDS = 60;
  */
 @Injectable()
 export class OpportunitiesService {
+  private readonly logger = new Logger(OpportunitiesService.name);
+
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis | null,
   ) {}
+
+  private async invalidateStatsCache() {
+    if (this.redis) await this.redis.del(ADMIN_STATS_CACHE_KEY).catch(() => undefined);
+  }
 
   /**
    * Returns a paginated list of opportunities for the public feed.
@@ -33,7 +39,7 @@ export class OpportunitiesService {
    * @returns `{ data, total, hasMore }` envelope.
    */
   async findAll(params?: ListOpportunitiesDto) {
-    const { take: rawTake = 20, skip: rawSkip = 0, status, type, ownerId, search, sort } = params || {};
+    const { take: rawTake = 20, skip: rawSkip = 0, status, type, types, ownerId, search, sort } = params || {};
     const take = Math.min(Math.max(rawTake, 1), 100);
     const skip = Math.max(rawSkip, 0);
     const where: Prisma.OpportunityWhereInput = {};
@@ -45,7 +51,17 @@ export class OpportunitiesService {
       where.status = { not: OpportunityStatus.DRAFT };
     }
 
-    if (type) where.type = type;
+    if (types) {
+      // Multi-type filter: comma-separated string from the frontend category chips
+      const typeList = types.split(',').map((t) => t.trim()).filter(Boolean);
+      if (typeList.length === 1) {
+        where.type = typeList[0] as any;
+      } else if (typeList.length > 1) {
+        where.type = { in: typeList as any[] };
+      }
+    } else if (type) {
+      where.type = type;
+    }
     if (ownerId) where.ownerId = ownerId;
 
     if (search) {
@@ -59,12 +75,7 @@ export class OpportunitiesService {
 
     const orderBy: Prisma.OpportunityOrderByWithRelationInput[] =
       sort === SortEnum.TRENDING
-        ? [
-            { likedBy: { _count: 'desc' } },
-            { savedBy: { _count: 'desc' } },
-            { applications: { _count: 'desc' } },
-            { createdAt: 'desc' },
-          ]
+        ? [{ trendingScore: 'desc' }, { createdAt: 'desc' }]
         : [{ createdAt: 'desc' }];
 
     const [items, total] = await Promise.all([
@@ -145,7 +156,7 @@ export class OpportunitiesService {
    * @throws NotFoundException when the opportunity does not exist or is a DRAFT
    *         accessed by a non-owner.
    */
-  async findOne(id: string, requesterId?: string) {
+  async findOne(id: string, requesterId?: string, viewerKey?: string) {
     const opportunity = await this.prisma.opportunity.findUnique({
       where: { id },
       include: {
@@ -176,6 +187,13 @@ export class OpportunitiesService {
       isSaved = !!saved;
     }
 
+    // Fire-and-forget — view tracking never blocks the response
+    if (viewerKey) {
+      this.incrementViewsIfNew(id, viewerKey).catch((err) => {
+        this.logger.warn(`viewsCount increment failed for ${id}: ${err?.message}`);
+      });
+    }
+
     return {
       ...opportunity,
       likesCount: opportunity._count.likedBy,
@@ -186,12 +204,39 @@ export class OpportunitiesService {
     };
   }
 
+  /**
+   * Increments viewsCount at most once per viewer per opportunity per 24 hours.
+   *
+   * Uses Redis SET NX EX to atomically mark a viewer as "seen" with a 24-hour TTL.
+   * If Redis is unavailable (dev / no REDIS_URL) the view is always counted —
+   * the nightly recount cron is the safety net against drift.
+   *
+   * viewerKey is the authenticated userId when present, otherwise the client IP.
+   */
+  private async incrementViewsIfNew(id: string, viewerKey: string): Promise<void> {
+    if (this.redis) {
+      const dedupKey = `views:${id}:${viewerKey}`;
+      const isNew = await this.redis.set(dedupKey, '1', 'EX', 86400, 'NX').catch(() => 'OK');
+      if (isNew !== 'OK') return; // Already counted this viewer today
+    }
+    await this.prisma.opportunity.updateMany({ where: { id }, data: { viewsCount: { increment: 1 } } });
+  }
+
+  /**
+   * Increments the share counter for a single opportunity.
+   * Called when the user copies the share link.
+   */
+  async incrementShares(id: string) {
+    await this.prisma.opportunity.updateMany({ where: { id }, data: { sharedCount: { increment: 1 } } });
+    return { success: true };
+  }
+
   /** Creates a new opportunity owned by the given user. Defaults to DRAFT status. */
-  create(ownerId: string, dto: CreateOpportunityDto) {
+  async create(ownerId: string, dto: CreateOpportunityDto) {
     if (dto.startDate && dto.endDate && new Date(dto.startDate) >= new Date(dto.endDate)) {
       throw new BadRequestException('startDate must be earlier than endDate');
     }
-    return this.prisma.opportunity.create({
+    const result = await this.prisma.opportunity.create({
       data: {
         ownerId,
         name: dto.name,
@@ -231,6 +276,15 @@ export class OpportunitiesService {
       },
       include: { owner: { select: { id: true, name: true, profilePic: true } } },
     });
+
+    // Maintain denormalized counters (fire-and-forget; nightly recount cron corrects any drift)
+    this.prisma.btoCProfile.updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { increment: 1 } } })
+      .catch((err) => this.logger.warn(`Counter increment failed (btoCProfile): ${err.message}`));
+    this.prisma.btoBProfile.updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { increment: 1 } } })
+      .catch((err) => this.logger.warn(`Counter increment failed (btoBProfile): ${err.message}`));
+
+    await this.invalidateStatsCache();
+    return result;
   }
 
   /**
@@ -256,6 +310,17 @@ export class OpportunitiesService {
       include: { owner: { select: { id: true, name: true, email: true } } },
     });
 
+    // Maintain activeOpportunitiesCount on BtoCProfile
+    const wasActive = opportunity.status === OpportunityStatus.ACTIVE;
+    const becomesActive = status === OpportunityStatus.ACTIVE;
+    if (!wasActive && becomesActive) {
+      this.prisma.btoCProfile.updateMany({ where: { userId: opportunity.ownerId }, data: { activeOpportunitiesCount: { increment: 1 } } })
+        .catch((err) => this.logger.warn(`Active counter increment failed: ${err.message}`));
+    } else if (wasActive && !becomesActive) {
+      this.prisma.btoCProfile.updateMany({ where: { userId: opportunity.ownerId }, data: { activeOpportunitiesCount: { decrement: 1 } } })
+        .catch((err) => this.logger.warn(`Active counter decrement failed: ${err.message}`));
+    }
+
     if (status === OpportunityStatus.ACTIVE) {
       this.notifications
         .createInApp(
@@ -265,12 +330,12 @@ export class OpportunitiesService {
           'Elle est maintenant visible par toute la communauté.',
           `/opportunities/${id}`,
         )
-        .catch(() => undefined);
+        .catch((err) => this.logger.warn(`Failed to send approval in-app notification: ${err.message}`));
 
       if (opportunity.owner?.email) {
         this.notifications
           .sendOpportunityApprovedEmail(opportunity.owner, opportunity)
-          .catch(() => undefined);
+          .catch((err) => this.logger.warn(`Failed to send approval email: ${err.message}`));
       }
     } else if (status === OpportunityStatus.ARCHIVED || status === OpportunityStatus.CLOSED) {
       this.notifications
@@ -281,9 +346,10 @@ export class OpportunitiesService {
           "Contactez l'équipe D-Fund pour plus d'informations.",
           `/my-opportunities`,
         )
-        .catch(() => undefined);
+        .catch((err) => this.logger.warn(`Failed to send rejection in-app notification: ${err.message}`));
     }
 
+    await this.invalidateStatsCache();
     return updated;
   }
 
@@ -401,7 +467,7 @@ export class OpportunitiesService {
       throw new BadRequestException('startDate must be earlier than endDate');
     }
 
-    return this.prisma.opportunity.update({
+    const result = await this.prisma.opportunity.update({
       where: { id },
       data: {
         name: dto.name,
@@ -440,6 +506,8 @@ export class OpportunitiesService {
         referralAmount: dto.referralAmount,
       },
     });
+    await this.invalidateStatsCache();
+    return result;
   }
 
   /**
@@ -454,6 +522,21 @@ export class OpportunitiesService {
     if (!opportunity) throw new NotFoundException('Opportunity not found');
     if (opportunity.ownerId !== ownerId) throw new ForbiddenException('You cannot delete this opportunity');
 
-    return this.prisma.opportunity.delete({ where: { id } });
+    const result = await this.prisma.opportunity.delete({ where: { id } });
+
+    // Maintain denormalized counters
+    const wasActive = opportunity.status === OpportunityStatus.ACTIVE;
+    this.prisma.btoCProfile.updateMany({
+      where: { userId: ownerId },
+      data: {
+        opportunitiesCount: { decrement: 1 },
+        ...(wasActive ? { activeOpportunitiesCount: { decrement: 1 } } : {}),
+      },
+    }).catch((err) => this.logger.warn(`Counter decrement failed (btoCProfile): ${err.message}`));
+    this.prisma.btoBProfile.updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { decrement: 1 } } })
+      .catch((err) => this.logger.warn(`Counter decrement failed (btoBProfile): ${err.message}`));
+
+    await this.invalidateStatsCache();
+    return result;
   }
 }

@@ -184,6 +184,7 @@ export interface PublicDiscussion {
   opportunity?: Pick<Opportunity, 'id' | 'name' | 'image'>
   messagesCount: number
   membersCount: number
+  likesCount: number
   lastMessageAt?: string
   createdAt: string
 }

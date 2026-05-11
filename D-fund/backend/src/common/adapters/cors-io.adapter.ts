@@ -26,7 +26,7 @@ export class CorsIoAdapter extends IoAdapter {
       ...options,
       cors: {
         origin: this.allowedOrigins,
-        credentials: false,
+        credentials: true,
       },
     });
   }

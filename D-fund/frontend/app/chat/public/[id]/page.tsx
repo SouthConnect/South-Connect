@@ -54,12 +54,12 @@ export default function PublicDiscussionPage() {
 
   // Envoi
   const mutation = useMutation({
-    mutationFn: (text: string) =>
+    mutationFn: ({ text, clientMessageId }: { text: string; clientMessageId: string }) =>
       apiJson(`/messages/public/${id}`, {
         method: 'POST',
-        body: JSON.stringify({ content: text }),
+        body: JSON.stringify({ content: text, clientMessageId }),
       }),
-    onError: (err: any) => toast.error(err.message || 'Failed to send message'),
+    onError: (err: any) => toast.error(err.message || 'Impossible d\'envoyer le message.'),
   })
 
   // Socket
@@ -101,6 +101,10 @@ export default function PublicDiscussionPage() {
   }, [socket, id, user?.id, queryClient])
 
   useEffect(() => {
+    return () => { if (typingTimer.current) clearTimeout(typingTimer.current) }
+  }, [])
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, typingUsers])
 
@@ -114,7 +118,7 @@ export default function PublicDiscussionPage() {
   const handleSend = () => {
     const text = content.trim()
     if (!text || mutation.isPending) return
-    mutation.mutate(text)
+    mutation.mutate({ text, clientMessageId: crypto.randomUUID() })
     setContent('')
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     if (socket) socket.emit('stopTyping', id)

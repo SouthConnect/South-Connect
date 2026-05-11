@@ -47,7 +47,7 @@ export default function AdminPage() {
       }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['admin-opportunities'] }),
-    onError: (err: any) => toast.error(err.message || 'Failed to update status'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de mettre à jour le statut.'),
   })
 
   // ── Users tab ──
@@ -62,23 +62,23 @@ export default function AdminPage() {
     mutationFn: ({ id, ban }: { id: string; ban: boolean }) =>
       apiJson(`/users/admin/${id}/${ban ? 'ban' : 'unban'}`, { method: 'PUT' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-    onError: (err: any) => toast.error(err.message || 'Failed'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de modifier le statut du compte.'),
   })
 
   const roleMutation = useMutation({
     mutationFn: ({ id, role }: { id: string; role: string }) =>
       apiJson(`/users/admin/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-    onError: (err: any) => toast.error(err.message || 'Failed'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de modifier le rôle.'),
   })
 
   const deleteUserMutation = useMutation({
     mutationFn: (id: string) => apiJson(`/users/admin/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
-      toast.success('User deleted')
+      toast.success('Utilisateur supprimé.')
     },
-    onError: (err: any) => toast.error(err.message || 'Failed'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de supprimer l\'utilisateur.'),
   })
 
   // ── Industries tab ──
@@ -91,12 +91,12 @@ export default function AdminPage() {
   const createIndustryMutation = useMutation({
     mutationFn: (name: string) => apiJson('/industries', { method: 'POST', body: JSON.stringify({ name }) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-industries'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/industries'] }); setNewIndustryName('') },
-    onError: (err: any) => toast.error(err.message || 'Failed'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de créer le secteur.'),
   })
   const deleteIndustryMutation = useMutation({
     mutationFn: (id: string) => apiJson(`/industries/${id}`, { method: 'DELETE' }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-industries'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/industries'] }) },
-    onError: (err: any) => toast.error(err.message || 'Failed'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de supprimer le secteur.'),
   })
 
   // ── Markets tab ──
@@ -109,12 +109,12 @@ export default function AdminPage() {
   const createMarketMutation = useMutation({
     mutationFn: (name: string) => apiJson('/markets', { method: 'POST', body: JSON.stringify({ name }) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-markets'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/markets'] }); setNewMarketName('') },
-    onError: (err: any) => toast.error(err.message || 'Failed'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de créer le marché.'),
   })
   const deleteMarketMutation = useMutation({
     mutationFn: (id: string) => apiJson(`/markets/${id}`, { method: 'DELETE' }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-markets'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/markets'] }) },
-    onError: (err: any) => toast.error(err.message || 'Failed'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de supprimer le marché.'),
   })
 
   // ── Features tab ──
@@ -129,12 +129,12 @@ export default function AdminPage() {
     mutationFn: ({ name, category }: { name: string; category?: string }) =>
       apiJson('/features', { method: 'POST', body: JSON.stringify({ name, category: category || undefined }) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-features'] }); setNewFeatureName(''); setNewFeatureCategory('') },
-    onError: (err: any) => toast.error(err.message || 'Failed'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de créer la fonctionnalité.'),
   })
   const deleteFeatureMutation = useMutation({
     mutationFn: (id: string) => apiJson(`/features/${id}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-features'] }),
-    onError: (err: any) => toast.error(err.message || 'Failed'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de supprimer la fonctionnalité.'),
   })
 
   return (
@@ -500,7 +500,7 @@ export default function AdminPage() {
           {activeTab === 'markets' && (
             <div>
               <div className="mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Markets</h2>
+                <h2 className="text-lg font-semibold text-gray-800">Marchés</h2>
                 <p className="text-sm text-gray-500">Marchés géographiques utilisés dans les formulaires d'opportunité et de profil.</p>
               </div>
 
@@ -514,7 +514,7 @@ export default function AdminPage() {
                 <input
                   value={newMarketName}
                   onChange={(e) => setNewMarketName(e.target.value)}
-                  placeholder="New market name…"
+                  placeholder="Nouveau marché…"
                   className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
                 />
                 <button
@@ -530,7 +530,7 @@ export default function AdminPage() {
                 {isLoadingMarkets ? (
                   <div className="space-y-px">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 bg-gray-50 animate-pulse" />)}</div>
                 ) : !markets?.length ? (
-                  <div className="py-10 text-center text-sm text-gray-400">No markets yet.</div>
+                  <div className="py-10 text-center text-sm text-gray-400">Aucun marché pour l'instant.</div>
                 ) : (
                   <ul className="divide-y divide-gray-100">
                     {markets.map((mkt) => (
@@ -538,7 +538,7 @@ export default function AdminPage() {
                         <span className="text-sm font-medium text-gray-900">{mkt.name}</span>
                         <button
                           onClick={() => {
-                            if (confirm(`Delete market "${mkt.name}"?`)) deleteMarketMutation.mutate(mkt.id)
+                            if (confirm(`Supprimer le marché "${mkt.name}" ?`)) deleteMarketMutation.mutate(mkt.id)
                           }}
                           disabled={deleteMarketMutation.isPending}
                           className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-50"
@@ -551,7 +551,7 @@ export default function AdminPage() {
                 )}
               </div>
               {markets && (
-                <p className="text-xs text-gray-400 mt-2 text-right">{markets.length} markets</p>
+                <p className="text-xs text-gray-400 mt-2 text-right">{markets.length} marché{markets.length !== 1 ? 's' : ''}</p>
               )}
             </div>
           )}
@@ -560,8 +560,8 @@ export default function AdminPage() {
           {activeTab === 'features' && (
             <div>
               <div className="mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Features</h2>
-                <p className="text-sm text-gray-500">Opportunity type templates with AI prompt configuration.</p>
+                <h2 className="text-lg font-semibold text-gray-800">Fonctionnalités</h2>
+                <p className="text-sm text-gray-500">Modèles de types d'opportunités avec configuration des prompts IA.</p>
               </div>
 
               <form
@@ -574,13 +574,13 @@ export default function AdminPage() {
                 <input
                   value={newFeatureName}
                   onChange={(e) => setNewFeatureName(e.target.value)}
-                  placeholder="Feature name…"
+                  placeholder="Nom de la fonctionnalité…"
                   className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
                 />
                 <input
                   value={newFeatureCategory}
                   onChange={(e) => setNewFeatureCategory(e.target.value)}
-                  placeholder="Category (optional)"
+                  placeholder="Catégorie (optionnelle)"
                   className="w-40 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
                 />
                 <button
@@ -596,7 +596,7 @@ export default function AdminPage() {
                 {isLoadingFeatures ? (
                   <div className="space-y-px">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 bg-gray-50 animate-pulse" />)}</div>
                 ) : !features?.length ? (
-                  <div className="py-10 text-center text-sm text-gray-400">No features yet.</div>
+                  <div className="py-10 text-center text-sm text-gray-400">Aucune fonctionnalité pour l'instant.</div>
                 ) : (
                   <ul className="divide-y divide-gray-100">
                     {features.map((feat) => (
@@ -612,7 +612,7 @@ export default function AdminPage() {
                         </div>
                         <button
                           onClick={() => {
-                            if (confirm(`Delete feature "${feat.name}"?`)) deleteFeatureMutation.mutate(feat.id)
+                            if (confirm(`Supprimer la fonctionnalité "${feat.name}" ?`)) deleteFeatureMutation.mutate(feat.id)
                           }}
                           disabled={deleteFeatureMutation.isPending}
                           className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-50"
@@ -625,7 +625,7 @@ export default function AdminPage() {
                 )}
               </div>
               {features && (
-                <p className="text-xs text-gray-400 mt-2 text-right">{features.length} features</p>
+                <p className="text-xs text-gray-400 mt-2 text-right">{features.length} fonctionnalité{features.length !== 1 ? 's' : ''}</p>
               )}
             </div>
           )}

@@ -2,6 +2,7 @@ import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateApplicationDto {
   @IsString()
+  @MaxLength(36)
   opportunityId: string;
 
   @IsOptional()

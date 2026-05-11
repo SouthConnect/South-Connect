@@ -1,9 +1,11 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { apiJson } from '@/app/lib/api'
+
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/
 
 function ResetPasswordContent() {
   const router = useRouter()
@@ -15,6 +17,9 @@ function ResetPasswordContent() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])
 
   if (!token) {
     return (
@@ -33,8 +38,8 @@ function ResetPasswordContent() {
     e.preventDefault()
     setError('')
 
-    if (password.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caractères.')
+    if (password.length < 8 || !PASSWORD_REGEX.test(password)) {
+      setError('Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre.')
       return
     }
     if (password !== confirm) {
@@ -49,7 +54,7 @@ function ResetPasswordContent() {
         body: JSON.stringify({ token, password }),
       })
       setDone(true)
-      setTimeout(() => router.push('/login'), 3000)
+      timerRef.current = setTimeout(() => router.push('/login'), 3000)
     } catch (err: any) {
       setError(err?.message || 'Lien invalide ou expiré. Demande un nouveau lien.')
     } finally {

@@ -28,7 +28,8 @@ export default function DashboardPage() {
   } = useQuery({
     queryKey: ['my-applications', user?.id],
     queryFn: () => apiJson(`/applications/user/${user?.id}`),
-    enabled: !!user?.id,
+    enabled: !!user?.id && tab === 'applications',
+    staleTime: 60_000,
   })
 
   const {
@@ -37,7 +38,8 @@ export default function DashboardPage() {
   } = useQuery({
     queryKey: ['my-opportunities-dashboard', user?.id],
     queryFn: () => apiJson(`/opportunities/user/${user?.id}?take=10`),
-    enabled: !!user?.id,
+    enabled: !!user?.id && tab === 'offers',
+    staleTime: 60_000,
   })
 
   const {
@@ -47,6 +49,7 @@ export default function DashboardPage() {
     queryKey: ['private-discussions', user?.id],
     queryFn: () => apiJson('/messages/private'),
     enabled: !!user?.id,
+    staleTime: 30_000,
   })
 
   const totalApplications = applications?.length ?? 0
@@ -63,10 +66,10 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Welcome{user ? `, ${user.name}` : ''}
+            Bienvenue{user ? `, ${user.name}` : ''}
           </h1>
           <p className="text-sm text-gray-500">
-            Track your applications, offers and tasks in one place.
+            Suivez vos candidatures, offres et tâches en un seul endroit.
           </p>
         </div>
         <Link
@@ -80,21 +83,21 @@ export default function DashboardPage() {
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
         <DashboardCard
-          title="Browse Opportunities"
-          description="Discover jobs, investments, partnerships and more from the community."
-          cta="Explore"
+          title="Explorer les opportunités"
+          description="Découvrez des emplois, investissements, partenariats et plus encore."
+          cta="Explorer"
           href="/"
         />
         <DashboardCard
-          title="Create an Opportunity"
-          description="Post a job, funding round, event or any offer to reach the ecosystem."
-          cta="Create Now"
+          title="Créer une opportunité"
+          description="Publiez un emploi, tour de financement, événement ou toute offre pour toucher l'écosystème."
+          cta="Créer"
           href="/opportunities/new"
         />
         <DashboardCard
-          title="Connect with Members"
-          description="Find talents, investors and co-founders. Message them directly."
-          cta="Discover"
+          title="Se connecter avec les membres"
+          description="Trouvez des talents, investisseurs et co-fondateurs. Envoyez-leur un message."
+          cta="Découvrir"
           href="/community"
         />
       </section>
@@ -171,7 +174,7 @@ export default function DashboardPage() {
             href="/"
             className="hidden md:inline-flex items-center gap-1 text-xs font-medium text-[#3b49df] hover:text-[#2d3aba]"
           >
-            Explore opportunities
+            Explorer les opportunités
             <ArrowUpRight className="w-3 h-3" />
           </Link>
         </div>
@@ -293,28 +296,32 @@ function ApplicationsSection({
                 {stageLabel(app.stage)}
               </span>
               <span className="text-sm font-semibold text-gray-900">
-                {app.opportunity?.name || 'Untitled opportunity'}
+                {app.opportunity?.name || 'Opportunité sans titre'}
               </span>
               <span className="text-xs text-gray-500">
-                {app.title || 'No title'} •{' '}
+                {app.title || 'Sans titre'} •{' '}
                 {app.submissionDate
                   ? new Date(app.submissionDate).toLocaleDateString('fr-FR')
-                  : 'Draft'}
+                  : 'Brouillon'}
               </span>
             </div>
             <Link
               href={`/applications/${app.id}`}
               className="text-xs font-semibold text-[#3b49df] hover:text-[#2d3aba]"
             >
-              {app.stage === 'DRAFT' ? 'Edit' : 'View'}
+              {app.stage === 'DRAFT' ? 'Modifier' : 'Voir'}
             </Link>
           </div>
         ))
       ) : (
         <div className="text-center text-gray-500 text-sm py-8 bg-white rounded-xl border border-dashed border-gray-200">
           {subFilter === 'ALL'
-            ? 'No applications yet. Start by applying to an opportunity.'
-            : `No ${subFilter === 'OWNER_REVIEW' ? 'in-review' : subFilter.toLowerCase()} applications.`}
+            ? 'Aucune candidature. Commencez par postuler à une opportunité.'
+            : subFilter === 'OWNER_REVIEW'
+              ? 'Aucune candidature en cours de révision.'
+              : subFilter === 'DRAFT'
+                ? 'Aucun brouillon de candidature.'
+                : 'Aucune candidature soumise.'}
         </div>
       )}
     </div>
@@ -357,7 +364,7 @@ function OffersSection({
         ))
       ) : (
         <div className="text-center text-gray-500 text-sm py-8 bg-white rounded-xl border border-dashed border-gray-200">
-          You have not created any opportunities yet.
+          Vous n'avez pas encore créé d'opportunité.
         </div>
       )}
     </div>
@@ -406,7 +413,7 @@ function DMSection({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className={`text-sm font-semibold ${hasUnread ? 'text-gray-900' : 'text-gray-700'}`}>
-                      {other?.name || 'Direct message'}
+                      {other?.name || 'Message direct'}
                     </span>
                     {date && (
                       <span className="text-xs text-gray-400 flex-shrink-0">{date}</span>
@@ -414,7 +421,7 @@ function DMSection({
                   </div>
                   {hasUnread && (
                     <span className="text-xs text-[#3b49df] font-semibold">
-                      {myUnread} unread message{myUnread > 1 ? 's' : ''}
+                      {myUnread} message{myUnread > 1 ? 's' : ''} non lu{myUnread > 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
@@ -429,18 +436,18 @@ function DMSection({
               href="/chat"
               className="inline-flex items-center gap-1 text-xs font-semibold text-[#3b49df] hover:underline"
             >
-              Open all conversations
+              Voir toutes les conversations
               <ArrowUpRight className="w-3 h-3" />
             </Link>
           </div>
         </>
       ) : (
         <div className="text-center text-gray-500 text-sm py-8 bg-white rounded-xl border border-dashed border-gray-200">
-          No conversations yet.{' '}
+          Aucune conversation pour l'instant.{' '}
           <Link href="/community" className="text-[#3b49df] font-semibold hover:underline">
-            Discover members
+            Découvrir des membres
           </Link>{' '}
-          and start chatting.
+          et commencer à discuter.
         </div>
       )}
     </div>
@@ -461,20 +468,20 @@ function TasksSection() {
     mutationFn: (name: string) =>
       apiJson<Task>('/tasks', { method: 'POST', body: JSON.stringify({ name }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
-    onError: (err: Error) => toast.error(err.message || 'Failed to create task'),
+    onError: (err: Error) => toast.error(err.message || 'Impossible de créer la tâche.'),
   })
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       apiJson<Task>(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
-    onError: (err: Error) => toast.error(err.message || 'Failed to update task'),
+    onError: (err: Error) => toast.error(err.message || 'Impossible de mettre à jour la tâche.'),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiJson<{ success: boolean }>(`/tasks/${id}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
-    onError: (err: Error) => toast.error(err.message || 'Failed to delete task'),
+    onError: (err: Error) => toast.error(err.message || 'Impossible de supprimer la tâche.'),
   })
 
   const STATUS_LABELS: Record<string, string> = {
@@ -566,7 +573,7 @@ function TasksSection() {
         ))
       ) : (
         <div className="text-center text-gray-500 text-sm py-8 bg-white rounded-xl border border-dashed border-gray-200">
-          No tasks yet. Add your first task above.
+          Aucune tâche. Ajoutez-en une ci-dessus.
         </div>
       )}
     </div>

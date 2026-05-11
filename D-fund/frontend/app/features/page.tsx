@@ -121,7 +121,7 @@ export default function FeaturesPage() {
       setSubmitted(true)
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Failed to send feedback. Please try again.')
+      toast.error(err.message || 'Impossible d\'envoyer votre retour. Veuillez réessayer.')
     },
   })
 

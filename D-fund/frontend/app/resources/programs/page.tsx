@@ -1,3 +1,5 @@
+'use client'
+
 import ResourcePageTemplate from '@/components/ResourcePageTemplate'
 import { Briefcase } from 'lucide-react'
 

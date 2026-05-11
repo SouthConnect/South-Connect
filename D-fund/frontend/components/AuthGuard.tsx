@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/app/lib/AuthContext'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { LogIn } from 'lucide-react'
 
@@ -30,13 +31,14 @@ interface AuthGuardProps {
  */
 export default function AuthGuard({ children, skeleton, message }: AuthGuardProps) {
   const { user, loading } = useAuth()
+  const pathname = usePathname()
 
   if (loading) {
     return <>{skeleton ?? <DefaultAuthSkeleton />}</>
   }
 
   if (!user) {
-    return <SignInRequired message={message} />
+    return <SignInRequired message={message} redirect={pathname} />
   }
 
   return <>{children}</>
@@ -62,7 +64,9 @@ function DefaultAuthSkeleton() {
  * Écran "connexion requise" standardisé.
  * Exporté pour usage standalone si besoin.
  */
-export function SignInRequired({ message }: { message?: string }) {
+export function SignInRequired({ message, redirect }: { message?: string; redirect?: string | null }) {
+  const loginHref = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
       <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-4">
@@ -73,7 +77,7 @@ export function SignInRequired({ message }: { message?: string }) {
         {message ?? 'Connectez-vous pour accéder à cette page.'}
       </p>
       <Link
-        href="/login"
+        href={loginHref}
         className="px-6 py-2.5 bg-[#3b49df] text-white rounded-lg font-semibold text-sm hover:bg-[#2d3aba] transition-colors"
       >
         Se connecter

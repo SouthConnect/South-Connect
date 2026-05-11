@@ -44,7 +44,7 @@ export class SocialService {
       throw new BadRequestException('You cannot follow yourself');
     }
 
-    const following = await this.prisma.user.findUnique({ where: { id: followingId } });
+    const following = await this.prisma.user.findFirst({ where: { id: followingId, deletedAt: null } });
     if (!following) throw new NotFoundException('User to follow not found');
 
     const existing = await this.prisma.follow.findUnique({
@@ -55,20 +55,16 @@ export class SocialService {
     await this.prisma.$transaction(async (tx) => {
       await tx.follow.create({ data: { followerId, followingId } });
 
-      const btoCProfile = await tx.btoCProfile.findUnique({ where: { userId: followingId } });
-      const btoBProfile = await tx.btoBProfile.findUnique({ where: { userId: followingId } });
-
-      if (btoCProfile) {
-        await tx.btoCProfile.update({
+      await Promise.all([
+        tx.btoCProfile.updateMany({
           where: { userId: followingId },
           data: { followersCount: { increment: 1 } },
-        });
-      } else if (btoBProfile) {
-        await tx.btoBProfile.update({
+        }),
+        tx.btoBProfile.updateMany({
           where: { userId: followingId },
           data: { followersCount: { increment: 1 } },
-        });
-      }
+        }),
+      ]);
     });
 
     // Fire-and-forget: does not block the response
@@ -109,20 +105,16 @@ export class SocialService {
         where: { followerId_followingId: { followerId, followingId } },
       });
 
-      const btoCProfile = await tx.btoCProfile.findUnique({ where: { userId: followingId } });
-      const btoBProfile = await tx.btoBProfile.findUnique({ where: { userId: followingId } });
-
-      if (btoCProfile) {
-        await tx.btoCProfile.update({
+      await Promise.all([
+        tx.btoCProfile.updateMany({
           where: { userId: followingId },
           data: { followersCount: { decrement: 1 } },
-        });
-      } else if (btoBProfile) {
-        await tx.btoBProfile.update({
+        }),
+        tx.btoBProfile.updateMany({
           where: { userId: followingId },
           data: { followersCount: { decrement: 1 } },
-        });
-      }
+        }),
+      ]);
     });
 
     return { message: 'User unfollowed successfully' };
@@ -133,7 +125,7 @@ export class SocialService {
     const cappedTake = Math.min(Math.max(take, 1), 200);
     const cappedSkip = Math.max(skip, 0);
     const followers = await this.prisma.follow.findMany({
-      where: { followingId: userId },
+      where: { followingId: userId, follower: { deletedAt: null } },
       include: {
         follower: { select: { id: true, name: true, profilePic: true } },
       },
@@ -149,7 +141,7 @@ export class SocialService {
     const cappedTake = Math.min(Math.max(take, 1), 200);
     const cappedSkip = Math.max(skip, 0);
     const following = await this.prisma.follow.findMany({
-      where: { followerId: userId },
+      where: { followerId: userId, following: { deletedAt: null } },
       include: {
         following: { select: { id: true, name: true, profilePic: true } },
       },
@@ -264,6 +256,61 @@ export class SocialService {
     ]);
 
     return { message: 'Opportunity unsaved successfully' };
+  }
+
+  /**
+   * Likes a public discussion.
+   * Uses the Rating model (itemId = 'discussion:<id>') for per-user deduplication
+   * without requiring a new DB model or migration.
+   *
+   * @throws NotFoundException when the discussion does not exist.
+   * @throws ConflictException when the user has already liked this discussion.
+   */
+  async likeDiscussion(userId: string, discussionId: string) {
+    const discussion = await this.prisma.publicDiscussion.findUnique({ where: { id: discussionId } });
+    if (!discussion) throw new NotFoundException('Discussion not found');
+
+    const ratingKey = `discussion:${discussionId}`;
+    try {
+      await this.prisma.$transaction([
+        this.prisma.rating.create({ data: { itemId: ratingKey, userId, rating: 1 } }),
+        this.prisma.publicDiscussion.update({ where: { id: discussionId }, data: { likesCount: { increment: 1 } } }),
+      ]);
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('Discussion already liked');
+      }
+      throw err;
+    }
+    return { message: 'Discussion liked' };
+  }
+
+  /**
+   * Removes the authenticated user's like from a public discussion.
+   *
+   * @throws NotFoundException when the like does not exist.
+   */
+  async unlikeDiscussion(userId: string, discussionId: string) {
+    const ratingKey = `discussion:${discussionId}`;
+    const existing = await this.prisma.rating.findUnique({
+      where: { itemId_userId: { itemId: ratingKey, userId } },
+    });
+    if (!existing) throw new NotFoundException('Like not found');
+
+    await this.prisma.$transaction([
+      this.prisma.rating.delete({ where: { itemId_userId: { itemId: ratingKey, userId } } }),
+      this.prisma.publicDiscussion.update({ where: { id: discussionId }, data: { likesCount: { decrement: 1 } } }),
+    ]);
+    return { message: 'Discussion unliked' };
+  }
+
+  /** Returns whether the given user has liked a public discussion. */
+  async isDiscussionLiked(userId: string, discussionId: string) {
+    const ratingKey = `discussion:${discussionId}`;
+    const record = await this.prisma.rating.findUnique({
+      where: { itemId_userId: { itemId: ratingKey, userId } },
+    });
+    return { liked: !!record };
   }
 
   /** Returns opportunities bookmarked by the given user, sorted by most recently saved. */

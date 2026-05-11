@@ -63,7 +63,7 @@ export default function MyOpportunitiesPage() {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
       toast.success('Submitted for review! Your opportunity will be visible once approved.')
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to submit'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de soumettre l\'opportunité.'),
   })
 
   const archiveMutation = useMutation({
@@ -76,7 +76,7 @@ export default function MyOpportunitiesPage() {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
       toast.success('Opportunity archived.')
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to archive'),
+    onError: (err: any) => toast.error(err.message || 'Impossible d\'archiver l\'opportunité.'),
   })
 
   const resubmitMutation = useMutation({
@@ -89,7 +89,7 @@ export default function MyOpportunitiesPage() {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
       toast.success('Resubmitted for review!')
     },
-    onError: (err: any) => toast.error(err.message || 'Failed to resubmit'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de resoumettre l\'opportunité.'),
   })
 
   const filtered: Opportunity[] = (opportunities as Opportunity[] ?? []).filter((op) =>

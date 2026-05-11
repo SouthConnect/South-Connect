@@ -3,10 +3,12 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import type { Opportunity } from '@/app/lib/types'
 import { ThumbsUp, MessageSquare, Bookmark, Users, DollarSign } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface OpportunityCardProps {
   opportunity: Opportunity
@@ -39,6 +41,21 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
+  // Local optimistic state — overrides the prop values while a mutation is in
+  // flight or just after it settles. This decouples the visual feedback from the
+  // React Query list cache (which is not updated during card-level mutations).
+  const serverIsLiked = !!opportunity.isLiked
+  const serverIsSaved = !!opportunity.isSaved
+  const [localLiked, setLocalLiked] = useState<boolean | null>(null)
+  const [localLikeCount, setLocalLikeCount] = useState<number | null>(null)
+  const [localSaved, setLocalSaved] = useState<boolean | null>(null)
+  const [localSaveCount, setLocalSaveCount] = useState<number | null>(null)
+
+  const displayIsLiked  = localLiked     ?? serverIsLiked
+  const displayLikeCount = localLikeCount ?? (opportunity.likesCount ?? 0)
+  const displayIsSaved  = localSaved     ?? serverIsSaved
+  const displaySaveCount = localSaveCount ?? (opportunity.savedCount ?? 0)
+
   const date = new Date(opportunity.createdAt).toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'numeric',
@@ -49,38 +66,44 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const typeLabel = opportunity.type.replace(/_/g, ' ')
 
   const toggleLikeMutation = useMutation({
-    mutationFn: async () => {
-      try {
-        await apiJson(`/social/like/${opportunity.id}`, { method: 'POST' })
-      } catch (error: any) {
-        if (error?.message?.includes('already liked')) {
-          await apiJson(`/social/like/${opportunity.id}`, { method: 'DELETE' })
-        } else {
-          throw error
-        }
-      }
+    mutationFn: (currentlyLiked: boolean) =>
+      apiJson(`/social/like/${opportunity.id}`, { method: currentlyLiked ? 'DELETE' : 'POST' }),
+    onMutate: (currentlyLiked) => {
+      setLocalLiked(!currentlyLiked)
+      setLocalLikeCount((opportunity.likesCount ?? 0) + (currentlyLiked ? -1 : 1))
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+    onError: () => {
+      // Roll back to server values
+      setLocalLiked(null)
+      setLocalLikeCount(null)
+      toast.error('Impossible de mettre à jour le like')
+    },
+    onSettled: () => {
+      // Let the server state win — reset locals so the next render uses fresh props
+      setLocalLiked(null)
+      setLocalLikeCount(null)
       queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity.id] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
     },
   })
 
   const toggleSaveMutation = useMutation({
-    mutationFn: async () => {
-      try {
-        await apiJson(`/social/save/${opportunity.id}`, { method: 'POST' })
-      } catch (error: any) {
-        if (error?.message?.includes('already saved')) {
-          await apiJson(`/social/save/${opportunity.id}`, { method: 'DELETE' })
-        } else {
-          throw error
-        }
-      }
+    mutationFn: (currentlySaved: boolean) =>
+      apiJson(`/social/save/${opportunity.id}`, { method: currentlySaved ? 'DELETE' : 'POST' }),
+    onMutate: (currentlySaved) => {
+      setLocalSaved(!currentlySaved)
+      setLocalSaveCount((opportunity.savedCount ?? 0) + (currentlySaved ? -1 : 1))
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+    onError: () => {
+      setLocalSaved(null)
+      setLocalSaveCount(null)
+      toast.error('Impossible de mettre à jour l\'enregistrement')
+    },
+    onSettled: () => {
+      setLocalSaved(null)
+      setLocalSaveCount(null)
       queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity.id] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
       queryClient.invalidateQueries({ queryKey: ['saved-opportunities'] })
     },
   })
@@ -89,14 +112,14 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
     e.preventDefault()
     e.stopPropagation()
     if (!user) { router.push('/login'); return }
-    toggleLikeMutation.mutate()
+    toggleLikeMutation.mutate(displayIsLiked)
   }
 
   const handleSaveClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     if (!user) { router.push('/login'); return }
-    toggleSaveMutation.mutate()
+    toggleSaveMutation.mutate(displayIsSaved)
   }
 
   return (
@@ -147,11 +170,11 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
               <button
                 onClick={handleLikeClick}
                 disabled={toggleLikeMutation.isPending}
-                className="flex items-center gap-1 text-xs hover:text-[#3b49df] transition-colors disabled:opacity-50"
-                title="Like"
+                className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-50 ${displayIsLiked ? 'text-[#3b49df]' : 'hover:text-[#3b49df]'}`}
+                title="J'aime"
               >
-                <ThumbsUp className="w-3.5 h-3.5" />
-                <span>{opportunity.likesCount}</span>
+                <ThumbsUp className={`w-3.5 h-3.5 ${displayIsLiked ? 'fill-[#3b49df]' : ''}`} />
+                <span>{displayLikeCount}</span>
               </button>
 
               <span className="flex items-center gap-1 text-xs" title="Messages">
@@ -159,7 +182,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
                 <span>{opportunity.messagesCount ?? 0}</span>
               </span>
 
-              <span className="flex items-center gap-1 text-xs" title="Applications">
+              <span className="flex items-center gap-1 text-xs" title="Candidatures">
                 <Users className="w-3.5 h-3.5" />
                 <span>{opportunity.applicationsCount}</span>
               </span>
@@ -167,11 +190,11 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
               <button
                 onClick={handleSaveClick}
                 disabled={toggleSaveMutation.isPending}
-                className="flex items-center gap-1 text-xs hover:text-[#3b49df] transition-colors disabled:opacity-50"
-                title="Save"
+                className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-50 ${displayIsSaved ? 'text-[#3b49df]' : 'hover:text-[#3b49df]'}`}
+                title="Enregistrer"
               >
-                <Bookmark className="w-3.5 h-3.5" />
-                <span>{opportunity.savedCount}</span>
+                <Bookmark className={`w-3.5 h-3.5 ${displayIsSaved ? 'fill-[#3b49df]' : ''}`} />
+                <span>{displaySaveCount}</span>
               </button>
             </div>
           </div>

@@ -60,9 +60,9 @@ export default function ExplorePage() {
       apiJson(`/opportunities?status=ACTIVE&take=12${typeFilter ? `&types=${encodeURIComponent(typeFilter)}` : ''}`),
   })
 
-  const { data: profiles } = useQuery<{ data: any[] }>({
+  const { data: profiles } = useQuery<any[]>({
     queryKey: ['explore-profiles'],
-    queryFn: () => apiJson('/profiles?take=6'),
+    queryFn: () => apiJson('/profiles/lists/members?take=6'),
     enabled: activeGroup === null,
   })
 
@@ -153,7 +153,7 @@ export default function ExplorePage() {
         </section>
 
         {/* People section — only on "All" */}
-        {activeGroup === null && (profiles?.data?.length ?? 0) > 0 && (
+        {activeGroup === null && (profiles?.length ?? 0) > 0 && (
           <section>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-gray-900">Personnes sur D-Fund</h2>
@@ -162,7 +162,7 @@ export default function ExplorePage() {
               </Link>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-              {profiles!.data.map((p: any) => (
+              {profiles!.map((p: any) => (
                 <Link
                   key={p.id}
                   href={`/profiles/${p.id}`}

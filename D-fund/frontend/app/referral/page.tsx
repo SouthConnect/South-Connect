@@ -24,7 +24,7 @@ export default function ReferralPage() {
   const createMutation = useMutation({
     mutationFn: () => apiJson('/referral', { method: 'POST', body: JSON.stringify({}) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['referral', user?.id] }),
-    onError: (err: any) => toast.error(err.message || 'Failed to create referral code'),
+    onError: (err: any) => toast.error(err.message || 'Impossible de créer le code de parrainage.'),
   })
 
   const codes: any[] = data?.codes || []

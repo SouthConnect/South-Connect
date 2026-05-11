@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiJson, OpportunityType, uploadImage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { ArrowLeft, Plus, Send, Info, MapPin, Globe, DollarSign, Image as ImageIcon, X, Clock, Sparkles, Loader2 } from 'lucide-react'
@@ -24,6 +24,7 @@ const OPPORTUNITY_TYPES: { value: OpportunityType; label: string; description: s
 export default function CreateOpportunityPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [selectedType, setSelectedType] = useState<OpportunityType | ''>('')
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([])
   const [selectedMarkets, setSelectedMarkets] = useState<string[]>([])
@@ -77,7 +78,9 @@ export default function CreateOpportunityPage() {
           imageUrl = logo
           backgroundImageUrl = cover
         } catch (error: any) {
-          throw new Error(`Failed to upload images: ${error.message}`)
+          // Supprimer l'opportunité orpheline pour éviter des brouillons fantômes
+          await apiJson(`/opportunities/${created.id}`, { method: 'DELETE' }).catch(() => undefined)
+          throw new Error(`Échec de l'envoi des images : ${error.message}`)
         } finally {
           setIsUploading(false)
         }
@@ -99,10 +102,11 @@ export default function CreateOpportunityPage() {
       return created
     },
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
       router.push(`/opportunities/${data.id}`)
     },
     onError: (error: any) => {
-      setErrorMessage(error.message || 'Failed to create opportunity')
+      setErrorMessage(error.message || 'Impossible de créer l\'opportunité.')
     }
   })
 
@@ -110,7 +114,7 @@ export default function CreateOpportunityPage() {
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        setErrorMessage('Image size must be less than 5MB')
+        setErrorMessage('Image trop volumineuse (5 Mo max).')
         return
       }
       setCoverImage(file)
@@ -126,7 +130,7 @@ export default function CreateOpportunityPage() {
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        setErrorMessage('Image size must be less than 5MB')
+        setErrorMessage('Image trop volumineuse (5 Mo max).')
         return
       }
       setLogoImage(file)
@@ -197,7 +201,7 @@ export default function CreateOpportunityPage() {
       setShowAiPanel(false)
       setAiContext('')
     } catch (err: any) {
-      setAiError(err.message || 'Generation failed. Please try again.')
+      setAiError(err.message || 'La génération a échoué. Veuillez réessayer.')
     } finally {
       setIsGenerating(false)
     }

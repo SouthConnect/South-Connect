@@ -73,6 +73,7 @@ export class SearchService {
         ? this.prisma.user.findMany({
             where: {
               visibility: true,
+              deletedAt: null,
               OR: [
                 { name: { search: tsQuery } },
                 { bio: { search: tsQuery } },

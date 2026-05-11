@@ -41,6 +41,15 @@ function ProfilePageContent() {
   const logoInputRef = useRef<HTMLInputElement | null>(null)
   const headerInputRef = useRef<HTMLInputElement | null>(null)
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
+  const savedInfoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savedBtoCTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savedBtoBTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => {
+    if (savedInfoTimer.current) clearTimeout(savedInfoTimer.current)
+    if (savedBtoCTimer.current) clearTimeout(savedBtoCTimer.current)
+    if (savedBtoBTimer.current) clearTimeout(savedBtoBTimer.current)
+  }, [])
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [savedInfo, setSavedInfo] = useState(false)
@@ -69,7 +78,8 @@ function ProfilePageContent() {
       await refreshUser()
       queryClient.invalidateQueries({ queryKey: ['profile', authUser?.id] })
       setSavedInfo(true)
-      setTimeout(() => setSavedInfo(false), 3000)
+      if (savedInfoTimer.current) clearTimeout(savedInfoTimer.current)
+      savedInfoTimer.current = setTimeout(() => setSavedInfo(false), 3000)
     },
   })
 
@@ -81,7 +91,8 @@ function ProfilePageContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', authUser?.id] })
       setSavedBtoC(true)
-      setTimeout(() => setSavedBtoC(false), 3000)
+      if (savedBtoCTimer.current) clearTimeout(savedBtoCTimer.current)
+      savedBtoCTimer.current = setTimeout(() => setSavedBtoC(false), 3000)
     },
   })
 
@@ -94,7 +105,8 @@ function ProfilePageContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile', authUser?.id] })
       setSavedBtoB(true)
-      setTimeout(() => setSavedBtoB(false), 3000)
+      if (savedBtoBTimer.current) clearTimeout(savedBtoBTimer.current)
+      savedBtoBTimer.current = setTimeout(() => setSavedBtoB(false), 3000)
     },
   })
 

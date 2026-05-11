@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { apiJson, uploadImage } from '@/app/lib/api'
@@ -26,6 +26,8 @@ export default function EditOpportunityPage() {
   const [selectedMarkets, setSelectedMarkets] = useState<string[]>([])
   const coverInputRef = useRef<HTMLInputElement>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
+  // Guard: pre-fill multiselects only once after initial data load, not on every refetch
+  const prefilled = useRef(false)
 
   const { data: opportunity, isLoading } = useQuery({
     queryKey: ['opportunity', id],
@@ -40,9 +42,10 @@ export default function EditOpportunityPage() {
     }
   }, [opportunity, user, id, router])
 
-  // Pre-fill image previews and multiselects from existing data
+  // Pre-fill image previews and multiselects from existing data — runs once only
   useEffect(() => {
-    if (opportunity) {
+    if (opportunity && !prefilled.current) {
+      prefilled.current = true
       if (opportunity.backgroundImage) setCoverImagePreview(opportunity.backgroundImage)
       if (opportunity.image) setLogoImagePreview(opportunity.image)
       if (opportunity.industries?.length) setSelectedIndustries(opportunity.industries)
@@ -71,7 +74,7 @@ export default function EditOpportunityPage() {
           if (logo) imageUrl = logo
           if (cover) backgroundImageUrl = cover
         } catch (error: any) {
-          throw new Error(`Failed to upload images: ${error.message}`)
+          throw new Error(`Échec de l'envoi des images : ${error.message}`)
         } finally {
           setIsUploading(false)
         }
@@ -86,14 +89,14 @@ export default function EditOpportunityPage() {
       router.push(`/opportunities/${id}`)
     },
     onError: (error: any) => {
-      setErrorMessage(error.message || 'Failed to update opportunity')
+      setErrorMessage(error.message || 'Impossible de mettre à jour l\'opportunité.')
     },
   })
 
   const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { setErrorMessage('Image size must be less than 5MB'); return }
+    if (file.size > 5 * 1024 * 1024) { setErrorMessage('Image trop volumineuse (5 Mo max).'); return }
     setCoverImage(file)
     const reader = new FileReader()
     reader.onloadend = () => setCoverImagePreview(reader.result as string)
@@ -103,7 +106,7 @@ export default function EditOpportunityPage() {
   const handleLogoImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { setErrorMessage('Image size must be less than 5MB'); return }
+    if (file.size > 5 * 1024 * 1024) { setErrorMessage('Image trop volumineuse (5 Mo max).'); return }
     setLogoImage(file)
     const reader = new FileReader()
     reader.onloadend = () => setLogoImagePreview(reader.result as string)

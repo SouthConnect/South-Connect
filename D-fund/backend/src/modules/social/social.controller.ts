@@ -82,4 +82,25 @@ export class SocialController {
   getSavedOpportunities(@CurrentUser() user: User) {
     return this.socialService.getSavedOpportunities(user.id);
   }
+
+  /** Likes a public discussion (increments its likesCount). */
+  @Post('discussion/like/:discussionId')
+  @UseGuards(JwtAuthGuard)
+  likeDiscussion(@Param('discussionId') discussionId: string, @CurrentUser() user: User) {
+    return this.socialService.likeDiscussion(user.id, discussionId);
+  }
+
+  /** Removes a like from a public discussion. */
+  @Delete('discussion/like/:discussionId')
+  @UseGuards(JwtAuthGuard)
+  unlikeDiscussion(@Param('discussionId') discussionId: string, @CurrentUser() user: User) {
+    return this.socialService.unlikeDiscussion(user.id, discussionId);
+  }
+
+  /** Returns whether the authenticated user has liked a public discussion. */
+  @Get('discussion/is-liked/:discussionId')
+  @UseGuards(JwtAuthGuard)
+  isDiscussionLiked(@Param('discussionId') discussionId: string, @CurrentUser() user: User) {
+    return this.socialService.isDiscussionLiked(user.id, discussionId);
+  }
 }

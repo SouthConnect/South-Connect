@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsDateString,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -44,6 +45,7 @@ export enum OpportunityStatusEnum {
 
 export class CreateOpportunityDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(200)
   name: string;
 

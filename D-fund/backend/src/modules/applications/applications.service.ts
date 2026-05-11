@@ -198,14 +198,30 @@ export class ApplicationsService {
       }
     }
 
-    const updated = await this.prisma.application.update({
-      where: { id },
-      data: {
-        stage: ApplicationStage.SUBMITTED,
-        isDraft: false,
-        submissionDate: new Date(),
-      },
-    });
+    let updated: Awaited<ReturnType<typeof this.prisma.application.update>>;
+    try {
+      updated = await this.prisma.application.update({
+        where: { id },
+        data: {
+          stage: ApplicationStage.SUBMITTED,
+          isDraft: false,
+          submissionDate: new Date(),
+        },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('Cette candidature a déjà été soumise.');
+      }
+      throw err;
+    }
+
+    // Maintenir le compteur dénormalisé d'applications sur l'opportunité
+    this.prisma.opportunity
+      .updateMany({
+        where: { id: application.opportunityId },
+        data: { applicationsCount: { increment: 1 } },
+      })
+      .catch((err) => this.logger.warn(`Failed to increment applicationsCount: ${err.message}`));
 
     // Incrémenter usesCount dès la soumission avec un code de parrainage valide
     if (application.referralCodeUsed) {

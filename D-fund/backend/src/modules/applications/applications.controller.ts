@@ -1,6 +1,7 @@
 import { Body, Controller, ForbiddenException, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -50,9 +51,10 @@ export class ApplicationsController {
     return this.applicationsService.findForUser(userId);
   }
 
-  /** Creates a new application in DRAFT stage for the authenticated user. */
+  /** Creates a new application in DRAFT stage for the authenticated user. Rate-limited to 5/min. */
   @Post()
   @UseGuards(JwtAuthGuard)
+  @Throttle({ auth: {} })
   create(@CurrentUser() user: User, @Body() dto: CreateApplicationDto) {
     return this.applicationsService.create(user.id, dto);
   }
@@ -64,9 +66,10 @@ export class ApplicationsController {
     return this.applicationsService.update(id, user.id, dto);
   }
 
-  /** Submits a DRAFT application for review. Only the applicant may call this. */
+  /** Submits a DRAFT application for review. Only the applicant may call this. Rate-limited to 3/min. */
   @Post(':id/submit')
   @UseGuards(JwtAuthGuard, ApplicationOwnerGuard)
+  @Throttle({ strict: {} })
   submit(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User) {
     return this.applicationsService.submit(id, user.id);
   }
