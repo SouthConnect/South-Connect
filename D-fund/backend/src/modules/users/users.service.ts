@@ -136,6 +136,71 @@ export class UsersService {
   }
 
   /**
+   * GDPR Article 20 — data portability export.
+   * Returns all personal data for the requesting user as a structured JSON object.
+   * Sensitive internal fields (password hash, tokens) are excluded.
+   */
+  async exportMyData(userId: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: {
+        id: true, email: true, name: true, firstName: true, lastName: true,
+        bio: true, profilePic: true, phone: true, city: true, country: true,
+        linkedinUrl: true, website: true, visibility: true, role: true,
+        isEmailVerified: true, emailOptOut: true, createdAt: true, updatedAt: true,
+        btoCProfile: true,
+        btoBProfile: true,
+        opportunities: {
+          select: { id: true, name: true, type: true, status: true, createdAt: true },
+        },
+        applications: {
+          select: {
+            id: true, stage: true, isDraft: true,
+            createdAt: true, updatedAt: true,
+            opportunity: { select: { id: true, name: true } },
+          },
+        },
+        sentMessages: {
+          select: { id: true, content: true, createdAt: true },
+          take: 500,
+          orderBy: { createdAt: 'desc' },
+        },
+        savedOpportunities: {
+          select: { opportunityId: true, createdAt: true },
+        },
+        likedOpportunities: {
+          select: { opportunityId: true, createdAt: true },
+        },
+        notifications: {
+          select: { id: true, type: true, title: true, body: true, isRead: true, createdAt: true },
+          take: 200,
+          orderBy: { createdAt: 'desc' },
+        },
+        referralCodes: {
+          select: { code: true, usesCount: true, createdAt: true },
+        },
+        followers: {
+          select: { followerId: true, createdAt: true },
+        },
+        following: {
+          select: { followingId: true, createdAt: true },
+        },
+        ratings: {
+          select: { rating: true, createdAt: true },
+        },
+        tasks: {
+          select: { id: true, name: true, status: true, createdAt: true },
+        },
+      },
+    });
+
+    return {
+      exportedAt: new Date().toISOString(),
+      data: user,
+    };
+  }
+
+  /**
    * Soft-deletes a user account by setting deletedAt. The row is retained so
    * that foreign-key references (applications, messages) remain intact.
    *

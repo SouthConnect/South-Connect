@@ -5,10 +5,13 @@ import {
   ForbiddenException,
   Get,
   Param,
+  Post,
   Put,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole } from '@prisma/client';
@@ -21,6 +24,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UpdateProfilePicDto } from './dto/update-profile-pic.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AuditService } from '../audit/audit.service';
+import { Throttle } from '@nestjs/throttler';
 
 class UpdateRoleDto {
   @IsEnum(UserRole)
@@ -73,6 +77,24 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   updateProfilePic(@CurrentUser() user: User, @Body() dto: UpdateProfilePicDto) {
     return this.usersService.updateProfilePic(user.id, dto.profilePic);
+  }
+
+  /**
+   * GDPR Article 20 — data portability.
+   * Returns the authenticated user's personal data as a downloadable JSON file.
+   * Rate-limited to 3 requests per minute (strict) to prevent scraping.
+   */
+  @ApiOperation({ summary: 'Export all personal data (GDPR Article 20)' })
+  @Post('me/export')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ strict: {} })
+  async exportMyData(@CurrentUser() user: User, @Res() res: Response) {
+    const payload = await this.usersService.exportMyData(user.id);
+    const filename = `dfund-export-${user.id}-${Date.now()}.json`;
+    res
+      .setHeader('Content-Type', 'application/json')
+      .setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+      .json(payload);
   }
 
   // ── Admin routes ───────────────────────────────────────────────────────────
