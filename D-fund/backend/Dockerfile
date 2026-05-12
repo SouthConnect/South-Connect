@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine3.21 AS builder
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ RUN npx prisma generate --schema=../prisma/schema.prisma
 RUN npm run build
 
 # Image de production minimale
-FROM node:20-alpine AS production
+FROM node:22-alpine3.21 AS production
 
 # Create non-root user to avoid running as root in production
 RUN addgroup -S dfund && adduser -S dfund -G dfund
