@@ -189,7 +189,12 @@ export class AuthService implements OnModuleDestroy {
 
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const verificationLink = `${frontendUrl}/verify-email?token=${rawToken}`;
-    await this.notificationsService.sendEmailVerification(user, verificationLink);
+
+    // Fire-and-forget: une erreur Resend ne doit pas faire échouer la requête —
+    // l'utilisateur peut demander un nouveau renvoi depuis l'interface.
+    this.notificationsService.sendEmailVerification(user, verificationLink)
+      .catch((err) => this.logger.error(`Failed to resend verification email: ${err.message}`));
+
     return { message: 'Email de vérification renvoyé.' };
   }
 
