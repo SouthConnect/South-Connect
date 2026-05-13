@@ -53,6 +53,14 @@ const nextConfig = {
   reactStrictMode: true,
   // Standalone output bundles only what's needed to run — reduces Docker image size ~3x
   output: 'standalone',
+  images: {
+    remotePatterns: [
+      // Supabase Storage — all project buckets (profile pics, logos, opportunity images)
+      { protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/**' },
+      // Allow any https source as fallback (covers future CDN migrations)
+      { protocol: 'https', hostname: '**' },
+    ],
+  },
   async headers() {
     return [
       {

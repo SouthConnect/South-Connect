@@ -7,6 +7,7 @@ import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useSocket } from '@/app/hooks/useSocket'
 import { ArrowLeft, Send, Eye } from 'lucide-react'
+import Image from 'next/image'
 import AuthGuard from '@/components/AuthGuard'
 import { toast } from 'sonner'
 import type { PrivateDiscussion, Message } from '@/app/lib/types'
@@ -169,10 +170,9 @@ export default function PrivateDiscussionPage() {
           <ArrowLeft className="w-4 h-4" />
         </button>
 
-        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-[#3b49df] overflow-hidden shrink-0">
+        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-[#3b49df] overflow-hidden shrink-0 relative">
           {otherParticipant?.profilePic ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={otherParticipant.profilePic} alt="" className="w-full h-full object-cover" />
+            <Image src={otherParticipant.profilePic} alt="" fill className="object-cover" sizes="64px" />
           ) : (
             otherParticipant?.name?.[0] || 'U'
           )}
@@ -222,10 +222,9 @@ export default function PrivateDiscussionPage() {
 
         {!isLoading && !isError && msgs.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full py-16 text-center">
-            <div className="w-16 h-16 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center text-xl font-bold text-[#3b49df] mb-3 overflow-hidden">
+            <div className="w-16 h-16 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center text-xl font-bold text-[#3b49df] mb-3 overflow-hidden relative">
               {otherParticipant?.profilePic ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={otherParticipant.profilePic} alt="" className="w-full h-full object-cover" />
+                <Image src={otherParticipant.profilePic} alt="" fill className="object-cover" sizes="64px" />
               ) : (
                 otherParticipant?.name?.[0] || 'U'
               )}
@@ -261,10 +260,9 @@ export default function PrivateDiscussionPage() {
                   <div className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : 'flex-row'} ${sameAsPrev ? 'mt-0.5' : 'mt-3'}`}>
                     {/* Avatar — affiché uniquement pour le dernier message du groupe */}
                     {!isOwn && (
-                      <div className={`w-7 h-7 rounded-full overflow-hidden shrink-0 ${sameAsNext ? 'invisible' : ''}`}>
+                      <div className={`w-7 h-7 rounded-full overflow-hidden shrink-0 relative ${sameAsNext ? 'invisible' : ''}`}>
                         {m.sender?.profilePic ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={m.sender.profilePic} alt="" className="w-full h-full object-cover" />
+                          <Image src={m.sender.profilePic} alt="" fill className="object-cover" sizes="64px" />
                         ) : (
                           <div className="w-full h-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-[#3b49df]">
                             {m.sender?.name?.[0] || 'U'}
@@ -306,10 +304,9 @@ export default function PrivateDiscussionPage() {
             {/* Indicateur de frappe */}
             {typingNames.length > 0 && (
               <div className="flex items-end gap-2 mt-3">
-                <div className="w-7 h-7 rounded-full bg-gray-200 shrink-0 overflow-hidden">
+                <div className="w-7 h-7 rounded-full bg-gray-200 shrink-0 overflow-hidden relative">
                   {otherParticipant?.profilePic ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={otherParticipant.profilePic} alt="" className="w-full h-full object-cover" />
+                    <Image src={otherParticipant.profilePic} alt="" fill className="object-cover" sizes="64px" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[#3b49df]">
                       {otherParticipant?.name?.[0] || 'U'}

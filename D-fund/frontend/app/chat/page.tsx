@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import type { PublicDiscussion, PrivateDiscussion } from '@/app/lib/types'
 
@@ -332,10 +333,9 @@ function DiscussionList({
               href={`/chat/public/${d.id}`}
               className="flex items-center gap-3 flex-1 min-w-0"
             >
-              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-[#3b49df] overflow-hidden shrink-0">
+              <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-[#3b49df] overflow-hidden shrink-0 relative">
                 {d.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={d.image} alt="" className="w-full h-full object-cover" />
+                  <Image src={d.image} alt="" fill className="object-cover" sizes="64px" />
                 ) : (
                   d.title?.[0] || 'D'
                 )}

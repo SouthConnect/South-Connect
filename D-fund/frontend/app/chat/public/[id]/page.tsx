@@ -8,6 +8,7 @@ import { useAuth } from '@/app/lib/AuthContext'
 import { useSocket } from '@/app/hooks/useSocket'
 import { ArrowLeft, Users, Send } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import type { PublicDiscussion, Message } from '@/app/lib/types'
 
@@ -140,10 +141,9 @@ export default function PublicDiscussionPage() {
           <ArrowLeft className="w-4 h-4" />
         </button>
 
-        <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden shrink-0">
+        <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 relative">
           {discussion?.opportunity?.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={discussion.opportunity.image} alt="" className="w-full h-full object-cover" />
+            <Image src={discussion.opportunity.image} alt="" fill className="object-cover" sizes="64px" />
           ) : (
             <span className="text-sm font-bold text-[#3b49df]">{title?.[0] || 'D'}</span>
           )}
@@ -219,10 +219,9 @@ export default function PublicDiscussionPage() {
 
                   <div className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : ''} ${sameAsPrev ? 'mt-0.5' : 'mt-3'}`}>
                     {!isOwn && (
-                      <div className={`w-7 h-7 rounded-full overflow-hidden shrink-0 ${sameAsNext ? 'invisible' : ''}`}>
+                      <div className={`w-7 h-7 rounded-full overflow-hidden shrink-0 relative ${sameAsNext ? 'invisible' : ''}`}>
                         {m.sender?.profilePic ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={m.sender.profilePic} alt="" className="w-full h-full object-cover" />
+                          <Image src={m.sender.profilePic} alt="" fill className="object-cover" sizes="64px" />
                         ) : (
                           <div className="w-full h-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-[#3b49df]">
                             {m.sender?.name?.[0] || 'U'}

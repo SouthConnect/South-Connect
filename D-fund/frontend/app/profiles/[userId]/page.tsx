@@ -6,6 +6,7 @@ import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import Link from 'next/link'
 import { MapPin, Users, Briefcase, MessageCircle, UserPlus, UserCheck } from 'lucide-react'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import StarRating from '@/components/StarRating'
 
@@ -100,10 +101,9 @@ export default function PublicProfilePage() {
         <div className="px-6 pb-6">
           <div className="flex items-end justify-between -mt-10 mb-4">
             <div className="w-20 h-20 rounded-2xl bg-white p-1 shadow-md shrink-0">
-              <div className="w-full h-full rounded-xl bg-gray-100 flex items-center justify-center text-2xl font-bold text-[#3b49df] overflow-hidden">
+              <div className="w-full h-full rounded-xl bg-gray-100 flex items-center justify-center text-2xl font-bold text-[#3b49df] overflow-hidden relative">
                 {profile.profilePic ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={profile.profilePic} alt="" className="w-full h-full object-cover rounded-xl" />
+                  <Image src={profile.profilePic} alt="" fill className="object-cover rounded-xl" sizes="(max-width: 768px) 100vw, 400px" />
                 ) : (
                   (profile.name?.[0] || 'U')
                 )}
@@ -245,9 +245,8 @@ export default function PublicProfilePage() {
               <h2 className="text-sm font-semibold text-gray-900 mb-3">Profil entreprise</h2>
               <div className="flex items-start gap-4 mb-4">
                 {profile.btoBProfile.logo && (
-                  <div className="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={profile.btoBProfile.logo} alt="" className="w-full h-full object-cover" />
+                  <div className="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden shrink-0 relative">
+                    <Image src={profile.btoBProfile.logo} alt="" fill className="object-cover" sizes="64px" />
                   </div>
                 )}
                 <div>

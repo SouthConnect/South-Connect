@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import Link from 'next/link'
 import { Search, MapPin, Users, UserCircle2, Building2, Briefcase } from 'lucide-react'
+import Image from 'next/image'
 
 // ─── Data shapes ─────────────────────────────────────────────────────────────
 
@@ -58,10 +59,9 @@ function Avatar({ src, name, size = 'md', shape = 'circle' }: {
   const sizeClass = size === 'sm' ? 'w-9 h-9 text-xs' : size === 'lg' ? 'w-14 h-14 text-lg' : 'w-12 h-12 text-sm'
   const shapeClass = shape === 'square' ? 'rounded-xl' : 'rounded-full'
   return (
-    <div className={`${sizeClass} ${shapeClass} bg-gray-100 overflow-hidden flex items-center justify-center font-bold text-[#3b49df] shrink-0`}>
+    <div className={`${sizeClass} ${shapeClass} bg-gray-100 overflow-hidden flex items-center justify-center font-bold text-[#3b49df] shrink-0 relative`}>
       {src
-        // eslint-disable-next-line @next/next/no-img-element
-        ? <img src={src} alt="" className="w-full h-full object-cover" />
+        ? <Image src={src} alt="" fill className="object-cover" sizes="64px" />
         : (name?.[0]?.toUpperCase() || '?')}
     </div>
   )

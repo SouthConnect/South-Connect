@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { apiJson } from '@/app/lib/api'
 import Link from 'next/link'
 import { Search, Briefcase, UserCircle, MessageCircle, MapPin } from 'lucide-react'
+import Image from 'next/image'
 
 function SearchContent() {
   const searchParams = useSearchParams()
@@ -116,10 +117,9 @@ function SearchContent() {
                         href={`/opportunities/${opp.id}`}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                       >
-                        <div className="w-9 h-9 rounded-lg bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center text-xs font-bold text-gray-400">
+                        <div className="w-9 h-9 rounded-lg bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center text-xs font-bold text-gray-400 relative">
                           {opp.image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={opp.image} alt="" className="w-full h-full object-cover" />
+                            <Image src={opp.image} alt="" fill className="object-cover" sizes="64px" />
                           ) : (
                             opp.type?.slice(0, 2)
                           )}
@@ -153,10 +153,9 @@ function SearchContent() {
                         href={`/profiles/${p.id}`}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                       >
-                        <div className="w-9 h-9 rounded-full bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center text-sm font-bold text-[#3b49df]">
+                        <div className="w-9 h-9 rounded-full bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center text-sm font-bold text-[#3b49df] relative">
                           {p.profilePic ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={p.profilePic} alt="" className="w-full h-full object-cover" />
+                            <Image src={p.profilePic} alt="" fill className="object-cover" sizes="64px" />
                           ) : (
                             p.name?.[0] || 'U'
                           )}

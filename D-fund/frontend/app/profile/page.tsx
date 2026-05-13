@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiJson, uploadImage } from '@/app/lib/api'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
 import { User, Mail, Phone, MapPin, Linkedin, Globe, Shield, UserCircle, Building2, Save } from 'lucide-react'
+import Image from 'next/image'
 import AuthGuard from '@/components/AuthGuard'
 import MultiSelect from '@/components/MultiSelect'
 
@@ -267,10 +268,9 @@ function ProfilePageContent() {
               </p>
               <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center justify-between hover:shadow-sm transition-shadow">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center text-sm font-bold text-[#3b49df]">
+                  <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center text-sm font-bold text-[#3b49df] relative">
                     {profile.profilePic ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={profile.profilePic} alt="" className="w-full h-full object-cover" />
+                      <Image src={profile.profilePic} alt="" fill className="object-cover" sizes="64px" />
                     ) : (
                       profile.name?.[0] || 'U'
                     )}
@@ -301,10 +301,9 @@ function ProfilePageContent() {
               </p>
               <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center justify-between hover:shadow-sm transition-shadow">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center text-sm font-bold text-[#3b49df]">
+                  <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center text-sm font-bold text-[#3b49df] relative">
                     {profile.btoBProfile.logo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={profile.btoBProfile.logo} alt="" className="w-full h-full object-cover" />
+                      <Image src={profile.btoBProfile.logo} alt="" fill className="object-cover" sizes="64px" />
                     ) : (
                       (profile.btoBProfile.companyName || 'C')?.[0]
                     )}
@@ -370,7 +369,7 @@ function ProfilePageContent() {
                   name="firstName"
                   defaultValue={profile?.firstName || ''}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
-                  placeholder="First name"
+                  placeholder="Prénom"
                 />
               </div>
               <div>
@@ -381,7 +380,7 @@ function ProfilePageContent() {
                   name="lastName"
                   defaultValue={profile?.lastName || ''}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
-                  placeholder="Last name"
+                  placeholder="Nom"
                 />
               </div>
               <div>
@@ -392,7 +391,7 @@ function ProfilePageContent() {
                   name="phone"
                   defaultValue={profile?.phone || ''}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
-                  placeholder="+1 555 000 0000"
+                  placeholder="+33 6 12 34 56 78"
                 />
               </div>
               <div>
@@ -403,7 +402,7 @@ function ProfilePageContent() {
                   name="city"
                   defaultValue={profile?.city || ''}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
-                  placeholder="Paris"
+                  placeholder="Dakar"
                 />
               </div>
               <div>
@@ -548,7 +547,7 @@ function ProfilePageContent() {
                 value={btocIndustries}
                 onChange={setBtocIndustries}
                 label="Industries"
-                placeholder="Select industries…"
+                placeholder="Sélectionner des secteurs…"
               />
             </div>
 
@@ -774,7 +773,7 @@ function ProfilePageContent() {
                   value={btobIndustries}
                   onChange={setBtobIndustries}
                   label="Industries"
-                  placeholder="Select industries…"
+                  placeholder="Sélectionner des secteurs…"
                 />
                 <MultiSelect
                   endpoint="/markets"

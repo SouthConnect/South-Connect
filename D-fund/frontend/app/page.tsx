@@ -10,31 +10,32 @@ import {
 import { apiJson } from '@/app/lib/api'
 import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useAuth } from '@/app/lib/AuthContext'
 import type { Opportunity, OpportunityListResponse } from '@/app/lib/types'
 
 const PAGE_SIZE = 20
 
 const TYPE_LABELS: Record<string, string> = {
-  JOB_OPPORTUNITY: 'Job',
+  JOB_OPPORTUNITY: 'Emploi',
   TALENT_PROFILE: 'Talent',
-  CO_FOUNDER_OPPORTUNITY: 'Co-Founder',
-  CO_FOUNDER_PROFILE: 'Co-Founder Profile',
-  BUSINESS_IDEA: 'Business Idea',
-  SUPPORT_OFFER: 'Support Offer',
+  CO_FOUNDER_OPPORTUNITY: 'Co-Fondateur',
+  CO_FOUNDER_PROFILE: 'Profil Co-Fondateur',
+  BUSINESS_IDEA: 'Idée de Business',
+  SUPPORT_OFFER: 'Offre de Support',
   SERVICE_LISTING: 'Service',
-  SERVICE_REQUEST: 'Service Request',
+  SERVICE_REQUEST: 'Demande de Service',
   DEAL_FLOW: 'Deal Flow',
-  INVESTOR_THESIS: 'Investor Thesis',
-  INVESTOR_PROFILE: 'Investor',
-  FUNDING_OPPORTUNITY: 'Funding',
-  EVENT: 'Event',
-  CALL_FOR_STARTUPS: 'Call for Startups',
-  MENTORSHIP_BA_OFFER: 'Mentorship',
-  PROJECT_SEEKING_SUPPORT: 'Project Support',
-  VENTURE_PROGRAM: 'Venture Program',
-  CHILL_WORK_SPOT: 'Work Spot',
-  MARKET_ADVISOR: 'Market Advisor',
+  INVESTOR_THESIS: 'Thèse Investisseur',
+  INVESTOR_PROFILE: 'Investisseur',
+  FUNDING_OPPORTUNITY: 'Financement',
+  EVENT: 'Événement',
+  CALL_FOR_STARTUPS: 'Appel à Startups',
+  MENTORSHIP_BA_OFFER: 'Mentorat',
+  PROJECT_SEEKING_SUPPORT: 'Projet en Recherche',
+  VENTURE_PROGRAM: 'Programme Venture',
+  CHILL_WORK_SPOT: 'Espace de Travail',
+  MARKET_ADVISOR: 'Conseiller Marché',
 }
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -93,17 +94,17 @@ function LandingPage() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 text-xs font-semibold mb-8 backdrop-blur-sm">
             <Zap className="w-3.5 h-3.5 text-yellow-400" />
-            🌍 Built for African Entrepreneurs
+            🌍 Fait pour les entrepreneurs africains
           </div>
 
           <h1 className="text-4xl md:text-6xl font-extrabold mb-6 tracking-tight leading-[1.1]">
-            The All-in-One Platform
+            La plateforme tout-en-un
             <br />
-            <span className="text-yellow-400">for African Entrepreneurs</span>
+            <span className="text-yellow-400">pour les entrepreneurs africains</span>
           </h1>
 
           <p className="text-lg md:text-xl text-white/75 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Connect with investors, find co-founders, access talent and funding opportunities — all in one place built for the African startup ecosystem.
+            Connectez-vous avec des investisseurs, trouvez des co-fondateurs, accédez aux talents et aux opportunités de financement — tout en un seul endroit pour l'écosystème startup africain.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -111,13 +112,13 @@ function LandingPage() {
               href="/register"
               className="px-8 py-4 bg-yellow-400 text-gray-900 rounded-xl font-black text-base hover:bg-yellow-300 transition-all shadow-xl hover:shadow-yellow-400/25 hover:-translate-y-0.5 active:translate-y-0"
             >
-              Start for free →
+              Commencer gratuitement →
             </Link>
             <Link
               href="/login"
               className="px-8 py-4 bg-white/10 text-white rounded-xl font-bold text-base border border-white/25 hover:bg-white/20 transition-all backdrop-blur-sm"
             >
-              Browse opportunities
+              Explorer les opportunités
             </Link>
           </div>
         </div>
@@ -132,9 +133,9 @@ function LandingPage() {
         <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8">
           {[
             { label: 'Entrepreneurs', value: '2 400+' },
-            { label: 'Opportunities', value: '850+' },
-            { label: 'Investors', value: '120+' },
-            { label: 'Countries', value: '28' },
+            { label: 'Opportunités', value: '850+' },
+            { label: 'Investisseurs', value: '120+' },
+            { label: 'Pays', value: '28' },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <div className="text-3xl font-black text-gray-900">{stat.value}</div>
@@ -148,10 +149,10 @@ function LandingPage() {
       <section className="py-20 bg-gray-50">
         <div className="max-w-5xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-gray-900 text-center mb-3">
-            Everything you need to grow
+            Tout ce dont vous avez besoin pour grandir
           </h2>
           <p className="text-gray-500 text-center mb-12 max-w-xl mx-auto">
-            One platform. All the connections your startup needs to scale across Africa and beyond.
+            Une plateforme. Toutes les connexions dont votre startup a besoin pour se développer en Afrique et au-delà.
           </p>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -160,22 +161,22 @@ function LandingPage() {
                 Icon: DollarSign,
                 bg: 'bg-green-50',
                 fg: 'text-green-600',
-                title: 'Funding & Investors',
-                desc: 'Connect with 120+ investors, business angels and VCs actively seeking African startups to back.',
+                title: 'Financement & Investisseurs',
+                desc: 'Connectez-vous avec 120+ investisseurs, business angels et VCs cherchant activement des startups africaines à financer.',
               },
               {
                 Icon: Users,
                 bg: 'bg-blue-50',
                 fg: 'text-blue-600',
-                title: 'Talent & Co-Founders',
-                desc: 'Find the perfect co-founder or recruit top talent from a vetted pool of African professionals.',
+                title: 'Talents & Co-Fondateurs',
+                desc: 'Trouvez le co-fondateur idéal ou recrutez les meilleurs talents dans un vivier vérifié de professionnels africains.',
               },
               {
                 Icon: Briefcase,
                 bg: 'bg-purple-50',
                 fg: 'text-purple-600',
-                title: 'Programs & Mentorship',
-                desc: "Access incubators, accelerators and mentors who've built and scaled African businesses.",
+                title: 'Programmes & Mentorat',
+                desc: "Accédez à des incubateurs, accélérateurs et mentors qui ont construit et développé des entreprises africaines.",
               },
             ].map(({ Icon, bg, fg, title, desc }) => (
               <div
@@ -197,28 +198,28 @@ function LandingPage() {
       <section className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-gray-900 text-center mb-3">
-            Up and running in 3 steps
+            Opérationnel en 3 étapes
           </h2>
           <p className="text-gray-500 text-center mb-14">
-            No gatekeepers. No lengthy processes. Just connect and grow.
+            Pas d'intermédiaires. Pas de processus longs. Connectez-vous et grandissez.
           </p>
 
           <div className="grid md:grid-cols-3 gap-10">
             {[
               {
                 step: '01',
-                title: 'Create your profile',
-                desc: "Tell us about your startup, your role and what you're looking for.",
+                title: 'Créez votre profil',
+                desc: "Parlez-nous de votre startup, de votre rôle et de ce que vous recherchez.",
               },
               {
                 step: '02',
-                title: 'Discover opportunities',
-                desc: 'Browse funding, talent, co-founders, mentors and programs filtered for Africa.',
+                title: 'Découvrez les opportunités',
+                desc: 'Parcourez les financements, talents, co-fondateurs, mentors et programmes filtrés pour l\'Afrique.',
               },
               {
                 step: '03',
-                title: 'Connect & grow',
-                desc: 'Message directly, save your favourites, and close deals faster.',
+                title: 'Connectez-vous & grandissez',
+                desc: 'Échangez directement, sauvegardez vos favoris et concluez des accords plus rapidement.',
               },
             ].map((item) => (
               <div key={item.step} className="flex flex-col">
@@ -238,14 +239,14 @@ function LandingPage() {
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Latest opportunities</h2>
-              <p className="text-gray-500 text-sm mt-1">Updated daily from across Africa</p>
+              <h2 className="text-2xl font-bold text-gray-900">Dernières opportunités</h2>
+              <p className="text-gray-500 text-sm mt-1">Mises à jour quotidiennement depuis toute l'Afrique</p>
             </div>
             <Link
               href="/register"
               className="flex items-center gap-2 text-[#3b49df] font-semibold text-sm hover:underline"
             >
-              See all <ArrowRight className="w-4 h-4" />
+              Tout voir <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
           <OpportunityPreview />
@@ -255,15 +256,15 @@ function LandingPage() {
       {/* Final CTA */}
       <section className="py-20 bg-[#1e2d6d] text-white">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-4xl font-black mb-4">Ready to grow your startup?</h2>
+          <h2 className="text-4xl font-black mb-4">Prêt à développer votre startup ?</h2>
           <p className="text-white/65 text-lg mb-10">
-            Join 2 400+ African entrepreneurs already building on D-fund.
+            Rejoignez 2 400+ entrepreneurs africains qui construisent déjà sur D-Fund.
           </p>
           <Link
             href="/register"
             className="inline-block px-10 py-4 bg-yellow-400 text-gray-900 rounded-xl font-black text-lg hover:bg-yellow-300 transition-all shadow-xl hover:-translate-y-0.5 active:translate-y-0"
           >
-            Create your free account →
+            Créer son compte gratuitement →
           </Link>
         </div>
       </section>
@@ -377,9 +378,9 @@ function AppFeed() {
           style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, #f59e0b 0%, transparent 70%)' }}
         />
         <div className="relative z-10 text-center px-4">
-          <p className="text-white/60 text-sm font-medium mb-1">Welcome back</p>
+          <p className="text-white/60 text-sm font-medium mb-1">Bon retour</p>
           <h1 className="text-2xl font-extrabold tracking-tight">
-            {user?.name ? `${user.name.split(' ')[0]} 👋` : 'Your feed'}
+            {user?.name ? `${user.name.split(' ')[0]} 👋` : 'Votre fil'}
           </h1>
         </div>
       </section>
@@ -387,13 +388,13 @@ function AppFeed() {
       {/* Feed */}
       <section className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Explore opportunities</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Explorer les opportunités</h2>
           <Link
             href="/opportunities/new"
             className="flex items-center gap-2 px-4 py-2 bg-[#3b49df] text-white rounded-lg font-semibold hover:bg-[#2d3aba] transition-colors self-start"
           >
             <Plus className="w-5 h-5" />
-            Create
+            Créer
           </Link>
         </div>
 
@@ -402,9 +403,9 @@ function AppFeed() {
           <div className="flex items-center justify-between border-b border-gray-200">
             <div className="flex gap-6">
               {([
-                { id: 'newest' as const, label: 'Newest', icon: Clock },
-                { id: 'trending' as const, label: 'Trending', icon: TrendingUp },
-                { id: 'favorites' as const, label: 'Favorites', icon: Star },
+                { id: 'newest' as const, label: 'Récent', icon: Clock },
+                { id: 'trending' as const, label: 'Tendance', icon: TrendingUp },
+                { id: 'favorites' as const, label: 'Favoris', icon: Star },
               ]).map((t) => (
                 <button
                   key={t.id}
@@ -445,7 +446,7 @@ function AppFeed() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search opportunities…"
+                placeholder="Rechercher des opportunités…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-lg text-sm focus:ring-2 focus:ring-[#3b49df] transition-all"
@@ -479,7 +480,7 @@ function AppFeed() {
                     onClick={() => { setTypeFilter(''); setShowTypeFilter(false) }}
                     className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 ${!typeFilter ? 'font-semibold text-[#3b49df]' : 'text-gray-700'}`}
                   >
-                    All types
+                    Tous les types
                   </button>
                   <div className="border-t border-gray-100" />
                   {Object.entries(TYPE_LABELS).map(([value, label]) => (
@@ -497,7 +498,7 @@ function AppFeed() {
 
             {(typeFilter || debouncedSearch) && (
               <span className="text-xs text-gray-400">
-                {total !== undefined ? `${total} result${total !== 1 ? 's' : ''}` : ''}
+                {total !== undefined ? `${total} résultat${total !== 1 ? 's' : ''}` : ''}
               </span>
             )}
           </div>
@@ -524,19 +525,19 @@ function AppFeed() {
           ) : (
             <div className="col-span-full text-center py-12 text-gray-500 text-sm bg-white rounded-2xl border border-dashed border-gray-200">
               {tab === 'favorites' ? (
-                'No saved opportunities yet. Use the bookmark button on any opportunity.'
+                'Aucune opportunité sauvegardée. Utilisez le bouton signet sur une opportunité.'
               ) : debouncedSearch || typeFilter ? (
                 <div className="space-y-2">
-                  <p>No results for your search.</p>
+                  <p>Aucun résultat pour votre recherche.</p>
                   <button
                     onClick={() => { setSearch(''); setTypeFilter('') }}
                     className="text-xs text-[#3b49df] font-semibold hover:underline"
                   >
-                    Clear filters
+                    Effacer les filtres
                   </button>
                 </div>
               ) : (
-                'No opportunities yet.'
+                'Aucune opportunité pour l\'instant.'
               )}
             </div>
           )}
@@ -548,10 +549,10 @@ function AppFeed() {
             {isFetchingNextPage ? (
               <div className="flex gap-2 items-center text-sm text-gray-400">
                 <div className="w-4 h-4 border-2 border-[#3b49df] border-t-transparent rounded-full animate-spin" />
-                Loading more…
+                Chargement…
               </div>
             ) : hasNextPage ? null : allItems.length > 0 ? (
-              <p className="text-xs text-gray-400">All {total} opportunities loaded</p>
+              <p className="text-xs text-gray-400">Toutes les {total} opportunités chargées</p>
             ) : null}
           </div>
         )}
@@ -567,10 +568,9 @@ function GalleryCard({ opportunity }: { opportunity: Opportunity }) {
   return (
     <a href={`/opportunities/${opportunity.id}`} className="block group">
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
-        <div className="h-28 bg-gray-100 overflow-hidden">
+        <div className="h-28 bg-gray-100 overflow-hidden relative">
           {opportunity.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={opportunity.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+            <Image src={opportunity.image} alt="" fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 768px) 100vw, 400px" />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gradient-to-br from-gray-50 to-gray-100">
               {opportunity.type?.replace(/_/g, ' ')}

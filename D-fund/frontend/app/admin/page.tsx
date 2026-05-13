@@ -7,6 +7,7 @@ import { useAuth } from '@/app/lib/AuthContext'
 import AuthGuard from '@/components/AuthGuard'
 import Link from 'next/link'
 import { CheckCircle, XCircle, Clock, Search, Eye, ShieldAlert, Users, Briefcase, FileText, TrendingUp, Ban, ShieldCheck, Trash2, UserCog, Plus, Tag, Globe2, Layers } from 'lucide-react'
+import Image from 'next/image'
 import { toast } from 'sonner'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -263,10 +264,9 @@ export default function AdminPage() {
                 {opportunities.map((opp: any) => (
                   <li key={opp.id} className="px-5 py-4 flex items-center gap-4">
                     {/* Cover */}
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center text-xs text-gray-400 font-bold">
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center text-xs text-gray-400 font-bold relative">
                       {opp.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={opp.image} alt="" className="w-full h-full object-cover" />
+                        <Image src={opp.image} alt="" fill className="object-cover" sizes="64px" />
                       ) : (
                         opp.type?.slice(0, 2)
                       )}
@@ -359,10 +359,9 @@ export default function AdminPage() {
                   <ul className="divide-y divide-gray-100">
                     {usersData.data.map((u: any) => (
                       <li key={u.id} className="px-5 py-3 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 shrink-0 overflow-hidden flex items-center justify-center text-xs font-bold text-[#3b49df]">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 shrink-0 overflow-hidden flex items-center justify-center text-xs font-bold text-[#3b49df] relative">
                           {u.profilePic
-                            // eslint-disable-next-line @next/next/no-img-element
-                            ? <img src={u.profilePic} alt="" className="w-full h-full object-cover" />
+                            ? <Image src={u.profilePic} alt="" fill className="object-cover" sizes="64px" />
                             : (u.name?.[0] || 'U')}
                         </div>
                         <div className="flex-1 min-w-0">

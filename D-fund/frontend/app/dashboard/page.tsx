@@ -13,6 +13,7 @@ import {
   MessageCircle,
 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import type { PrivateDiscussion, Task } from '@/app/lib/types'
 
@@ -402,10 +403,9 @@ function DMSection({
                 href={`/chat/private/${d.id}`}
                 className="bg-white rounded-xl border border-gray-100 px-5 py-4 flex items-center gap-4 hover:shadow-sm transition-shadow"
               >
-                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-[#3b49df] overflow-hidden flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-[#3b49df] overflow-hidden flex-shrink-0 relative">
                   {other?.profilePic ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={other.profilePic} alt="" className="w-full h-full object-cover" />
+                    <Image src={other.profilePic} alt="" fill className="object-cover" sizes="64px" />
                   ) : (
                     other?.name?.[0] || 'U'
                   )}

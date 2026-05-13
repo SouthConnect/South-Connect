@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import Link from 'next/link'
 import { Search, Briefcase, Users, Lightbulb, DollarSign, Calendar, Rocket, ArrowRight, MapPin } from 'lucide-react'
+import Image from 'next/image'
 import OpportunityCard from '@/components/OpportunityCard'
 import type { Opportunity } from '@/app/lib/types'
 
@@ -168,10 +169,9 @@ export default function ExplorePage() {
                   href={`/profiles/${p.id}`}
                   className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-sm transition-shadow text-center"
                 >
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center text-sm font-bold text-[#3b49df]">
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center text-sm font-bold text-[#3b49df] relative">
                     {p.profilePic
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={p.profilePic} alt="" className="w-full h-full object-cover" />
+                      ? <Image src={p.profilePic} alt="" fill className="object-cover" sizes="64px" />
                       : (p.name?.[0] || 'U')}
                   </div>
                   <div>

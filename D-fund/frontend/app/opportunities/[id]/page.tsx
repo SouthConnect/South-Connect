@@ -7,6 +7,7 @@ import { apiJson, ApiError } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { MapPin, Calendar, Clock, Tag, ArrowLeft, Send, MessageSquare, ThumbsUp, Bookmark, Share2 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import DOMPurify from 'dompurify'
 import type { Opportunity, Application, PublicDiscussion, PrivateDiscussion } from '@/app/lib/types'
@@ -169,10 +170,12 @@ export default function OpportunityDetailPage() {
     <div className="bg-gray-50 min-h-screen pb-12">
       {/* Cover Image */}
       <div className="relative h-64 md:h-80 w-full overflow-hidden">
-        <img 
-          src={opportunity.backgroundImage || "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80"} 
-          alt="" 
-          className="w-full h-full object-cover"
+        <Image
+          src={opportunity.backgroundImage || "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80"}
+          alt=""
+          fill
+          className="object-cover"
+          sizes="100vw"
         />
         <div className="absolute inset-0 bg-black/20" />
         <div className="absolute top-8 left-8">
@@ -363,9 +366,9 @@ export default function OpportunityDetailPage() {
                   Publié par
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-xl font-bold text-[#3b49df]">
+                  <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-xl font-bold text-[#3b49df] relative overflow-hidden">
                     {opportunity.owner?.profilePic ? (
-                      <img src={opportunity.owner.profilePic} alt="" className="w-full h-full object-cover rounded-xl" />
+                      <Image src={opportunity.owner.profilePic} alt="" fill className="object-cover rounded-xl" sizes="64px" />
                     ) : (
                       opportunity.owner?.name?.[0]
                     )}
@@ -436,10 +439,9 @@ function DiscussionSection({
           className="flex items-center justify-between px-5 py-4 bg-gray-50 rounded-xl border border-gray-100 hover:shadow-sm transition-shadow"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-sm font-bold text-[#3b49df] overflow-hidden">
+            <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-sm font-bold text-[#3b49df] overflow-hidden relative">
               {linked.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={linked.image} alt="" className="w-full h-full object-cover" />
+                <Image src={linked.image} alt="" fill className="object-cover" sizes="64px" />
               ) : (
                 linked.title?.[0] || 'D'
               )}

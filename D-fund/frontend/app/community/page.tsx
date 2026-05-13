@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import { Search } from 'lucide-react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useRouter } from 'next/navigation'
@@ -230,10 +231,9 @@ function CommunityRow({
         href={`/profiles/${item.userId}`}
         className="flex items-center gap-4 flex-1 min-w-0"
       >
-        <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center text-sm font-semibold text-[#3b49df]">
+        <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center text-sm font-semibold text-[#3b49df] relative">
           {avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatar} alt="" className="w-full h-full object-cover" />
+            <Image src={avatar} alt="" fill className="object-cover" sizes="64px" />
           ) : (
             name?.[0] || '?'
           )}
