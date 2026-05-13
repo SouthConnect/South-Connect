@@ -167,7 +167,7 @@ export default function CreateOpportunityPage() {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!selectedType) return
+    if (!selectedType || !fieldName.trim() || !fieldDescription.trim()) return
     
     const formData = new FormData(e.currentTarget)
     const raw = Object.fromEntries(formData.entries())
@@ -470,7 +470,7 @@ export default function CreateOpportunityPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6 sticky top-8">
               <button
                 type="submit"
-                disabled={!selectedType || createMutation.isPending || isUploading}
+                disabled={!selectedType || !fieldName.trim() || !fieldDescription.trim() || createMutation.isPending || isUploading}
                 className="flex items-center justify-center gap-2 w-full py-3 bg-[#3b49df] text-white rounded-xl font-bold hover:bg-[#2d3aba] transition-colors shadow-sm disabled:opacity-50"
               >
                 <Send className="w-5 h-5" />

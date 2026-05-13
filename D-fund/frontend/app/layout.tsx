@@ -10,7 +10,23 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'D-Fund - La plateforme tout-en-un pour les entrepreneurs africains',
-  description: 'Connectez-vous avec des investisseurs, trouvez des co-fondateurs, accédez aux talents et opportunités de financement — tout en un seul endroit pour l\'écosystème startup africain.',
+  description: "Connectez-vous avec des investisseurs, trouvez des co-fondateurs, accédez aux talents et opportunités de financement — tout en un seul endroit pour l'écosystème startup africain.",
+  icons: {
+    icon: '/favicon.ico',
+  },
+  openGraph: {
+    title: 'D-Fund - La plateforme tout-en-un pour les entrepreneurs africains',
+    description: "Connectez-vous avec des investisseurs, trouvez des co-fondateurs, accédez aux talents et opportunités de financement.",
+    url: 'https://d-fund.co',
+    siteName: 'D-Fund',
+    locale: 'fr_FR',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'D-Fund',
+    description: "La plateforme tout-en-un pour les entrepreneurs africains.",
+  },
 }
 
 export default function RootLayout({

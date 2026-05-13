@@ -323,7 +323,7 @@ function ProfilePageContent() {
                   onClick={() => setActiveTab('btob')}
                   className="text-xs font-semibold text-[#3b49df] hover:underline"
                 >
-                  Edit
+                  Modifier
                 </button>
               </div>
             </div>

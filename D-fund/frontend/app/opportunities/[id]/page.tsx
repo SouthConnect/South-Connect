@@ -113,7 +113,13 @@ export default function OpportunityDetailPage() {
     },
     onError: (error: any, _, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
-      toast.error(error.message || 'Impossible de créer la candidature')
+      if (error?.status === 409) {
+        toast.error('Vous avez déjà postulé à cette opportunité.', {
+          action: { label: 'Voir mes candidatures', onClick: () => router.push('/dashboard') },
+        })
+      } else {
+        toast.error(error.message || 'Impossible de créer la candidature')
+      }
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
   })

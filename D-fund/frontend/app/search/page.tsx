@@ -42,7 +42,7 @@ function SearchContent() {
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search opportunities, profiles, discussions..."
+            placeholder="Rechercher des opportunités, profils, discussions..."
             className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#3b49df] focus:border-[#3b49df] bg-white shadow-sm"
             autoFocus
           />
@@ -50,7 +50,7 @@ function SearchContent() {
             type="submit"
             className="absolute right-3 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-[#3b49df] text-white text-xs font-semibold rounded-lg hover:bg-[#2d3aba]"
           >
-            Search
+            Rechercher
           </button>
         </div>
       </form>
@@ -58,7 +58,7 @@ function SearchContent() {
       {!initialQ && (
         <div className="text-center py-16 text-gray-400">
           <Search className="w-12 h-12 mx-auto mb-3 text-gray-200" />
-          <p className="text-sm">Type at least 2 characters to search.</p>
+          <p className="text-sm">Tapez au moins 2 caractères pour rechercher.</p>
         </div>
       )}
 
@@ -75,9 +75,9 @@ function SearchContent() {
           {/* Result tabs */}
           <div className="flex gap-1 mb-5 text-sm border-b border-gray-200">
             {([
-              { id: 'all' as const, label: `All (${total})` },
-              { id: 'opportunities' as const, label: `Opportunities (${opportunities.length})` },
-              { id: 'profiles' as const, label: `Profiles (${profiles.length})` },
+              { id: 'all' as const, label: `Tout (${total})` },
+              { id: 'opportunities' as const, label: `Opportunités (${opportunities.length})` },
+              { id: 'profiles' as const, label: `Profils (${profiles.length})` },
               { id: 'discussions' as const, label: `Discussions (${discussions.length})` },
             ]).map(({ id, label }) => (
               <button
@@ -96,7 +96,7 @@ function SearchContent() {
 
           {total === 0 ? (
             <div className="text-center py-16 text-gray-400">
-              <p className="text-sm">No results for <strong>"{initialQ}"</strong>.</p>
+              <p className="text-sm">Aucun résultat pour <strong>« {initialQ} »</strong>.</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -106,7 +106,7 @@ function SearchContent() {
                   {activeTab === 'all' && (
                     <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-500">
                       <Briefcase className="w-4 h-4" />
-                      Opportunities
+                      Opportunités
                     </div>
                   )}
                   <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
@@ -143,7 +143,7 @@ function SearchContent() {
                   {activeTab === 'all' && (
                     <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-gray-500">
                       <UserCircle className="w-4 h-4" />
-                      Profiles
+                      Profils
                     </div>
                   )}
                   <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">

@@ -130,7 +130,7 @@ export default function DashboardPage() {
               }`}
             >
               <Briefcase className="w-4 h-4" />
-              Offers
+              Offres
               <span className="text-[10px] text-gray-400 border border-gray-200 rounded-full px-1.5 py-0.5">
                 {totalOffers}
               </span>
@@ -167,7 +167,7 @@ export default function DashboardPage() {
               }`}
             >
               <ListChecks className="w-4 h-4" />
-              Tasks
+              Tâches
             </button>
           </div>
           <Link
@@ -271,7 +271,7 @@ function ApplicationsSection({
                 : 'border-gray-200 text-gray-500 hover:border-gray-300'
             }`}
           >
-            {s === 'ALL' ? 'All' : s === 'OWNER_REVIEW' ? 'In Review' : s.charAt(0) + s.slice(1).toLowerCase()}
+            {s === 'ALL' ? 'Tout' : s === 'OWNER_REVIEW' ? 'En révision' : s === 'DRAFT' ? 'Brouillon' : s === 'SUBMITTED' ? 'Soumise' : s}
             {s !== 'ALL' && (
               <span className="ml-1 text-[10px] text-gray-400">
                 {applications?.filter((a: any) => a.stage === s).length ?? 0}
@@ -485,10 +485,10 @@ function TasksSection() {
   })
 
   const STATUS_LABELS: Record<string, string> = {
-    TODO: 'To Do',
-    WORKING_ON_IT: 'In Progress',
-    IDEA: 'Idea',
-    DONE: 'Done',
+    TODO: 'À faire',
+    WORKING_ON_IT: 'En cours',
+    IDEA: 'Idée',
+    DONE: 'Terminé',
   }
 
   const STATUS_COLORS: Record<string, string> = {
@@ -513,7 +513,7 @@ function TasksSection() {
       >
         <input
           name="name"
-          placeholder="Add a task…"
+          placeholder="Ajouter une tâche…"
           className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b49df] focus:border-[#3b49df] outline-none"
         />
         <button
@@ -521,7 +521,7 @@ function TasksSection() {
           disabled={createMutation.isPending}
           className="px-4 py-2 bg-[#3b49df] text-white rounded-lg text-xs font-semibold hover:bg-[#2d3aba] disabled:opacity-50"
         >
-          Add
+          Ajouter
         </button>
       </form>
 
