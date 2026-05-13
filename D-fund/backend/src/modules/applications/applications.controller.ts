@@ -51,10 +51,9 @@ export class ApplicationsController {
     return this.applicationsService.findForUser(userId);
   }
 
-  /** Creates a new application in DRAFT stage for the authenticated user. Rate-limited to 5/min. */
+  /** Creates a new application in DRAFT stage for the authenticated user. */
   @Post()
   @UseGuards(JwtAuthGuard)
-  @Throttle({ auth: {} })
   create(@CurrentUser() user: User, @Body() dto: CreateApplicationDto) {
     return this.applicationsService.create(user.id, dto);
   }

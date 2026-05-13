@@ -136,6 +136,16 @@ export const apiCall = async (
  * Performs an API call and parses the JSON response.
  * Throws an Error with the server message when the response status is not 2xx.
  */
+/** Extracts a safe string from any NestJS error body, never returning [object Object]. */
+function extractErrorMessage(error: any, status: number): string {
+  if (status === 429) return 'Trop de requêtes. Veuillez patienter quelques instants.'
+  const raw = Array.isArray(error.message) ? error.message[0] : (error.message ?? error.error)
+  if (!raw) return `Erreur ${status}`
+  if (typeof raw === 'string') return raw
+  // Object or other non-string value: stringify defensively
+  return typeof raw.message === 'string' ? raw.message : `Erreur ${status}`
+}
+
 export const apiJson = async <T = any>(
   endpoint: string,
   options: RequestInit = {}
@@ -143,12 +153,8 @@ export const apiJson = async <T = any>(
   const response = await apiCall(endpoint, options)
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Unknown error' }))
-    // NestJS validation errors return message as an array; other errors return a string.
-    const message = Array.isArray(error.message)
-      ? error.message[0]
-      : (error.message || error.error || `HTTP ${response.status}`)
-    throw new ApiError(message, response.status)
+    const error = await response.json().catch(() => ({ message: null }))
+    throw new ApiError(extractErrorMessage(error, response.status), response.status)
   }
 
   return response.json()
