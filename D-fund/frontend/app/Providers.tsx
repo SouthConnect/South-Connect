@@ -9,7 +9,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60 * 1000,
+        // 3 minutes before a cached result is considered stale.
+        // Reduces refetch frequency on page navigation — most data
+        // (profiles, opportunities, community) doesn't change that fast.
+        staleTime: 3 * 60 * 1000,
+        // Keep unused data in memory for 10 minutes so navigating back to a
+        // page doesn't require a fresh network call.
+        gcTime: 10 * 60 * 1000,
         // Refetch on window focus only for queries explicitly marked with
         // refetchOnWindowFocus: true (auth, notifications, inbox).
         // Static lists (profiles, opportunities, resources) don't need it —

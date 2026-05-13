@@ -55,10 +55,12 @@ import { AuditModule } from './modules/audit/audit.module';
             { name: 'messaging', ttl: 60_000, limit: 10_000 },
           ]
         : [
-            { name: 'default',   ttl: 60_000, limit: 20 },
-            { name: 'auth',      ttl: 60_000, limit: 5  },
-            { name: 'strict',    ttl: 60_000, limit: 3  },
-            { name: 'messaging', ttl: 60_000, limit: 30 },
+            // default: 100 req/min — une navigation SPA génère 5-10 requêtes
+            // GET simultanées ; 20 était atteint après 2-3 navigations.
+            { name: 'default',   ttl: 60_000, limit: 100 },
+            { name: 'auth',      ttl: 60_000, limit: 5   },
+            { name: 'strict',    ttl: 60_000, limit: 3   },
+            { name: 'messaging', ttl: 60_000, limit: 30  },
           ],
     ),
     PrismaModule,

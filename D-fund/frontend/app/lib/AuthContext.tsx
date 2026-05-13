@@ -13,7 +13,8 @@ interface AuthContextType {
   loading: boolean
   login: (userData: AuthUser) => void
   logout: () => Promise<void>
-  refreshUser: () => Promise<void>
+  /** Re-fetches /auth/me. Pass force=true to bypass the 60s stale window. */
+  refreshUser: (force?: boolean) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -23,18 +24,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const queryClient = useQueryClient()
   const isRefreshing = useRef(false)
+  const lastRefreshAt = useRef<number>(0)
   const channel = useRef<BroadcastChannel | null>(null)
   const visibilityDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const refreshUser = async () => {
+  /** Minimum ms between two successive /auth/me calls — matches staleTime. */
+  const REFRESH_STALE_MS = 60_000
+
+  const refreshUser = async (force = false) => {
     // Prevent concurrent calls (mount + visibilitychange firing at the same time)
     if (isRefreshing.current) return
+    // Skip if data is still fresh — avoids an extra /auth/me on every tab switch
+    if (!force && Date.now() - lastRefreshAt.current < REFRESH_STALE_MS) return
     isRefreshing.current = true
     try {
       // apiCall handles silent token refresh on 401 internally before returning.
       const response = await apiCall('/auth/me')
       if (response.ok) {
         setUser(await response.json() as AuthUser)
+        lastRefreshAt.current = Date.now()
       } else if (response.status === 401) {
         // 401 = not authenticated (token absent/expired) → clear session.
         // 403 = authenticated but email not verified or action forbidden → keep session.
@@ -51,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    refreshUser()
+    refreshUser(true) // cold-start: always fetch regardless of stale window
 
     // BroadcastChannel: synchronise l'état auth entre onglets du même navigateur.
     // Logout sur l'onglet A → les autres onglets voient user=null immédiatement.
