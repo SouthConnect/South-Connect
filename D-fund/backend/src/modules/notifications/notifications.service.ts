@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import { Application, Opportunity, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import * as Sentry from '@sentry/nestjs';
 import { ChatGateway } from '../messages/chat.gateway';
 
 /**
@@ -234,7 +235,7 @@ export class NotificationsService {
       <p>Bienvenue sur D-Fund. Vous pouvez dès maintenant compléter votre profil et explorer les opportunités.</p>
     `;
 
-    await this.sendEmail(user.email, subject, html);
+    this.sendEmailAsync(user.email, subject, html);
   }
 
   /**
@@ -259,7 +260,7 @@ export class NotificationsService {
       <p>Connectez-vous à D-Fund pour la consulter et y répondre.</p>
     `;
 
-    await this.sendEmail(owner.email, subject, html);
+    this.sendEmailAsync(owner.email, subject, html);
   }
 
   /**
@@ -284,7 +285,7 @@ export class NotificationsService {
       <p>${application.reviewFeedback || 'Connectez-vous à D-Fund pour lire les détails du feedback.'}</p>
     `;
 
-    await this.sendEmail(candidate.email, subject, html);
+    this.sendEmailAsync(candidate.email, subject, html);
   }
 
   /**
@@ -309,7 +310,7 @@ export class NotificationsService {
       <p>Nous vous invitons à prendre contact avec le créateur de l'opportunité.</p>
     `;
 
-    await this.sendEmail(candidate.email, subject, html);
+    this.sendEmailAsync(candidate.email, subject, html);
   }
 
   /**
@@ -337,7 +338,7 @@ export class NotificationsService {
       <p><a href="${frontendUrl}/opportunities/${opportunity.id}">Voir mon opportunité</a></p>
     `;
 
-    await this.sendEmail(owner.email, subject, html);
+    this.sendEmailAsync(owner.email, subject, html);
   }
 
   /**
@@ -365,7 +366,7 @@ export class NotificationsService {
       <p><a href="${frontendUrl}/chat/private/${discussionId}">Répondre sur D-Fund</a></p>
     `;
 
-    await this.sendEmail(recipient.email, subject, html);
+    this.sendEmailAsync(recipient.email, subject, html);
   }
 
   /**
@@ -392,7 +393,7 @@ export class NotificationsService {
       </p>
     `;
 
-    await this.sendEmail(followee.email, subject, html);
+    this.sendEmailAsync(followee.email, subject, html);
   }
 
   /**
@@ -437,23 +438,23 @@ export class NotificationsService {
   }
 
   /**
-   * Low-level email sender.
+   * Low-level email sender — throws on delivery failure.
    *
    * When `skipUnsubscribeFooter` is false (default) this method:
-   *  1. Looks up the recipient to check their opt-out preference — skips sending if opted out.
+   *  1. Looks up the recipient to check their opt-out preference — returns early if opted out.
    *  2. Appends a RGPD-compliant unsubscribe footer using the user's permanent token.
    *
    * Pass `skipUnsubscribeFooter = true` for critical transactional emails (verification,
    * password reset) that must always be delivered regardless of marketing preferences.
    *
-   * Errors are caught and logged so transient failures do not propagate to callers.
+   * Errors are NOT swallowed — callers decide whether to await (critical) or fire-and-forget (non-critical).
    */
   private async sendEmail(
     to: string,
     subject: string,
     html: string,
     skipUnsubscribeFooter = false,
-  ) {
+  ): Promise<void> {
     let finalHtml = html;
 
     if (!skipUnsubscribeFooter) {
@@ -478,16 +479,40 @@ export class NotificationsService {
       }
     }
 
-    try {
-      // Abort if Resend stalls for more than 10 s
-      const send = this.resend!.emails.send({ from: this.fromEmail!, to, subject, html: finalHtml });
-      let timeoutId: ReturnType<typeof setTimeout>;
-      const timeout = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error('Resend timeout after 10 s')), 10_000);
+    // Abort if Resend stalls — throws so callers can retry
+    const send = this.resend!.emails.send({ from: this.fromEmail!, to, subject, html: finalHtml });
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('Resend timeout after 10 s')), 10_000);
+    });
+    await Promise.race([send, timeout]).finally(() => clearTimeout(timeoutId!));
+  }
+
+  /**
+   * Fire-and-forget email delivery with automatic retry for non-critical emails.
+   *
+   * Retries up to 2 times with linear backoff (2 s, 4 s) before giving up.
+   * On final failure: logs the error and captures to Sentry.
+   * Never blocks the caller — returns void immediately.
+   */
+  private sendEmailAsync(
+    to: string,
+    subject: string,
+    html: string,
+    skipUnsubscribeFooter = false,
+  ): void {
+    const MAX_RETRIES = 2;
+    const attempt = (remaining: number) => {
+      this.sendEmail(to, subject, html, skipUnsubscribeFooter).catch((err: Error) => {
+        if (remaining > 0) {
+          const delayMs = (MAX_RETRIES - remaining + 1) * 2_000; // 2s, 4s
+          setTimeout(() => attempt(remaining - 1), delayMs);
+        } else {
+          this.logger.error(`Email to ${to} failed after all retries: ${err.message}`, err.stack);
+          Sentry.captureException(err, { tags: { email_to: to, email_subject: subject } });
+        }
       });
-      await Promise.race([send, timeout]).finally(() => clearTimeout(timeoutId!));
-    } catch (error) {
-      this.logger.error(`Failed to send email to ${to}: ${error.message}`, error.stack);
-    }
+    };
+    setImmediate(() => attempt(MAX_RETRIES));
   }
 }

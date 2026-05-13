@@ -5,6 +5,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { apiCall } from '@/app/lib/api'
 import type { AuthUser } from '@/app/lib/types'
 
+/** Channel name shared by all tabs of the same origin. */
+const AUTH_CHANNEL = 'dfund_auth'
+
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean
@@ -20,6 +23,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const queryClient = useQueryClient()
   const isRefreshing = useRef(false)
+  const channel = useRef<BroadcastChannel | null>(null)
+  const visibilityDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const refreshUser = async () => {
     // Prevent concurrent calls (mount + visibilitychange firing at the same time)
@@ -47,19 +52,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refreshUser()
 
-    // When the user verifies their email in another tab and comes back,
-    // refresh auth state so the "unverified email" banner disappears immediately.
-    // We do this manually (not via refetchOnWindowFocus) because AuthContext is
-    // outside React Query and manages its own state.
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        refreshUser()
+    // BroadcastChannel: synchronise l'état auth entre onglets du même navigateur.
+    // Logout sur l'onglet A → les autres onglets voient user=null immédiatement.
+    // Login/refresh sur l'onglet A → les autres onglets re-fetch /auth/me.
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      channel.current = new BroadcastChannel(AUTH_CHANNEL)
+      channel.current.onmessage = (e: MessageEvent<string>) => {
+        if (e.data === 'logout') {
+          queryClient.clear()
+          setUser(null)
+          setLoading(false)
+        } else if (e.data === 'login') {
+          refreshUser()
+        }
       }
     }
 
+    // visibilitychange avec debounce 500ms — évite les appels en rafale si l'utilisateur
+    // bascule rapidement entre onglets.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return
+      if (visibilityDebounce.current) clearTimeout(visibilityDebounce.current)
+      visibilityDebounce.current = setTimeout(() => {
+        refreshUser()
+      }, 500)
+    }
+
     // Fired by apiCall when a 401 is received AND the silent refresh also fails.
-    // This means the session is definitively expired — clear local state immediately
-    // so the user is redirected to login rather than seeing confusing mutation errors.
     const handleSessionExpired = () => {
       queryClient.clear()
       setUser(null)
@@ -71,6 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('auth:session-expired', handleSessionExpired)
+      if (visibilityDebounce.current) clearTimeout(visibilityDebounce.current)
+      channel.current?.close()
     }
   }, [])
 
@@ -80,15 +101,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      // Ask the backend to clear the HttpOnly cookies (browser JS cannot clear them)
       await apiCall('/auth/logout', { method: 'POST' })
     } catch {
       // Best-effort — clear local state regardless
     }
-    // Wipe all cached query data so a different user logging in on the same
-    // browser never sees stale data from the previous session
     queryClient.clear()
     setUser(null)
+    // Notify all other open tabs so they clear their session immediately
+    channel.current?.postMessage('logout')
   }
 
   return (

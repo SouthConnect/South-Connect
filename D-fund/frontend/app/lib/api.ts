@@ -30,6 +30,41 @@ export class ApiError extends Error {
 
 const API_TIMEOUT_MS = 15000
 
+/**
+ * Singleton promise shared across all concurrent apiCall() invocations.
+ *
+ * Without this mutex, multiple parallel requests that all receive a 401 at the
+ * same moment would each independently attempt a token refresh. The first
+ * request would succeed and consume the refresh token (SET NX in Redis), then
+ * every subsequent attempt would find the token already revoked and trigger a
+ * forced logout — even though the session is perfectly valid.
+ *
+ * With the mutex, all concurrent callers await the same refresh attempt.
+ * The promise resolves to:
+ *   true  → refresh succeeded, callers may retry their original request
+ *   false → refresh failed, callers should dispatch session-expired
+ */
+let _refreshPromise: Promise<boolean> | null = null
+
+const attemptTokenRefresh = (apiUrl: string): Promise<boolean> => {
+  if (_refreshPromise) return _refreshPromise
+
+  _refreshPromise = fetch(`${apiUrl}/auth/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+    .then((r) => {
+      if (r.status === 429) return true  // rate-limited on refresh → keep session alive
+      return r.ok
+    })
+    .catch(() => false)
+    .finally(() => {
+      _refreshPromise = null
+    })
+
+  return _refreshPromise
+}
+
 const getApiUrl = (): string => {
   const url = process.env.NEXT_PUBLIC_API_URL
   if (!url) {
@@ -70,24 +105,17 @@ export const apiCall = async (
       signal: options.signal ?? controller.signal,
     })
 
-    // Transparent token refresh on 401 (only one retry to avoid infinite loops)
+    // Transparent token refresh on 401 (only one retry to avoid infinite loops).
+    // All concurrent 401s share the same refresh promise via the mutex —
+    // only one actual POST /auth/refresh is sent regardless of how many callers hit 401 at once.
     if (response.status === 401 && !_retry) {
-      const refreshResponse = await fetch(`${apiUrl}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-      }).catch(() => null)
+      const refreshed = await attemptTokenRefresh(apiUrl)
 
-      if (refreshResponse?.ok) {
+      if (refreshed) {
         return apiCall(endpoint, options, true)
       }
 
-      // 429 on the refresh endpoint means the refresh itself was rate-limited,
-      // NOT that the session is expired — keep the user logged in and let them retry.
-      if (refreshResponse?.status === 429) {
-        return response
-      }
-
-      // Any other failure (401, 5xx, network) means the session is definitively expired.
+      // Refresh failed definitively → session is expired.
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('auth:session-expired'))
       }
