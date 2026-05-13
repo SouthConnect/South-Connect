@@ -43,7 +43,7 @@ export default function ReferralPage() {
   }
 
   return (
-    <AuthGuard message="Sign in to access your referral program.">
+    <AuthGuard message="Connectez-vous pour accéder à votre programme de parrainage.">
       <div className="container mx-auto px-6 py-8 max-w-6xl">
         {/* Banner */}
         <div
@@ -52,13 +52,13 @@ export default function ReferralPage() {
         >
           <div className="relative z-10">
             <p className="text-white/60 text-sm mb-1 uppercase tracking-widest font-semibold">
-              Referral Program
+              Programme de parrainage
             </p>
             <h1 className="text-2xl font-bold text-white mb-2">
-              Track your referral earnings and progress
+              Suivez vos gains et votre progression
             </h1>
             <p className="text-white/60 text-sm max-w-xl">
-              Share your referral codes with your network and earn rewards when they join D-fund.
+              Partagez vos codes de parrainage avec votre réseau et gagnez des récompenses lorsqu'ils rejoignent D-Fund.
             </p>
           </div>
           <div className="absolute right-8 top-1/2 -translate-y-1/2 opacity-10 text-[120px] font-black text-white select-none">
@@ -68,22 +68,22 @@ export default function ReferralPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <StatCard label="Total referral code" value={isLoading ? '…' : stats.totalCodes} />
-          <StatCard label="Total referrals" value={isLoading ? '…' : stats.totalReferrals} />
-          <StatCard label="Total earning potential" value={isLoading ? '…' : `$${stats.totalPotentialAmount}`} />
-          <StatCard label="Total earned" value={isLoading ? '…' : `$${stats.totalEarned}`} highlight />
+          <StatCard label="Codes créés" value={isLoading ? '…' : stats.totalCodes} />
+          <StatCard label="Filleuls" value={isLoading ? '…' : stats.totalReferrals} />
+          <StatCard label="Gains potentiels" value={isLoading ? '…' : `$${stats.totalPotentialAmount}`} />
+          <StatCard label="Gains obtenus" value={isLoading ? '…' : `$${stats.totalEarned}`} highlight />
         </div>
 
         {/* Table */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-semibold text-gray-900">My referrals</h2>
+            <h2 className="text-sm font-semibold text-gray-900">Mes codes de parrainage</h2>
             <div className="flex items-center gap-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search"
+                  placeholder="Rechercher…"
                   className="pl-9 pr-4 py-1.5 bg-gray-100 rounded-lg text-sm border-none focus:ring-2 focus:ring-[#3b49df] w-48"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -96,7 +96,7 @@ export default function ReferralPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3b49df] text-white rounded-lg text-xs font-semibold hover:bg-[#2d3aba] disabled:opacity-50"
               >
                 <Plus className="w-3.5 h-3.5" />
-                New code
+                Nouveau code
               </button>
             </div>
           </div>
@@ -108,28 +108,45 @@ export default function ReferralPage() {
               ))}
             </div>
           ) : isError ? (
-            <div className="px-5 py-12 text-center text-sm text-red-500">
-              Impossible de charger vos codes de parrainage.
-            </div>
-          ) : filtered.length === 0 ? (
             <div className="px-5 py-12 text-center text-sm text-gray-500">
-              No referral codes yet.{' '}
+              <p className="mb-3">Vous n'avez pas encore de code de parrainage.</p>
               <button
                 type="button"
                 onClick={() => createMutation.mutate()}
-                className="text-[#3b49df] font-semibold hover:underline"
+                disabled={createMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#3b49df] text-white rounded-lg text-xs font-semibold hover:bg-[#2d3aba] disabled:opacity-50"
               >
-                Generate your first code
+                <Plus className="w-3.5 h-3.5" />
+                Créer mon premier code
               </button>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="px-5 py-12 text-center text-sm text-gray-500">
+              {search ? (
+                <p>Aucun code ne correspond à votre recherche.</p>
+              ) : (
+                <>
+                  <p className="mb-3">Vous n'avez pas encore de code de parrainage.</p>
+                  <button
+                    type="button"
+                    onClick={() => createMutation.mutate()}
+                    disabled={createMutation.isPending}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#3b49df] text-white rounded-lg text-xs font-semibold hover:bg-[#2d3aba] disabled:opacity-50"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Créer mon premier code
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <>
               <div className="hidden md:grid grid-cols-5 gap-4 px-5 py-3 bg-gray-50 text-[11px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                <span>Referral Code</span>
+                <span>Code de parrainage</span>
                 <span>Type</span>
-                <span>Total Referrals</span>
-                <span>Earning Potential</span>
-                <span>Associated Opportunity</span>
+                <span>Filleuls</span>
+                <span>Gains potentiels</span>
+                <span>Opportunité associée</span>
               </div>
               <div className="divide-y divide-gray-50">
                 {filtered.map((c: any) => (

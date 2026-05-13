@@ -136,6 +136,23 @@ export const apiCall = async (
  * Performs an API call and parses the JSON response.
  * Throws an Error with the server message when the response status is not 2xx.
  */
+/**
+ * Safely extracts a displayable string from any value thrown in an onError handler.
+ * Handles ApiError, native Error, plain objects, and primitives — never returns [object Object].
+ * Use in every useMutation / useQuery onError callback instead of raw `err.message`.
+ */
+export function getErrorMessage(err: unknown, fallback: string): string {
+  if (!err) return fallback
+  if (err instanceof Error) {
+    return typeof err.message === 'string' && err.message ? err.message : fallback
+  }
+  if (typeof err === 'object') {
+    const m = (err as Record<string, unknown>).message
+    if (typeof m === 'string' && m) return m
+  }
+  return fallback
+}
+
 /** Extracts a safe string from any NestJS error body, never returning [object Object]. */
 function extractErrorMessage(error: any, status: number): string {
   if (status === 429) return 'Trop de requêtes. Veuillez patienter quelques instants.'

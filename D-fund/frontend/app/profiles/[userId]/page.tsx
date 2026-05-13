@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiJson } from '@/app/lib/api'
+import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import Link from 'next/link'
 import { MapPin, Users, Briefcase, MessageCircle, UserPlus, UserCheck } from 'lucide-react'
@@ -40,7 +40,7 @@ export default function PublicProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['is-following', userId] })
       queryClient.invalidateQueries({ queryKey: ['public-profile', userId] })
     },
-    onError: (err: any) => toast.error(err?.message || 'Impossible de modifier le suivi'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de modifier le suivi')),
   })
 
   const messageMutation = useMutation({
@@ -49,7 +49,7 @@ export default function PublicProfilePage() {
     onSuccess: (discussion: any) => {
       if (discussion?.id) router.push(`/chat/private/${discussion.id}`)
     },
-    onError: (err: any) => toast.error(err?.message || 'Impossible d\'ouvrir la conversation'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible d\'ouvrir la conversation')),
   })
 
   if (isLoading) {
