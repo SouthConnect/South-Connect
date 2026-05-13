@@ -156,6 +156,20 @@ export function getErrorMessage(err: unknown, fallback: string): string {
 /** Extracts a safe string from any NestJS error body, never returning [object Object]. */
 function extractErrorMessage(error: any, status: number): string {
   if (status === 429) return 'Trop de requêtes. Veuillez patienter quelques instants.'
+  // 403 email-verification errors: return a clean message — the AppShell banner
+  // already shows how to resend. We fire auth:email-not-verified so the shell
+  // can react without exposing internal API paths in the toast.
+  if (status === 403) {
+    const raw = Array.isArray(error.message) ? error.message[0] : (error.message ?? error.error)
+    const text = typeof raw === 'string' ? raw : ''
+    if (text.includes('vérifier votre adresse email') || text.includes('email')) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('auth:email-not-verified'))
+      }
+      return 'Veuillez vérifier votre adresse email pour accéder à cette fonctionnalité.'
+    }
+    return text || `Erreur ${status}`
+  }
   const raw = Array.isArray(error.message) ? error.message[0] : (error.message ?? error.error)
   if (!raw) return `Erreur ${status}`
   if (typeof raw === 'string') return raw

@@ -35,8 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await apiCall('/auth/me')
       if (response.ok) {
         setUser(await response.json() as AuthUser)
-      } else if (response.status === 401 || response.status === 403) {
-        // Server explicitly says "not authenticated" — clear the session.
+      } else if (response.status === 401) {
+        // 401 = not authenticated (token absent/expired) → clear session.
+        // 403 = authenticated but email not verified or action forbidden → keep session.
         setUser(null)
       }
       // 5xx / network errors: keep the current user state so a momentary backend

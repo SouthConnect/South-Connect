@@ -100,7 +100,10 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     // Periodic sanitization: remove socket IDs that Socket.IO no longer tracks.
     // Guards against missed disconnect events (e.g. abrupt process restarts).
     this.sanitizeInterval = setInterval(() => {
-      const connected = server.sockets.sockets;
+      // Guard: server.sockets.sockets can be undefined during shutdown or
+      // before the namespace is fully initialised — bail out rather than crash.
+      const connected = this.server?.sockets?.sockets;
+      if (!connected) return;
       for (const [userId, sockets] of this.onlineUsers) {
         for (const socketId of sockets) {
           if (!connected.has(socketId)) {

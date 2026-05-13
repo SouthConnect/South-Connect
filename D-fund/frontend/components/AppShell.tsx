@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { MailWarning, X } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/app/lib/AuthContext'
@@ -56,6 +56,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { user } = useAuth()
   const isAuthPage = AUTH_PATHS.some((p) => pathname?.startsWith(p))
+
+  // When any API call gets blocked by the email-verification guard, fire a
+  // contextual toast with a "Renvoyer" action instead of just a raw error string.
+  const handleEmailNotVerified = useCallback(() => {
+    toast.error('Email non vérifié', {
+      description: 'Vérifiez votre boîte mail ou cliquez pour renvoyer le lien.',
+      action: {
+        label: 'Renvoyer',
+        onClick: async () => {
+          try {
+            await apiJson('/auth/resend-verification', { method: 'POST' })
+            toast.success('Email de vérification envoyé. Vérifiez votre boîte mail.')
+          } catch {
+            toast.error('Impossible d\'envoyer l\'email. Réessayez dans quelques instants.')
+          }
+        },
+      },
+      duration: 8000,
+    })
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener('auth:email-not-verified', handleEmailNotVerified)
+    return () => window.removeEventListener('auth:email-not-verified', handleEmailNotVerified)
+  }, [handleEmailNotVerified])
 
   if (isAuthPage) {
     return <div className="min-h-screen bg-gray-50">{children}</div>

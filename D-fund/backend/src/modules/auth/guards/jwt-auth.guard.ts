@@ -31,8 +31,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     if (!skip && authenticatedUser && !authenticatedUser.isEmailVerified) {
       throw new ForbiddenException(
-        'Veuillez vérifier votre adresse email pour accéder à cette fonctionnalité. ' +
-        'Consultez votre boîte mail ou demandez un nouvel email via POST /auth/resend-verification.',
+        'Veuillez vérifier votre adresse email pour accéder à cette fonctionnalité.',
       );
     }
 
