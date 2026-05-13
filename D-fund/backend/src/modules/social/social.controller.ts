@@ -2,6 +2,7 @@ import { Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SocialService } from './social.service';
 
@@ -18,13 +19,15 @@ export class SocialController {
   /** Returns whether the authenticated user is following the given user. */
   @Get('is-following/:userId')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   isFollowing(@Param('userId') userId: string, @CurrentUser() user: User) {
     return this.socialService.isFollowing(user.id, userId);
   }
 
-  /** Follows the given user. */
+  /** Follows the given user. Email verification not required — basic social action. */
   @Post('follow/:userId')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   follow(@Param('userId') userId: string, @CurrentUser() user: User) {
     return this.socialService.follow(user.id, userId);
   }
@@ -32,6 +35,7 @@ export class SocialController {
   /** Unfollows the given user. */
   @Delete('follow/:userId')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   unfollow(@Param('userId') userId: string, @CurrentUser() user: User) {
     return this.socialService.unfollow(user.id, userId);
   }

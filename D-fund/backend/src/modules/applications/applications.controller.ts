@@ -4,6 +4,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ApplicationOwnerGuard } from '../../common/guards/application-owner.guard';
 import { ApplicationsService } from './applications.service';
@@ -51,9 +52,14 @@ export class ApplicationsController {
     return this.applicationsService.findForUser(userId);
   }
 
-  /** Creates a new application in DRAFT stage for the authenticated user. */
+  /**
+   * Creates a new application in DRAFT stage for the authenticated user.
+   * Email verification is not required — users should be able to start an
+   * application before verifying. The submit step enforces verification.
+   */
   @Post()
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   create(@CurrentUser() user: User, @Body() dto: CreateApplicationDto) {
     return this.applicationsService.create(user.id, dto);
   }
@@ -61,6 +67,7 @@ export class ApplicationsController {
   /** Updates a DRAFT application's content. Only the applicant may call this. */
   @Put(':id')
   @UseGuards(JwtAuthGuard, ApplicationOwnerGuard)
+  @SkipEmailVerification()
   update(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User, @Body() dto: UpdateApplicationDto) {
     return this.applicationsService.update(id, user.id, dto);
   }

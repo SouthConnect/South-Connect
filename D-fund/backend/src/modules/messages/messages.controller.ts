@@ -14,6 +14,7 @@ import { Throttle } from '@nestjs/throttler';
 import { User } from '@prisma/client';
 import { MessagesService } from './messages.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { CreateDiscussionDto } from './dto/create-discussion.dto';
@@ -105,9 +106,11 @@ export class MessagesController {
   /**
    * Starts or retrieves a private discussion with the target user.
    * Idempotent: calling it twice for the same pair returns the existing discussion.
+   * Email verification not required — messaging is a basic social action.
    */
   @Post('private/start/:targetUserId')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   startPrivateDiscussion(
     @CurrentUser() user: User,
     @Param('targetUserId') targetUserId: string,
