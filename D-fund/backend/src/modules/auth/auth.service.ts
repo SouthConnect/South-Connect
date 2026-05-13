@@ -301,7 +301,7 @@ export class AuthService implements OnModuleDestroy {
     if (!refreshToken) throw new UnauthorizedException('No refresh token provided');
 
     // Decode first (without verifying signature) to get the expiry claim for the TTL.
-    const decoded = this.jwtService.decode(refreshToken) as { userId?: string; email?: string; exp?: number } | null;
+    const decoded = this.jwtService.decode(refreshToken) as { userId?: string; email?: string; exp?: number; iat?: number } | null;
     const exp = decoded?.exp;
 
     // Atomic consumption: SET the hash NX (only if not already set) with the
@@ -317,18 +317,27 @@ export class AuthService implements OnModuleDestroy {
       const refreshSecret =
         this.config.get<string>('REFRESH_TOKEN_SECRET') ??
         (this.config.get<string>('JWT_SECRET')! + '_refresh');
-      const payload = this.jwtService.verify<{ userId: string; email: string; exp: number }>(
+      const payload = this.jwtService.verify<{ userId: string; email: string; exp: number; iat: number }>(
         refreshToken,
         { secret: refreshSecret },
       );
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, email: true, isBanned: true, deletedAt: true },
+        select: { id: true, email: true, isBanned: true, deletedAt: true, passwordChangedAt: true },
       });
       if (!user) throw new UnauthorizedException('User not found');
       if (user.deletedAt) throw new UnauthorizedException('Account deleted');
       if (user.isBanned) throw new UnauthorizedException('Account suspended');
+
+      // Reject refresh tokens issued before the last password change — closes
+      // the window where a stolen refresh token survives a password reset.
+      if (user.passwordChangedAt) {
+        const changedAtSec = Math.floor(user.passwordChangedAt.getTime() / 1000);
+        if (payload.iat < changedAtSec) {
+          throw new UnauthorizedException('Session expired — please log in again');
+        }
+      }
 
       return this.generateTokens(user.id, user.email);
     } catch (err) {
