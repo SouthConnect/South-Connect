@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiJson, uploadImage } from '@/app/lib/api'
+import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
 import { User, Mail, Phone, MapPin, Linkedin, Globe, Shield, UserCircle, Building2, Save } from 'lucide-react'
 import AuthGuard from '@/components/AuthGuard'
 import MultiSelect from '@/components/MultiSelect'
@@ -409,12 +410,16 @@ function ProfilePageContent() {
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   <MapPin className="w-3 h-3 inline mr-1" />Pays
                 </label>
-                <input
+                <select
                   name="country"
                   defaultValue={profile?.country || ''}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
-                  placeholder="France"
-                />
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df] bg-white"
+                >
+                  <option value="">Sélectionner un pays</option>
+                  {AFRICAN_COUNTRIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">

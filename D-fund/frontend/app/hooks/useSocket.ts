@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/app/lib/AuthContext'
 import { toast } from 'sonner'
 
@@ -36,6 +37,7 @@ function createSocket(): Socket {
  */
 export function useSocket(): Socket | null {
   const { user, refreshUser } = useAuth()
+  const queryClient = useQueryClient()
   const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
@@ -77,9 +79,14 @@ export function useSocket(): Socket | null {
         }
       })
 
-      // Reconnect succeeded — no action needed, but log for debugging
+      // Reconnect: dismiss error toast and refetch messages that may have been
+      // missed during the disconnection window. Invalidating with prefix keys
+      // covers any open private or public chat page without knowing the ID.
       sharedSocket.on('reconnect', () => {
         toast.dismiss('socket-error')
+        queryClient.invalidateQueries({ queryKey: ['private-discussion-messages'] })
+        queryClient.invalidateQueries({ queryKey: ['public-discussion-messages'] })
+        queryClient.invalidateQueries({ queryKey: ['private-discussions'] })
       })
 
       sharedSocket.on('connect_error', () => {

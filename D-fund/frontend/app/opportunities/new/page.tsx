@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiJson, OpportunityType, uploadImage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
+import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
 import { ArrowLeft, Plus, Send, Info, MapPin, Globe, DollarSign, Image as ImageIcon, X, Clock, Sparkles, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import AuthGuard from '@/components/AuthGuard'
@@ -438,10 +439,15 @@ export default function CreateOpportunityPage() {
                         <Globe className="w-4 h-4" />
                         Pays
                       </label>
-                      <input
+                      <select
                         name="country"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm"
-                      />
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm bg-white"
+                      >
+                        <option value="">Sélectionner un pays</option>
+                        {AFRICAN_COUNTRIES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
