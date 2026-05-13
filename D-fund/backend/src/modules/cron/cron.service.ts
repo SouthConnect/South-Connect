@@ -35,8 +35,15 @@ export class CronService {
   private async acquireLock(jobName: string, ttlSeconds = 300): Promise<boolean> {
     if (!this.redis) return true; // No Redis in dev/test — run on every instance
     const key = `cron:lock:${jobName}`;
-    const result = await this.redis.set(key, '1', 'EX', ttlSeconds, 'NX').catch(() => null);
-    return result === 'OK';
+    try {
+      const result = await this.redis.set(key, '1', 'EX', ttlSeconds, 'NX');
+      return result === 'OK';
+    } catch (err) {
+      // Redis error: on préfère une double-exécution occasionnelle à un job qui ne tourne jamais
+      this.logger.error(`Lock acquisition failed for ${jobName} — running without lock`, err);
+      Sentry.captureException(err, { tags: { cron: jobName, phase: 'lock_acquire' } });
+      return true;
+    }
   }
 
   private async releaseLock(jobName: string): Promise<void> {

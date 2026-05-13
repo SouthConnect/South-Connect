@@ -110,9 +110,15 @@ export default function CreateOpportunityPage() {
     }
   })
 
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
   const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        setErrorMessage('Format non autorisé (JPEG, PNG ou WebP uniquement).')
+        return
+      }
       if (file.size > 5 * 1024 * 1024) {
         setErrorMessage('Image trop volumineuse (5 Mo max).')
         return
@@ -129,6 +135,10 @@ export default function CreateOpportunityPage() {
   const handleLogoImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        setErrorMessage('Format non autorisé (JPEG, PNG ou WebP uniquement).')
+        return
+      }
       if (file.size > 5 * 1024 * 1024) {
         setErrorMessage('Image trop volumineuse (5 Mo max).')
         return

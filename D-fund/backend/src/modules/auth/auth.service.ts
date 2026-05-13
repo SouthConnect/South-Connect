@@ -205,16 +205,17 @@ export class AuthService implements OnModuleDestroy {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isValid = await bcrypt.compare(dto.password, raw.password);
-    if (!isValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
+    // Vérifier deletedAt avant bcrypt pour éviter la divulgation d'existence de compte
     if (raw.deletedAt) {
-      throw new UnauthorizedException('Account deleted');
+      throw new UnauthorizedException('Invalid credentials');
     }
     if (raw.isBanned) {
       throw new UnauthorizedException('Account suspended');
+    }
+
+    const isValid = await bcrypt.compare(dto.password, raw.password);
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const user = await this.prisma.user.findUniqueOrThrow({

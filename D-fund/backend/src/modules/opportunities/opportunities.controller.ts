@@ -134,7 +134,9 @@ export class OpportunitiesController {
   ) {
     // Viewer key for view dedup: prefer userId (stable), fall back to IP
     const xff = req.headers['x-forwarded-for'];
-    const ip = (Array.isArray(xff) ? xff[0] : xff?.split(',')[0]) ?? req.ip ?? 'unknown';
+    // Prendre la dernière IP de la chaîne (ajoutée par notre proxy) — évite le spoofing via le header
+    const xffStr = Array.isArray(xff) ? xff.join(',') : (xff ?? '');
+    const ip = xffStr.split(',').map((s) => s.trim()).filter(Boolean).pop() ?? req.ip ?? 'unknown';
     const viewerKey = requester?.id ?? ip;
     return this.opportunitiesService.findOne(id, requester?.id, viewerKey);
   }

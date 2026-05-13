@@ -21,6 +21,8 @@ const PROTECTED_PREFIXES = [
   '/admin',
   '/analytics',
   '/resources',
+  '/settings',
+  '/tasks',
 ];
 
 const PUBLIC_PREFIXES = [

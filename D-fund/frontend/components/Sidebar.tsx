@@ -60,8 +60,8 @@ export default function Sidebar() {
     queryKey: ['private-discussions', user?.id],
     queryFn: () => apiJson('/messages/private'),
     enabled: !!user?.id,
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   })
   const unreadChatCount = (privateDiscussions as PrivateDiscussion[] | undefined)?.reduce((acc, d) => {
     const mine = d.participants?.find((p) => p.userId === user?.id)
@@ -73,8 +73,8 @@ export default function Sidebar() {
     queryKey: ['notifications-count', user?.id],
     queryFn: () => apiJson('/notifications/unread-count'),
     enabled: !!user?.id,
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   })
   const unreadNotifCount = (notifCountData as { count: number } | undefined)?.count ?? 0
 

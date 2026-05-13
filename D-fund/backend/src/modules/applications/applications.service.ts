@@ -215,23 +215,20 @@ export class ApplicationsService {
       throw err;
     }
 
-    // Maintenir le compteur dénormalisé d'applications sur l'opportunité
-    this.prisma.opportunity
-      .updateMany({
+    // Counters dénormalisés — dans une transaction groupée pour éviter la divergence.
+    // Non-bloquant (pas d'await) : le cron nightly resynce si ça échoue.
+    this.prisma.$transaction([
+      this.prisma.opportunity.updateMany({
         where: { id: application.opportunityId },
         data: { applicationsCount: { increment: 1 } },
-      })
-      .catch((err) => this.logger.warn(`Failed to increment applicationsCount: ${err.message}`));
-
-    // Incrémenter usesCount dès la soumission avec un code de parrainage valide
-    if (application.referralCodeUsed) {
-      this.prisma.referralCode
-        .updateMany({
-          where: { code: application.referralCodeUsed },
-          data: { usesCount: { increment: 1 } },
-        })
-        .catch((err) => this.logger.error('Failed to increment referral usesCount', err));
-    }
+      }),
+      ...(application.referralCodeUsed
+        ? [this.prisma.referralCode.updateMany({
+            where: { code: application.referralCodeUsed },
+            data: { usesCount: { increment: 1 } },
+          })]
+        : []),
+    ]).catch((err) => this.logger.error('Counter sync failed — will resync at nightly cron', err));
 
     try {
       if (application.opportunity?.owner) {
