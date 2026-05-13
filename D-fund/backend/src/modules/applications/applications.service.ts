@@ -369,19 +369,29 @@ export class ApplicationsService {
     if (application.candidateId !== candidateId) {
       throw new ForbiddenException('You cannot withdraw this application');
     }
-    if (application.stage === ApplicationStage.SUCCESS || application.stage === ApplicationStage.OWNER_REVIEW) {
+    const nonWithdrawableStages: ApplicationStage[] = [
+      ApplicationStage.OWNER_REVIEW,
+      ApplicationStage.SUCCESS,
+      ApplicationStage.ARCHIVED,
+    ];
+    if (nonWithdrawableStages.includes(application.stage)) {
       throw new BadRequestException('Application cannot be withdrawn at this stage');
     }
+
+    // Only decrement counter if the application was already submitted (counted)
+    const wasCounted = application.stage !== ApplicationStage.DRAFT;
 
     await this.prisma.$transaction([
       this.prisma.application.update({
         where: { id },
         data: { deletedAt: new Date() },
       }),
-      this.prisma.opportunity.updateMany({
-        where: { id: application.opportunityId },
-        data: { applicationsCount: { decrement: 1 } },
-      }),
+      ...(wasCounted
+        ? [this.prisma.opportunity.updateMany({
+            where: { id: application.opportunityId },
+            data: { applicationsCount: { decrement: 1 } },
+          })]
+        : []),
     ]);
 
     return { message: 'Application withdrawn successfully' };
