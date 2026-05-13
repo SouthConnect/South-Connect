@@ -64,7 +64,7 @@ export class SearchService {
               ],
             },
             take: 8,
-            orderBy: { createdAt: 'desc' },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             include: { owner: { select: { id: true, name: true, profilePic: true } } },
           })
         : [],
@@ -82,6 +82,7 @@ export class SearchService {
               ],
             },
             take: 8,
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             select: {
               id: true,
               name: true,
@@ -104,7 +105,7 @@ export class SearchService {
               ],
             },
             take: 6,
-            orderBy: { createdAt: 'desc' },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           })
         : [],
     ]);

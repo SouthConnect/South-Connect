@@ -1,10 +1,12 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import { Application, Opportunity, User } from '@prisma/client';
+import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
 import * as Sentry from '@sentry/nestjs';
 import { ChatGateway } from '../messages/chat.gateway';
+import { REDIS_CLIENT } from '../redis/redis.module';
 
 /**
  * Manages in-app notifications and transactional email delivery.
@@ -26,6 +28,7 @@ export class NotificationsService {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     @Optional() private readonly chatGateway?: ChatGateway,
+    @Optional() @Inject(REDIS_CLIENT) private readonly redis?: Redis | null,
   ) {
     const apiKey = this.configService.get<string>('RESEND_API_KEY');
     this.fromEmail = this.configService.get<string>('RESEND_FROM_EMAIL');
@@ -72,6 +75,8 @@ export class NotificationsService {
    * active WebSocket connections (if any) for real-time delivery.
    * Respects the user's in-app notification preferences.
    * Errors are caught and logged so a notification failure never blocks the caller.
+   *
+   * Redis dedup (30 s window) prevents duplicate notifications on rapid retries.
    */
   async createInApp(userId: string, type: string, title: string, body?: string, link?: string) {
     try {
@@ -80,6 +85,13 @@ export class NotificationsService {
         // .catch(() => null) ensures a loadPrefs failure never silently swallows the notification
         const prefs = await this.loadPrefs(userId).catch(() => null);
         if (prefs && (prefs as Record<string, unknown>)[prefKey] === false) return;
+      }
+
+      // Dedup: skip if the same (userId, type, link) was persisted within the last 30 seconds
+      if (this.redis) {
+        const dedupKey = `notifdedup:${userId}:${type}:${link ?? ''}`;
+        const set = await this.redis.set(dedupKey, '1', 'EX', 30, 'NX').catch(() => 'ok');
+        if (set === null) return; // already created recently
       }
 
       const notification = await this.prisma.notification.create({

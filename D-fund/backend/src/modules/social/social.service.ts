@@ -47,25 +47,33 @@ export class SocialService {
     const following = await this.prisma.user.findFirst({ where: { id: followingId, deletedAt: null } });
     if (!following) throw new NotFoundException('User to follow not found');
 
-    const existing = await this.prisma.follow.findUnique({
-      where: { followerId_followingId: { followerId, followingId } },
-    });
-    if (existing) throw new ConflictException('Already following this user');
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Re-check inside the transaction to eliminate the TOCTOU window
+        const existing = await tx.follow.findUnique({
+          where: { followerId_followingId: { followerId, followingId } },
+        });
+        if (existing) throw new ConflictException('Already following this user');
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.follow.create({ data: { followerId, followingId } });
+        await tx.follow.create({ data: { followerId, followingId } });
 
-      await Promise.all([
-        tx.btoCProfile.updateMany({
-          where: { userId: followingId },
-          data: { followersCount: { increment: 1 } },
-        }),
-        tx.btoBProfile.updateMany({
-          where: { userId: followingId },
-          data: { followersCount: { increment: 1 } },
-        }),
-      ]);
-    });
+        await Promise.all([
+          tx.btoCProfile.updateMany({
+            where: { userId: followingId },
+            data: { followersCount: { increment: 1 } },
+          }),
+          tx.btoBProfile.updateMany({
+            where: { userId: followingId },
+            data: { followersCount: { increment: 1 } },
+          }),
+        ]);
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('Already following this user');
+      }
+      throw err;
+    }
 
     // Fire-and-forget: does not block the response
     const follower = await this.prisma.user.findUnique({ where: { id: followerId } });
@@ -89,21 +97,11 @@ export class SocialService {
     return { message: 'User followed successfully' };
   }
 
-  /**
-   * Removes a follow relationship and decrements the followee's follower count.
-   *
-   * @throws NotFoundException when the relationship does not exist.
-   */
+  /** Removes a follow relationship and decrements the followee's follower count. Idempotent. */
   async unfollow(followerId: string, followingId: string) {
-    const follow = await this.prisma.follow.findUnique({
-      where: { followerId_followingId: { followerId, followingId } },
-    });
-    if (!follow) throw new NotFoundException('Follow relationship not found');
-
     await this.prisma.$transaction(async (tx) => {
-      await tx.follow.delete({
-        where: { followerId_followingId: { followerId, followingId } },
-      });
+      const deleted = await tx.follow.deleteMany({ where: { followerId, followingId } });
+      if (deleted.count === 0) return; // already unfollowed — nothing to decrement
 
       await Promise.all([
         tx.btoCProfile.updateMany({
@@ -129,7 +127,7 @@ export class SocialService {
       include: {
         follower: { select: { id: true, name: true, profilePic: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: cappedTake,
       skip: cappedSkip,
     });
@@ -145,7 +143,7 @@ export class SocialService {
       include: {
         following: { select: { id: true, name: true, profilePic: true } },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: cappedTake,
       skip: cappedSkip,
     });

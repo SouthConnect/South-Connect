@@ -103,13 +103,19 @@ export default function OpportunityDetailPage() {
         method: 'POST',
         body: JSON.stringify({ opportunityId: id }),
       }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['opportunity', id] })
+      return { prev: queryClient.getQueryData(['opportunity', id]) }
+    },
     onSuccess: (app: Pick<Application, 'id'>) => {
       toast.success('Brouillon de candidature créé ! Complétez et soumettez-le.')
       router.push(`/applications/${app.id}`)
     },
-    onError: (error: any) => {
+    onError: (error: any, _, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
       toast.error(error.message || 'Impossible de créer la candidature')
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
   })
 
   if (isLoading) {
@@ -148,6 +154,10 @@ export default function OpportunityDetailPage() {
     month: 'long',
     year: 'numeric',
   })
+
+  const isExpired =
+    opportunity.expirationDate && new Date(opportunity.expirationDate) < new Date()
+  const isApplyDisabled = applyMutation.isPending || !!isExpired || opportunity.status !== 'ACTIVE'
 
   return (
     <div className="bg-gray-50 min-h-screen pb-12">
@@ -262,11 +272,16 @@ export default function OpportunityDetailPage() {
                   <div className="space-y-3">
                     <button
                       onClick={() => applyMutation.mutate()}
-                      disabled={applyMutation.isPending}
-                      className="flex items-center justify-center gap-2 w-full py-3 bg-[#3b49df] text-white rounded-xl font-bold hover:bg-[#2d3aba] transition-colors shadow-sm disabled:opacity-50"
+                      disabled={isApplyDisabled}
+                      title={isExpired ? 'La date limite de candidature est dépassée' : undefined}
+                      className="flex items-center justify-center gap-2 w-full py-3 bg-[#3b49df] text-white rounded-xl font-bold hover:bg-[#2d3aba] transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Send className="w-5 h-5" />
-                      {applyMutation.isPending ? 'Création en cours…' : 'Postuler'}
+                      {applyMutation.isPending
+                        ? 'Création en cours…'
+                        : isExpired
+                        ? 'Délai expiré'
+                        : 'Postuler'}
                     </button>
                     <button
                       type="button"

@@ -134,7 +134,7 @@ export class MessagesService {
     const cappedSkip = Math.max(skip, 0);
     return this.prisma.message.findMany({
       where: { publicDiscussionId: discussionId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       take: cappedTake,
       skip: cappedSkip,
       include: { sender: { select: { id: true, name: true, profilePic: true } } },
@@ -164,7 +164,7 @@ export class MessagesService {
     const cappedSkip = Math.max(skip, 0);
     return this.prisma.message.findMany({
       where: { privateDiscussionId: discussionId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       take: cappedTake,
       skip: cappedSkip,
       include: { sender: { select: { id: true, name: true, profilePic: true } } },
@@ -246,17 +246,19 @@ export class MessagesService {
     });
     if (!discussion) throw new NotFoundException('Discussion not found');
 
-    const message = await this.prisma.message.create({
-      data: { content, senderId, publicDiscussionId: discussionId },
-      include: { sender: { select: { id: true, name: true, profilePic: true } } },
+    const message = await this.prisma.$transaction(async (tx) => {
+      const msg = await tx.message.create({
+        data: { content, senderId, publicDiscussionId: discussionId },
+        include: { sender: { select: { id: true, name: true, profilePic: true } } },
+      });
+      await tx.publicDiscussion.update({
+        where: { id: discussionId },
+        data: { lastMessageAt: new Date(), messagesCount: { increment: 1 } },
+      });
+      return msg;
     });
 
-    await this.prisma.publicDiscussion.update({
-      where: { id: discussionId },
-      data: { lastMessageAt: new Date(), messagesCount: { increment: 1 } },
-    });
-
-    // Maintenir Opportunity.messagesCount si la discussion est liée à une opportunité
+    // Maintenir Opportunity.messagesCount si la discussion est liée à une opportunité (fire-and-forget)
     if (discussion.opportunityId) {
       this.prisma.opportunity
         .updateMany({ where: { id: discussion.opportunityId }, data: { messagesCount: { increment: 1 } } })

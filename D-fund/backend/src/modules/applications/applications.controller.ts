@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -79,5 +79,13 @@ export class ApplicationsController {
   @UseGuards(JwtAuthGuard)
   review(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User, @Body() dto: ReviewApplicationDto) {
     return this.applicationsService.review(id, user.id, dto);
+  }
+
+  /** Withdraws the authenticated user's own application (soft-delete). Rate-limited to 3/min. */
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ strict: {} })
+  withdraw(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User) {
+    return this.applicationsService.withdraw(id, user.id);
   }
 }

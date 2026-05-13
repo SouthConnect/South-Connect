@@ -2,11 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  GoneException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, ApplicationStage, ReferralStatus } from '@prisma/client';
+import { Prisma, ApplicationStage, OpportunityStatus, ReferralStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateApplicationDto, ReviewApplicationDto, UpdateApplicationDto } from './dto';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -51,7 +52,7 @@ export class ApplicationsService {
     const cappedSkip = Math.max(skip, 0);
 
     return this.prisma.application.findMany({
-      where: { opportunityId },
+      where: { opportunityId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       take: cappedTake,
       skip: cappedSkip,
@@ -78,7 +79,7 @@ export class ApplicationsService {
     const cappedTake = Math.min(Math.max(take, 1), 100);
     const cappedSkip = Math.max(skip, 0);
     return this.prisma.application.findMany({
-      where: { candidateId: userId },
+      where: { candidateId: userId, deletedAt: null },
       orderBy: { createdAt: 'desc' },
       take: cappedTake,
       skip: cappedSkip,
@@ -182,6 +183,14 @@ export class ApplicationsService {
       throw new BadRequestException('Only draft applications can be submitted');
     }
 
+    const opp = application.opportunity;
+    if (opp.status !== OpportunityStatus.ACTIVE) {
+      throw new BadRequestException('This opportunity is no longer accepting applications');
+    }
+    if (opp.expirationDate && opp.expirationDate < new Date()) {
+      throw new BadRequestException('The deadline for this opportunity has passed');
+    }
+
     // Validate referral code if provided
     if (application.referralCodeUsed) {
       const referral = await this.prisma.referralCode.findUnique({
@@ -273,6 +282,18 @@ export class ApplicationsService {
       throw new ForbiddenException('You cannot review this application');
     }
 
+    const VALID_TRANSITIONS: Partial<Record<ApplicationStage, ApplicationStage[]>> = {
+      [ApplicationStage.SUBMITTED]: [ApplicationStage.OWNER_REVIEW, ApplicationStage.ARCHIVED],
+      [ApplicationStage.OWNER_REVIEW]: [ApplicationStage.SUCCESS, ApplicationStage.ARCHIVED],
+      [ApplicationStage.READY_TO_SUBMIT]: [ApplicationStage.SUCCESS, ApplicationStage.ARCHIVED],
+    };
+    const allowedTargets = VALID_TRANSITIONS[application.stage];
+    if (!allowedTargets || !allowedTargets.includes(dto.stage as ApplicationStage)) {
+      throw new BadRequestException(
+        `Cannot transition from ${application.stage} to ${dto.stage}`,
+      );
+    }
+
     const updated = await this.prisma.application.update({
       where: { id },
       data: {
@@ -329,5 +350,40 @@ export class ApplicationsService {
     }
 
     return updated;
+  }
+
+  /**
+   * Allows a candidate to withdraw their own application before it enters owner review.
+   * Uses soft-delete so the record and counters remain auditable.
+   *
+   * @throws NotFoundException  when the application does not exist or is already withdrawn.
+   * @throws ForbiddenException when the requester is not the applicant.
+   * @throws BadRequestException when the application has already been reviewed.
+   */
+  async withdraw(id: string, candidateId: string) {
+    const application = await this.prisma.application.findUnique({
+      where: { id, deletedAt: null },
+    });
+
+    if (!application) throw new NotFoundException('Application not found');
+    if (application.candidateId !== candidateId) {
+      throw new ForbiddenException('You cannot withdraw this application');
+    }
+    if (application.stage === ApplicationStage.SUCCESS || application.stage === ApplicationStage.OWNER_REVIEW) {
+      throw new BadRequestException('Application cannot be withdrawn at this stage');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.application.update({
+        where: { id },
+        data: { deletedAt: new Date() },
+      }),
+      this.prisma.opportunity.updateMany({
+        where: { id: application.opportunityId },
+        data: { applicationsCount: { decrement: 1 } },
+      }),
+    ]);
+
+    return { message: 'Application withdrawn successfully' };
   }
 }
