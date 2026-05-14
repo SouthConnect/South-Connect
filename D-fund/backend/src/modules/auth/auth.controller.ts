@@ -253,6 +253,7 @@ export class AuthController {
   @Post('resubscribe')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   resubscribeEmail(@CurrentUser() user: User) {
     return this.authService.resubscribeEmail(user.id);
   }

@@ -5,17 +5,20 @@ import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '@prisma/client';
 
 /**
  * Exposes personal task management for the authenticated user.
  * All routes require a valid JWT.
+ * Email verification not required — tasks are private personal data.
  */
 @ApiTags('tasks')
 @ApiBearerAuth('JWT')
 @Controller('tasks')
 @UseGuards(JwtAuthGuard)
+@SkipEmailVerification()
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 

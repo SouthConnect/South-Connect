@@ -13,6 +13,7 @@ import {
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '@prisma/client';
 import { NotificationsService } from './notifications.service';
@@ -22,13 +23,15 @@ import { UpdateNotificationPreferencesDto } from './dto/update-notification-pref
  * Exposes in-app notification management for the authenticated user.
  * All routes require a valid JWT.
  *
- * Business logic lives in NotificationsService — the controller only
- * handles HTTP concerns (routing, auth, query param parsing).
+ * Email verification is bypassed for the whole controller — users must be
+ * able to see and dismiss notifications (including the "verify your email"
+ * notification itself) regardless of verification status.
  */
 @ApiTags('notifications')
 @ApiBearerAuth('JWT')
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
+@SkipEmailVerification()
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 

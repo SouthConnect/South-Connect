@@ -32,6 +32,7 @@ export class ApplicationsController {
    */
   @Get('opportunity/:opportunityId')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   findByOpportunity(
     @Param('opportunityId') opportunityId: string,
     @CurrentUser() user: User,
@@ -45,6 +46,7 @@ export class ApplicationsController {
    */
   @Get('user/:userId')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   findForUser(@Param('userId') userId: string, @CurrentUser() user: User) {
     if (user.id !== userId) {
       throw new ForbiddenException('You can only access your own applications');
