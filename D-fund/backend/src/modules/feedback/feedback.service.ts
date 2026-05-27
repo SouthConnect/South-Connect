@@ -30,16 +30,18 @@ export class FeedbackService {
 
     if (this.resend && adminEmail) {
       try {
+        const esc = (s: string) =>
+          s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         await this.resend.emails.send({
           from: fromEmail,
           to: adminEmail,
-          subject: `[D-Fund Feedback] ${dto.title}`,
+          subject: `[D-Fund Feedback] ${esc(dto.title)}`,
           html: `
-            <h2>New feedback from ${user.name || user.email}</h2>
-            <p><strong>User:</strong> ${user.name || ''} (${user.email}) — ID: ${user.id}</p>
-            <p><strong>Title:</strong> ${dto.title}</p>
+            <h2>New feedback from ${esc(user.name || user.email)}</h2>
+            <p><strong>User:</strong> ${esc(user.name || '')} (${esc(user.email)}) — ID: ${esc(user.id)}</p>
+            <p><strong>Title:</strong> ${esc(dto.title)}</p>
             <hr />
-            <p>${dto.description.replace(/\n/g, '<br />')}</p>
+            <p>${esc(dto.description).replace(/\n/g, '<br />')}</p>
           `,
         });
       } catch (err) {

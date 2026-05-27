@@ -49,6 +49,18 @@ export class NotificationsService {
     return Boolean(this.resend && this.fromEmail);
   }
 
+  /**
+   * Escapes a string for safe interpolation inside an HTML attribute or text node.
+   * Prevents XSS / HTML injection when user-controlled data is embedded in email templates.
+   */
+  private static esc(s: string): string {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   /** Maps notification type strings to their NotificationPreferences field. */
   private static readonly IN_APP_PREF: Record<string, string> = {
     APPLICATION_SUBMITTED: 'inAppApplicationSubmitted',
@@ -196,7 +208,7 @@ export class NotificationsService {
 
     const subject = 'Confirmez votre adresse email D-Fund';
     const html = `
-      <p>Bonjour ${user.firstName || ''},</p>
+      <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
       <p>Merci de vous être inscrit sur D-Fund. Cliquez sur le lien ci-dessous pour confirmer votre adresse email :</p>
       <p>
         <a href="${verificationLink}"
@@ -243,7 +255,7 @@ export class NotificationsService {
 
     const subject = 'Bienvenue sur D-Fund';
     const html = `
-      <p>Bonjour ${user.firstName || ''},</p>
+      <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
       <p>Bienvenue sur D-Fund. Vous pouvez dès maintenant compléter votre profil et explorer les opportunités.</p>
     `;
 
@@ -265,10 +277,10 @@ export class NotificationsService {
     }
     if (!await this.isEmailPrefEnabled(owner.id, 'emailApplicationSubmitted')) return;
 
-    const subject = `Nouvelle candidature sur votre opportunité "${opportunity.name}"`;
+    const subject = `Nouvelle candidature sur votre opportunité "${NotificationsService.esc(opportunity.name)}"`;
     const html = `
-      <p>Bonjour ${owner.firstName || ''},</p>
-      <p>Vous avez reçu une nouvelle candidature pour l'opportunité <strong>${opportunity.name}</strong>.</p>
+      <p>Bonjour ${NotificationsService.esc(owner.firstName || '')},</p>
+      <p>Vous avez reçu une nouvelle candidature pour l'opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong>.</p>
       <p>Connectez-vous à D-Fund pour la consulter et y répondre.</p>
     `;
 
@@ -290,11 +302,11 @@ export class NotificationsService {
     }
     if (!await this.isEmailPrefEnabled(candidate.id, 'emailApplicationReviewed')) return;
 
-    const subject = `Votre candidature pour "${opportunity.name}" a été revue`;
+    const subject = `Votre candidature pour "${NotificationsService.esc(opportunity.name)}" a été revue`;
     const html = `
-      <p>Bonjour ${candidate.firstName || ''},</p>
-      <p>Votre candidature pour l'opportunité <strong>${opportunity.name}</strong> a été revue.</p>
-      <p>${application.reviewFeedback || 'Connectez-vous à D-Fund pour lire les détails du feedback.'}</p>
+      <p>Bonjour ${NotificationsService.esc(candidate.firstName || '')},</p>
+      <p>Votre candidature pour l'opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong> a été revue.</p>
+      <p>${NotificationsService.esc(application.reviewFeedback || 'Connectez-vous à D-Fund pour lire les détails du feedback.')}</p>
     `;
 
     this.sendEmailAsync(candidate.email, subject, html);
@@ -315,10 +327,10 @@ export class NotificationsService {
     }
     if (!await this.isEmailPrefEnabled(candidate.id, 'emailApplicationAccepted')) return;
 
-    const subject = `Bonne nouvelle pour votre candidature "${opportunity.name}"`;
+    const subject = `Bonne nouvelle pour votre candidature "${NotificationsService.esc(opportunity.name)}"`;
     const html = `
-      <p>Bonjour ${candidate.firstName || ''},</p>
-      <p>Votre candidature pour l'opportunité <strong>${opportunity.name}</strong> a été acceptée.</p>
+      <p>Bonjour ${NotificationsService.esc(candidate.firstName || '')},</p>
+      <p>Votre candidature pour l'opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong> a été acceptée.</p>
       <p>Nous vous invitons à prendre contact avec le créateur de l'opportunité.</p>
     `;
 
@@ -342,10 +354,10 @@ export class NotificationsService {
     if (!await this.isEmailPrefEnabled(owner.id, 'emailOpportunityApproved')) return;
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || '';
-    const subject = `Votre opportunité "${opportunity.name}" a été approuvée`;
+    const subject = `Votre opportunité "${NotificationsService.esc(opportunity.name)}" a été approuvée`;
     const html = `
-      <p>Bonjour ${owner.firstName || ''},</p>
-      <p>Votre opportunité <strong>${opportunity.name}</strong> vient d'être approuvée par l'équipe D-Fund.</p>
+      <p>Bonjour ${NotificationsService.esc(owner.firstName || '')},</p>
+      <p>Votre opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong> vient d'être approuvée par l'équipe D-Fund.</p>
       <p>Elle est maintenant visible par l'ensemble de la communauté.</p>
       <p><a href="${frontendUrl}/opportunities/${opportunity.id}">Voir mon opportunité</a></p>
     `;
@@ -370,11 +382,11 @@ export class NotificationsService {
     if (!await this.isEmailPrefEnabled(recipient.id, 'emailNewMessage')) return;
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || '';
-    const subject = `Nouveau message de ${senderName} sur D-Fund`;
+    const subject = `Nouveau message de ${NotificationsService.esc(senderName)} sur D-Fund`;
     const html = `
-      <p>Bonjour ${recipient.firstName || ''},</p>
-      <p><strong>${senderName}</strong> vous a envoyé un message :</p>
-      <blockquote style="border-left:3px solid #3b49df;padding-left:12px;color:#555">${preview}</blockquote>
+      <p>Bonjour ${NotificationsService.esc(recipient.firstName || '')},</p>
+      <p><strong>${NotificationsService.esc(senderName)}</strong> vous a envoyé un message :</p>
+      <blockquote style="border-left:3px solid #3b49df;padding-left:12px;color:#555">${NotificationsService.esc(preview)}</blockquote>
       <p><a href="${frontendUrl}/chat/private/${discussionId}">Répondre sur D-Fund</a></p>
     `;
 
@@ -393,10 +405,10 @@ export class NotificationsService {
     if (!await this.isEmailPrefEnabled(followee.id, 'emailNewFollower')) return;
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || '';
-    const subject = `${follower.name ?? 'Quelqu\'un'} vous suit maintenant sur D-Fund`;
+    const subject = `${NotificationsService.esc(follower.name ?? 'Quelqu\'un')} vous suit maintenant sur D-Fund`;
     const html = `
-      <p>Bonjour ${followee.firstName || ''},</p>
-      <p><strong>${follower.name ?? 'Un utilisateur'}</strong> vient de commencer à vous suivre sur D-Fund.</p>
+      <p>Bonjour ${NotificationsService.esc(followee.firstName || '')},</p>
+      <p><strong>${NotificationsService.esc(follower.name ?? 'Un utilisateur')}</strong> vient de commencer à vous suivre sur D-Fund.</p>
       <p>
         <a href="${frontendUrl}/profiles/${follower.id}"
            style="display:inline-block;padding:10px 20px;background:#3b49df;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
@@ -420,7 +432,7 @@ export class NotificationsService {
 
     const subject = 'Votre mot de passe D-Fund a été modifié';
     const html = `
-      <p>Bonjour ${user.firstName || ''},</p>
+      <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
       <p>Votre mot de passe a bien été réinitialisé. Toutes vos sessions actives ont été révoquées.</p>
       <p>Si vous n'êtes pas à l'origine de cette action, contactez-nous immédiatement en répondant à cet email.</p>
     `;
@@ -440,7 +452,7 @@ export class NotificationsService {
 
     const subject = 'Réinitialisation de votre mot de passe D-Fund';
     const html = `
-      <p>Bonjour ${user.firstName || ''},</p>
+      <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
       <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
       <p><a href="${resetLink}">Cliquez ici pour choisir un nouveau mot de passe</a></p>
       <p>Ce lien expire dans 1 heure. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
@@ -491,13 +503,18 @@ export class NotificationsService {
       }
     }
 
-    // Abort if Resend stalls — throws so callers can retry
+    // Abort if Resend stalls — throws so callers can retry.
+    // The Resend SDK resolves the promise even on API errors (returns { data: null, error: {...} })
+    // so we must inspect the result and throw explicitly to surface failures.
     const send = this.resend!.emails.send({ from: this.fromEmail!, to, subject, html: finalHtml });
     let timeoutId: ReturnType<typeof setTimeout>;
     const timeout = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => reject(new Error('Resend timeout after 10 s')), 10_000);
     });
-    await Promise.race([send, timeout]).finally(() => clearTimeout(timeoutId!));
+    const result = await Promise.race([send, timeout]).finally(() => clearTimeout(timeoutId!));
+    if (result.error) {
+      throw new Error(`Resend ${result.error.statusCode}: ${result.error.message}`);
+    }
   }
 
   /**

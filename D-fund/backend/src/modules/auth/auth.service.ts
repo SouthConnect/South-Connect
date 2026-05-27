@@ -505,6 +505,11 @@ export class AuthService implements OnModuleDestroy {
 
     if (!user) return { message: 'If this email exists, a reset link has been sent.' };
 
+    if (!user.password && user.googleId) {
+      // Google-only account — silently ignore, return same message
+      return { message: 'If this email exists, a reset link has been sent.' };
+    }
+
     const rawToken = crypto.randomBytes(32).toString('hex');
     const expiry = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
 

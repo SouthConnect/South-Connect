@@ -48,6 +48,7 @@ export class MessagesController {
   /** Creates a new public discussion thread. Requires authentication. */
   @Post('public')
   @UseGuards(JwtAuthGuard)
+  @Throttle({ auth: {} })
   createPublicDiscussion(@CurrentUser() user: User, @Body() dto: CreateDiscussionDto) {
     return this.messagesService.createPublicDiscussion(user.id, dto.title, dto.description);
   }
@@ -111,6 +112,7 @@ export class MessagesController {
   @Post('private/start/:targetUserId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
+  @Throttle({ auth: {} })
   startPrivateDiscussion(
     @CurrentUser() user: User,
     @Param('targetUserId') targetUserId: string,

@@ -144,6 +144,9 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       }
       this.onlineUsers.get(payload.userId)!.add(client.id);
 
+      // Join the user's personal room so sendToUser works in multi-instance mode via Redis adapter
+      (client as AuthenticatedSocket).join(`user:${payload.userId}`);
+
       this.logger.log(`Connected: ${payload.userId} (socket ${client.id})`);
     } catch (err: any) {
       // Inform the client explicitly so it can trigger a token refresh
@@ -204,15 +207,19 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   /**
    * Relays a typing indicator to all other sockets in the discussion room.
    * Payload is validated with class-validator before broadcasting.
+   * Membership is verified so only participants can send typing events.
    */
   @SubscribeMessage('typing')
-  handleTyping(
+  async handleTyping(
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() raw: unknown,
   ) {
     const payload = plainToInstance(TypingPayloadDto, raw);
     const errors = validateSync(payload);
     if (errors.length) throw new WsException('Invalid payload');
+
+    const allowed = await this.messagesService.isParticipant(client.userId, payload.discussionId);
+    if (!allowed) return; // silently ignore unauthorized typing events
 
     client.to(payload.discussionId).emit('typing', {
       userId: client.userId,
@@ -222,13 +229,18 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   /**
    * Relays a stop-typing signal to all other sockets in the discussion room.
+   * Membership is verified so only participants can send stop-typing events.
    */
   @SubscribeMessage('stopTyping')
-  handleStopTyping(
+  async handleStopTyping(
     @ConnectedSocket() client: AuthenticatedSocket,
     @MessageBody() discussionId: unknown,
   ) {
     if (typeof discussionId !== 'string' || discussionId.length > 36) return;
+
+    const allowed = await this.messagesService.isParticipant(client.userId, discussionId);
+    if (!allowed) return; // silently ignore unauthorized stop-typing events
+
     client.to(discussionId).emit('stopTyping', { userId: client.userId });
   }
 
@@ -241,15 +253,12 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   /**
-   * Sends a real-time event directly to all active sockets of a specific user.
-   * Used for personal notifications (application reviewed, new message, etc.).
+   * Sends a real-time event directly to a specific user.
+   * Uses the personal room (`user:<userId>`) so the event is forwarded to all
+   * backend instances via the Redis adapter in multi-instance deployments.
    */
   sendToUser(userId: string, event: string, payload: unknown) {
-    const sockets = this.onlineUsers.get(userId);
-    if (!sockets || sockets.size === 0) return;
-    for (const socketId of sockets) {
-      this.server.to(socketId).emit(event, payload);
-    }
+    this.server.to(`user:${userId}`).emit(event, payload);
   }
 
   /** Returns whether the given user has at least one active socket connection. */

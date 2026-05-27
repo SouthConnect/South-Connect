@@ -17,10 +17,11 @@ function getSocketUrl(): string {
 function createSocket(): Socket {
   return io(`${getSocketUrl()}/chat`, {
     withCredentials: true,
-    transports: ['websocket', 'polling'],
+    transports: ['websocket'],
     reconnection: true,
     reconnectionDelay: 1000,
-    reconnectionAttempts: 5,
+    reconnectionAttempts: Infinity,
+    reconnectionDelayMax: 30000,
   })
 }
 
@@ -102,8 +103,12 @@ export function useSocket(): Socket | null {
     connectedUsers++
 
     return () => {
-      connectedUsers--
+      connectedUsers = Math.max(0, connectedUsers - 1)
       if (connectedUsers <= 0) {
+        sharedSocket?.off('tokenExpired')
+        sharedSocket?.off('disconnect')
+        sharedSocket?.off('reconnect')
+        sharedSocket?.off('connect_error')
         sharedSocket?.disconnect()
         sharedSocket = null
         currentUserId = null

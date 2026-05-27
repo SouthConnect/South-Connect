@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { ReferralService } from './referral.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -36,6 +37,7 @@ export class ReferralController {
 
   /** Creates a new referral code for the authenticated user. */
   @Post()
+  @Throttle({ auth: {} })
   create(@CurrentUser() user: User, @Body() dto: CreateReferralDto) {
     return this.referralService.create(user.id, dto.opportunityId, dto.type);
   }

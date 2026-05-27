@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiJson, ApiError } from '@/app/lib/api'
+import { apiJson, ApiError, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { MapPin, Calendar, Clock, Tag, ArrowLeft, Send, MessageSquare, ThumbsUp, Bookmark, Share2 } from 'lucide-react'
 import Link from 'next/link'
@@ -50,16 +50,19 @@ export default function OpportunityDetailPage() {
     onMutate: async (currentlyLiked) => {
       await queryClient.cancelQueries({ queryKey: ['opportunity', id] })
       const prev = queryClient.getQueryData(['opportunity', id])
-      queryClient.setQueryData(['opportunity', id], (old: Opportunity) => ({
-        ...old,
-        likesCount: currentlyLiked ? (old.likesCount ?? 1) - 1 : (old.likesCount ?? 0) + 1,
-        isLiked: !currentlyLiked,
-      }))
+      queryClient.setQueryData(['opportunity', id], (old: Opportunity | undefined) => {
+        if (!old) return old
+        return {
+          ...old,
+          likesCount: currentlyLiked ? (old.likesCount ?? 1) - 1 : (old.likesCount ?? 0) + 1,
+          isLiked: !currentlyLiked,
+        }
+      })
       return { prev }
     },
-    onError: (error: any, _, ctx) => {
+    onError: (error: unknown, _, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
-      toast.error(error.message || 'Impossible de mettre à jour le like')
+      toast.error(getErrorMessage(error, 'Impossible de mettre à jour le like'))
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
   })
@@ -73,16 +76,19 @@ export default function OpportunityDetailPage() {
     onMutate: async (currentlySaved) => {
       await queryClient.cancelQueries({ queryKey: ['opportunity', id] })
       const prev = queryClient.getQueryData(['opportunity', id])
-      queryClient.setQueryData(['opportunity', id], (old: Opportunity) => ({
-        ...old,
-        savedCount: currentlySaved ? (old.savedCount ?? 1) - 1 : (old.savedCount ?? 0) + 1,
-        isSaved: !currentlySaved,
-      }))
+      queryClient.setQueryData(['opportunity', id], (old: Opportunity | undefined) => {
+        if (!old) return old
+        return {
+          ...old,
+          savedCount: currentlySaved ? (old.savedCount ?? 1) - 1 : (old.savedCount ?? 0) + 1,
+          isSaved: !currentlySaved,
+        }
+      })
       return { prev }
     },
-    onError: (error: any, _, ctx) => {
+    onError: (error: unknown, _, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
-      toast.error(error.message || 'Impossible de mettre à jour l\'enregistrement')
+      toast.error(getErrorMessage(error, "Impossible de mettre à jour l'enregistrement"))
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
   })
@@ -93,8 +99,8 @@ export default function OpportunityDetailPage() {
     onSuccess: (discussion: Pick<PrivateDiscussion, 'id'>) => {
       if (discussion?.id) router.push(`/chat/private/${discussion.id}`)
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Impossible de démarrer la conversation')
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Impossible de démarrer la conversation'))
     },
   })
 
@@ -109,17 +115,19 @@ export default function OpportunityDetailPage() {
       return { prev: queryClient.getQueryData(['opportunity', id]) }
     },
     onSuccess: (app: Pick<Application, 'id'>) => {
+      queryClient.invalidateQueries({ queryKey: ['my-applications', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['analytics-my-apps', user?.id] })
       toast.success('Brouillon de candidature créé ! Complétez et soumettez-le.')
       router.push(`/applications/${app.id}`)
     },
-    onError: (error: any, _, ctx) => {
+    onError: (error: unknown, _, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
-      if (error?.status === 409) {
+      if (error instanceof ApiError && error.status === 409) {
         toast.error('Vous avez déjà postulé à cette opportunité.', {
           action: { label: 'Voir mes candidatures', onClick: () => router.push('/dashboard') },
         })
       } else {
-        toast.error(error.message || 'Impossible de créer la candidature')
+        toast.error(getErrorMessage(error, 'Impossible de créer la candidature'))
       }
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
@@ -228,10 +236,12 @@ export default function OpportunityDetailPage() {
                 <div
                   className="whitespace-pre-wrap"
                   dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(opportunity.description || 'Aucune description disponible.', {
-                      ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'ul', 'ol', 'li', 'h2', 'h3', 'h4', 'blockquote'],
-                      ALLOWED_ATTR: [],
-                    }),
+                    __html: typeof window !== 'undefined'
+                      ? DOMPurify.sanitize(opportunity.description || 'Aucune description disponible.', {
+                          ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'ul', 'ol', 'li', 'h2', 'h3', 'h4', 'blockquote'],
+                          ALLOWED_ATTR: [],
+                        })
+                      : (opportunity.description ?? 'Aucune description disponible.'),
                   }}
                 />
               </div>

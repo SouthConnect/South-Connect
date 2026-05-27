@@ -48,6 +48,10 @@ async function bootstrap() {
   // Cookie parser — required for HttpOnly JWT cookie extraction
   app.use(cookieParser());
 
+  // Limit JSON body size to prevent memory-exhaustion attacks
+  app.use(require('express').json({ limit: '1mb' }));
+  app.use(require('express').urlencoded({ limit: '1mb', extended: true }));
+
   // Security headers
   app.use(
     helmet({

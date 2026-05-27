@@ -47,6 +47,7 @@ export default function MyOpportunitiesPage() {
   const queryClient = useQueryClient()
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [confirmArchive, setConfirmArchive] = useState<string | null>(null)
+  const [pendingActionId, setPendingActionId] = useState<string | null>(null)
 
   const { data: opportunities, isLoading, isError, error } = useQuery({
     queryKey: ['my-opportunities', user?.id],
@@ -60,11 +61,14 @@ export default function MyOpportunitiesPage() {
         method: 'PUT',
         body: JSON.stringify({ status: 'PENDING' }),
       }),
+    onMutate: (id) => setPendingActionId(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
       toast.success('Soumise ! Votre opportunité sera visible après approbation (généralement sous 24h).')
     },
     onError: (err: any) => toast.error(err.message || 'Impossible de soumettre l\'opportunité.'),
+    onSettled: () => setPendingActionId(null),
   })
 
   const archiveMutation = useMutation({
@@ -73,11 +77,14 @@ export default function MyOpportunitiesPage() {
         method: 'PUT',
         body: JSON.stringify({ status: 'ARCHIVED' }),
       }),
+    onMutate: (id) => setPendingActionId(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
       toast.success('Opportunité archivée.')
     },
     onError: (err: any) => toast.error(err.message || 'Impossible d\'archiver l\'opportunité.'),
+    onSettled: () => setPendingActionId(null),
   })
 
   const resubmitMutation = useMutation({
@@ -86,11 +93,14 @@ export default function MyOpportunitiesPage() {
         method: 'PUT',
         body: JSON.stringify({ status: 'PENDING' }),
       }),
+    onMutate: (id) => setPendingActionId(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
       toast.success('Soumise de nouveau pour révision !')
     },
     onError: (err: any) => toast.error(err.message || 'Impossible de resoumettre l\'opportunité.'),
+    onSettled: () => setPendingActionId(null),
   })
 
   const filtered: Opportunity[] = (opportunities as Opportunity[] ?? []).filter((op) =>
@@ -231,7 +241,7 @@ export default function MyOpportunitiesPage() {
                 {opp.status === 'DRAFT' && (
                   <button
                     onClick={() => publishMutation.mutate(opp.id)}
-                    disabled={publishMutation.isPending}
+                    disabled={publishMutation.isPending || pendingActionId === opp.id}
                     title="Publier"
                     className="p-1.5 rounded-lg text-green-500 hover:text-green-700 hover:bg-green-50 disabled:opacity-50"
                   >
@@ -241,7 +251,7 @@ export default function MyOpportunitiesPage() {
                 {opp.status === 'ACTIVE' && (
                   <button
                     onClick={() => setConfirmArchive(opp.id)}
-                    disabled={archiveMutation.isPending}
+                    disabled={archiveMutation.isPending || pendingActionId === opp.id}
                     title="Archiver"
                     className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-50"
                   >
@@ -257,7 +267,7 @@ export default function MyOpportunitiesPage() {
                 {opp.status === 'ARCHIVED' && (
                   <button
                     onClick={() => resubmitMutation.mutate(opp.id)}
-                    disabled={resubmitMutation.isPending}
+                    disabled={resubmitMutation.isPending || pendingActionId === opp.id}
                     title="Resoumettre pour révision"
                     className="p-1.5 rounded-lg text-green-500 hover:text-green-700 hover:bg-green-50 disabled:opacity-50"
                   >

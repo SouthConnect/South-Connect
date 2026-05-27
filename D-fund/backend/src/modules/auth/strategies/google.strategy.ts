@@ -55,18 +55,29 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         return done(null, { oauthError: 'EMAIL_EXISTS_DIFFERENT_METHOD' } as any);
       }
     } else {
-      user = await this.prisma.user.create({
-        data: {
-          googleId,
-          email,
-          firstName: name?.givenName || '',
-          lastName: name?.familyName || '',
-          name: `${name?.givenName || ''} ${name?.familyName || ''}`.trim(),
-          profilePic: photos?.[0]?.value || null,
-          // Google has already verified the email — no need for a separate verification step
-          isEmailVerified: true,
-        },
-      });
+      try {
+        user = await this.prisma.user.create({
+          data: {
+            googleId,
+            email,
+            firstName: name?.givenName || '',
+            lastName: name?.familyName || '',
+            name: `${name?.givenName || ''} ${name?.familyName || ''}`.trim(),
+            profilePic: photos?.[0]?.value || null,
+            // Google has already verified the email — no need for a separate verification step
+            isEmailVerified: true,
+            btoCProfile: { create: {} },
+            notificationPreferences: { create: {} },
+          },
+        });
+      } catch (e: any) {
+        if (e.code === 'P2002') {
+          user = await this.prisma.user.findFirst({ where: { OR: [{ googleId }, { email }] } });
+          if (!user) return done(new Error('OAuth conflict'), undefined as any);
+        } else {
+          return done(e, undefined as any);
+        }
+      }
     }
 
     done(null, user);

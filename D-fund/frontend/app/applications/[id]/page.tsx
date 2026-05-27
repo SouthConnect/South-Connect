@@ -145,6 +145,10 @@ export default function ApplicationDetailPage() {
 
   const handleSubmit = () => {
     if (!isDraft) return
+    if (updateMutation.isPending) {
+      toast.info('Sauvegarde en cours, veuillez patienter…')
+      return
+    }
     // Cancel any pending autosave before entering the submit flow
     if (autosaveTimer.current) {
       clearTimeout(autosaveTimer.current)
@@ -445,7 +449,7 @@ export default function ApplicationDetailPage() {
                       <button
                         type="button"
                         onClick={handleSubmit}
-                        disabled={!readyToSubmit || submitMutation.isPending}
+                        disabled={!readyToSubmit || submitMutation.isPending || updateMutation.isPending}
                         className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-[#3b49df] text-white hover:bg-[#2d3aba] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Send className="w-4 h-4" />

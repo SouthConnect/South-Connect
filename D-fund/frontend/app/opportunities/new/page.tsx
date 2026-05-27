@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiJson, OpportunityType, uploadImage } from '@/app/lib/api'
+import { apiJson, OpportunityType, uploadImage, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
 import { ArrowLeft, Plus, Send, Info, MapPin, Globe, DollarSign, Image as ImageIcon, X, Clock, Sparkles, Loader2 } from 'lucide-react'
@@ -106,8 +106,8 @@ export default function CreateOpportunityPage() {
       queryClient.invalidateQueries({ queryKey: ['opportunities'] })
       router.push(`/opportunities/${data.id}`)
     },
-    onError: (error: any) => {
-      setErrorMessage(error.message || 'Impossible de créer l\'opportunité.')
+    onError: (error: unknown) => {
+      setErrorMessage(getErrorMessage(error, "Impossible de créer l'opportunité."))
     }
   })
 
@@ -225,7 +225,7 @@ export default function CreateOpportunityPage() {
         <div className="container mx-auto px-4 flex items-center justify-between max-w-5xl">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.back()}
+              onClick={() => router.push('/my-opportunities')}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />

@@ -2,13 +2,13 @@
 
 import { useAuth } from '@/app/lib/AuthContext'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiJson } from '@/app/lib/api'
+import { apiJson, getErrorMessage } from '@/app/lib/api'
 import AuthGuard from '@/components/AuthGuard'
 import type { Notification } from '@/app/lib/types'
 import { Bell, BellOff, ExternalLink, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 
 const PAGE_SIZE = 30
 
@@ -49,6 +49,11 @@ export default function NotificationsPage() {
 
   const notifications = data?.pages.flat() ?? []
 
+  // Cleanup IntersectionObserver on unmount
+  useEffect(() => {
+    return () => { observerRef.current?.disconnect() }
+  }, [])
+
   // Infinite scroll sentinel — fetches next page when the bottom sentinel enters view
   const sentinelRef = useCallback((node: HTMLDivElement | null) => {
     if (observerRef.current) observerRef.current.disconnect()
@@ -67,7 +72,7 @@ export default function NotificationsPage() {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] })
       queryClient.invalidateQueries({ queryKey: ['notifications-count', user?.id] })
     },
-    onError: (error: any) => toast.error(error.message || 'Impossible de tout marquer comme lu.'),
+    onError: (error: unknown) => toast.error(getErrorMessage(error, 'Impossible de tout marquer comme lu.')),
   })
 
   const readOneMutation = useMutation({
@@ -77,9 +82,9 @@ export default function NotificationsPage() {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] })
       queryClient.invalidateQueries({ queryKey: ['notifications-count', user?.id] })
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       setPendingReadId(null)
-      toast.error(error.message || 'Impossible de marquer la notification comme lue.')
+      toast.error(getErrorMessage(error, 'Impossible de marquer la notification comme lue.'))
     },
   })
 
@@ -125,6 +130,8 @@ export default function NotificationsPage() {
                 {notifications.map((notif: Notification) => (
                   <li
                     key={notif.id}
+                    role="button"
+                    tabIndex={0}
                     className={`px-5 py-4 flex items-start gap-3 hover:bg-gray-50 transition-colors cursor-pointer ${
                       !notif.isRead ? 'bg-blue-50/50' : ''
                     }`}
@@ -134,6 +141,16 @@ export default function NotificationsPage() {
                         readOneMutation.mutate(notif.id)
                       }
                       if (notif.link) router.push(notif.link)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        if (!notif.isRead && pendingReadId !== notif.id) {
+                          setPendingReadId(notif.id)
+                          readOneMutation.mutate(notif.id)
+                        }
+                        if (notif.link) router.push(notif.link)
+                      }
                     }}
                   >
                     <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${notif.isRead ? 'bg-transparent' : 'bg-[#3b49df]'}`} />

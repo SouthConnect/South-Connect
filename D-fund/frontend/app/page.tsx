@@ -380,7 +380,7 @@ function AppFeed() {
         <div className="relative z-10 text-center px-4">
           <p className="text-white/60 text-sm font-medium mb-1">Bon retour</p>
           <h1 className="text-2xl font-extrabold tracking-tight">
-            {user?.name ? `${user.name.split(' ')[0]} 👋` : 'Votre fil'}
+            {user?.name ? user.name.split(' ')[0] : 'Votre fil'}
           </h1>
         </div>
       </section>
@@ -566,7 +566,7 @@ function GalleryCard({ opportunity }: { opportunity: Opportunity }) {
     day: 'numeric', month: 'short',
   })
   return (
-    <a href={`/opportunities/${opportunity.id}`} className="block group">
+    <Link href={`/opportunities/${opportunity.id}`} className="block group">
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
         <div className="h-28 bg-gray-100 overflow-hidden relative">
           {opportunity.image ? (
@@ -587,6 +587,6 @@ function GalleryCard({ opportunity }: { opportunity: Opportunity }) {
           </div>
         </div>
       </div>
-    </a>
+    </Link>
   )
 }

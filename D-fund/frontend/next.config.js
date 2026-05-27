@@ -6,7 +6,7 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       // Next.js inline scripts need 'unsafe-inline'; lock down with a nonce in a future pass
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       // Allow images from Supabase storage, Unsplash fallbacks and data URIs
       "img-src 'self' data: https:",

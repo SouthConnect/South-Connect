@@ -51,6 +51,12 @@ export class ProfilesService {
       throw new NotFoundException('Profile not found');
     }
 
+    // Strip email for public requests — only owner and admins may see it
+    if (requesterId !== userId && requesterRole !== 'ADMIN') {
+      const { email: _email, ...publicProfile } = user;
+      return publicProfile;
+    }
+
     return user;
   }
 

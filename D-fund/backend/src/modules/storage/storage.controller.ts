@@ -113,6 +113,10 @@ export class StorageController {
       throw new BadRequestException('Invalid bucket');
     }
 
+    if (!path || path.includes('..') || path.includes('//') || !/^[a-zA-Z0-9/_.\-]+$/.test(path)) {
+      throw new BadRequestException('Invalid path format');
+    }
+
     // Path format from generateFilePath: {prefix}/{resourceId}/{timestamp}-{random}.{ext}
     // We enforce that resourceId matches the authenticated user's ID.
     const parts = path.split('/');

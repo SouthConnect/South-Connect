@@ -39,6 +39,7 @@ export default function PrivateDiscussionPage() {
   const [content, setContent] = useState('')
   const [typingUsers, setTypingUsers] = useState<Record<string, string>>({})
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const readDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── fetch discussion metadata ──────────────────────────────────────────────
   const { data: privateDiscussions } = useQuery({
@@ -80,12 +81,14 @@ export default function PrivateDiscussionPage() {
     const handleNewMessage = (msg: Message) => {
       queryClient.setQueryData(['private-discussion-messages', id], (old: Message[] | undefined) => {
         if (!old) return [msg]
-        // Éviter les doublons (ex: expéditeur reçoit aussi l'event)
         if (old.some((m) => m.id === msg.id)) return old
         return [...old, msg]
       })
-      // Marquer comme lu si on est dans la conversation
-      apiJson(`/messages/private/${id}/read`, { method: 'POST' }).catch(() => {})
+      // Debounce /read — coalesce bursts of messages into a single API call
+      if (readDebounceTimer.current) clearTimeout(readDebounceTimer.current)
+      readDebounceTimer.current = setTimeout(() => {
+        apiJson(`/messages/private/${id}/read`, { method: 'POST' }).catch(() => {})
+      }, 500)
     }
 
     const handleTyping = ({ userId, name }: { userId: string; name: string }) => {
@@ -124,10 +127,11 @@ export default function PrivateDiscussionPage() {
     apiJson(`/messages/private/${id}/read`, { method: 'POST' }).catch(() => {})
   }, [id, user?.id])
 
-  // ── cleanup typing timer on unmount to prevent zombie socket.emit calls ───
+  // ── cleanup timers on unmount ──────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (typingTimer.current) clearTimeout(typingTimer.current)
+      if (readDebounceTimer.current) clearTimeout(readDebounceTimer.current)
     }
   }, [])
 

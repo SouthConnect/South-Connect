@@ -21,7 +21,7 @@ const logger = new Logger('RedisModule');
         const client = new Redis(url, {
           lazyConnect: true,
           enableOfflineQueue: false,
-          retryStrategy: () => null,
+          retryStrategy: (times: number) => Math.min(times * 200, 5000),
           connectTimeout: 3000,
         });
         client.on('error', () => {});

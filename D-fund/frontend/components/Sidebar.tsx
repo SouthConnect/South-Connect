@@ -159,9 +159,9 @@ export default function Sidebar() {
         <div className="px-4 py-5 flex items-center justify-between shrink-0">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-full bg-green-500 flex items-center justify-center shadow-sm shrink-0">
-              <span className="text-white font-black text-base leading-none">D</span>
+              <span className="text-white font-black text-base leading-none">S</span>
             </div>
-            <span className="text-base font-bold tracking-tight">D-fund</span>
+            <span className="text-base font-bold tracking-tight">SouthConnect</span>
           </Link>
           <button
             type="button"

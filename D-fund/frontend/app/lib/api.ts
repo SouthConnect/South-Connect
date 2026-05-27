@@ -54,7 +54,7 @@ const attemptTokenRefresh = (apiUrl: string): Promise<boolean> => {
     credentials: 'include',
   })
     .then((r) => {
-      if (r.status === 429) return true  // rate-limited on refresh → keep session alive
+      if (r.status === 429) return false // rate-limited: ne pas retenter
       return r.ok
     })
     .catch(() => false)

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { apiJson, uploadImage } from '@/app/lib/api'
+import { apiJson, uploadImage, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
 import { ArrowLeft, Save, Info, MapPin, Globe, DollarSign, Image as ImageIcon, X } from 'lucide-react'
@@ -89,8 +89,8 @@ export default function EditOpportunityPage() {
     onSuccess: () => {
       router.push(`/opportunities/${id}`)
     },
-    onError: (error: any) => {
-      setErrorMessage(error.message || 'Impossible de mettre à jour l\'opportunité.')
+    onError: (error: unknown) => {
+      setErrorMessage(getErrorMessage(error, "Impossible de mettre à jour l'opportunité."))
     },
   })
 
@@ -151,7 +151,7 @@ export default function EditOpportunityPage() {
       <div className="bg-white border-b border-gray-100 py-6 mb-8">
         <div className="container mx-auto px-4 flex items-center gap-4 max-w-5xl">
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push(`/opportunities/${id}`)}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />

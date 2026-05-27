@@ -19,16 +19,12 @@ function ProfilePageContent() {
   const { user: authUser, refreshUser } = useAuth()
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()
-  const [activeTab, setActiveTab] = useState<'info' | 'btoc' | 'btob'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'btoc' | 'btob'>(() => {
+    const tab = searchParams?.get('tab') as 'info' | 'btoc' | 'btob' | null
+    return tab ?? 'info'
+  })
 
   const isOnboarding = searchParams?.get('onboarding') === 'true'
-
-  useEffect(() => {
-    const tab = searchParams?.get('tab') as 'info' | 'btoc' | 'btob' | null
-    if (tab) {
-      setActiveTab(tab)
-    }
-  }, [searchParams])
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile', authUser?.id],
@@ -40,6 +36,7 @@ function ProfilePageContent() {
   const [companyLogoPreview, setCompanyLogoPreview] = useState<string | null>(null)
   const [headerImageFile, setHeaderImageFile] = useState<File | null>(null)
   const [headerImagePreview, setHeaderImagePreview] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
   const logoInputRef = useRef<HTMLInputElement | null>(null)
   const headerInputRef = useRef<HTMLInputElement | null>(null)
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
@@ -586,6 +583,7 @@ function ProfilePageContent() {
                 marketFocus: btobMarkets,
               }
 
+              setIsUploading(true)
               try {
                 if (companyLogoFile) {
                   const logoUrl = await uploadImage(
@@ -610,6 +608,8 @@ function ProfilePageContent() {
                 updateBtoBMutation.mutate(data)
               } catch (error: any) {
                 setUploadError(error?.message || 'Impossible d\'uploader les images')
+              } finally {
+                setIsUploading(false)
               }
             }}
           >
@@ -794,11 +794,11 @@ function ProfilePageContent() {
             <div className="flex justify-end pt-6 border-t border-gray-100">
               <button
                 type="submit"
-                disabled={updateBtoBMutation.isPending}
+                disabled={updateBtoBMutation.isPending || isUploading}
                 className="flex items-center gap-2 px-6 py-2 bg-[#3b49df] text-white rounded-lg font-bold hover:bg-[#2d3aba] transition-colors disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
-                {updateBtoBMutation.isPending ? 'Enregistrement…' : 'Sauvegarder'}
+                {isUploading ? 'Upload en cours…' : updateBtoBMutation.isPending ? 'Enregistrement…' : 'Sauvegarder'}
               </button>
             </div>
           </form>

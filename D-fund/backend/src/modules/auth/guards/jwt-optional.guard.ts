@@ -1,5 +1,7 @@
 import { Injectable, ExecutionContext } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Observable } from 'rxjs';
+import { lastValueFrom } from 'rxjs';
 
 /**
  * Optional JWT guard — does NOT throw if no token is present.
@@ -12,7 +14,11 @@ export class JwtOptionalGuard extends AuthGuard('jwt') {
     return user || undefined;
   }
 
-  canActivate(context: ExecutionContext) {
-    return super.canActivate(context);
+  canActivate(context: ExecutionContext): Promise<boolean> {
+    const result = super.canActivate(context);
+    const asPromise = result instanceof Observable
+      ? lastValueFrom(result)
+      : Promise.resolve(result as boolean | Promise<boolean>).then(v => v as boolean);
+    return asPromise.catch(() => true);
   }
 }

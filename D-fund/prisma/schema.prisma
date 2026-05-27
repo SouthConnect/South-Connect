@@ -1,10 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["fullTextSearch"]
   output          = "../backend/node_modules/.prisma/client"
+  previewFeatures = ["fullTextSearch"]
 }
 
 datasource db {
@@ -13,229 +10,169 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ============================================
-// CORE ENTITIES
-// ============================================
-
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  firstName     String?
-  lastName      String?
-  name          String?  // Full name (computed or stored)
-  password      String?  // Nullable if using OAuth only
-  role          UserRole @default(USER)
-  bio           String?
-  profilePic    String?
-  headerImage   String?
-  phone         String?
-  city          String?
-  country       String?
-  linkedinUrl   String?
-  website       String?
-  visibility    Boolean  @default(true)
-  googleId      String?  @unique
-  passwordResetToken  String?  @unique
-  passwordResetExpiry DateTime?
-  isEmailVerified     Boolean  @default(false)
-  emailVerificationToken String? @unique
+  id                           String                   @id @default(cuid())
+  email                        String                   @unique
+  firstName                    String?
+  lastName                     String?
+  name                         String?
+  password                     String?
+  role                         UserRole                 @default(USER)
+  bio                          String?
+  profilePic                   String?
+  headerImage                  String?
+  phone                        String?
+  city                         String?
+  country                      String?
+  linkedinUrl                  String?
+  website                      String?
+  visibility                   Boolean                  @default(true)
+  createdAt                    DateTime                 @default(now())
+  updatedAt                    DateTime                 @updatedAt
+  googleId                     String?                  @unique
+  passwordResetExpiry          DateTime?
+  passwordResetToken           String?                  @unique
+  emailVerificationToken       String?                  @unique
+  isEmailVerified              Boolean                  @default(false)
+  isBanned                     Boolean                  @default(false)
+  emailOptOut                  Boolean                  @default(false)
+  emailUnsubscribeToken        String?                  @unique
   emailVerificationTokenExpiry DateTime?
-  isBanned        Boolean  @default(false)
-  deletedAt               DateTime?  // Soft-delete: set on account deletion, null = active
-  emailOptOut             Boolean  @default(false)
-  emailUnsubscribeToken   String?  @unique
-  // Set on every password change so JWTs issued before this date are invalidated
-  passwordChangedAt       DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  btoCProfile    BtoCProfile?
-  btoBProfile    BtoBProfile?
-  opportunities  Opportunity[]
-  applications   Application[]
-  sentMessages   Message[]      @relation("SentMessages")
-  receivedMessages Message[]    @relation("ReceivedMessages")
-  privateDiscussions Participant[] @relation("PrivateDiscussionParticipants")
-  publicDiscussions PublicDiscussion[]
-  ratings        Rating[]
-  tasks          Task[]
-  notifications  Notification[]
-  referralCodes  ReferralCode[]
-  followers      Follow[]       @relation("Follower")
-  following      Follow[]       @relation("Following")
-  savedOpportunities SavedOpportunity[]
-  likedOpportunities LikedOpportunity[]
-  adminAuditLogs          AdminAuditLog[]
-  notificationPreferences NotificationPreferences?
+  passwordChangedAt            DateTime?
+  deletedAt                    DateTime?
+  adminAuditLogs               AdminAuditLog[]
+  applications                 Application[]
+  btoBProfile                  BtoBProfile?
+  btoCProfile                  BtoCProfile?
+  followers                    Follow[]                 @relation("Follower")
+  following                    Follow[]                 @relation("Following")
+  likedOpportunities           LikedOpportunity[]
+  receivedMessages             Message[]                @relation("ReceivedMessages")
+  sentMessages                 Message[]                @relation("SentMessages")
+  notificationPreferences      NotificationPreferences?
+  notifications                Notification[]
+  opportunities                Opportunity[]
+  privateDiscussions           Participant[]            @relation("PrivateDiscussionParticipants")
+  publicDiscussions            PublicDiscussion[]
+  ratings                      Rating[]
+  referralCodes                ReferralCode[]
+  savedOpportunities           SavedOpportunity[]
+  tasks                        Task[]
 
   @@index([email])
   @@map("users")
 }
 
-enum UserRole {
-  USER
-  ADMIN
-  // OWNER n'est pas un rôle séparé, mais un User qui a créé des opportunités
-  // On peut déterminer si un User est Owner en vérifiant s'il a des opportunities
-}
-
-// ============================================
-// PROFILES
-// ============================================
-
 model BtoCProfile {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Profile details
-  description     String?  @db.Text
-  tags            String[] // Skills, interests, etc.
-  industries      String[] // Industries of interest
-  marketFocus     String[] // Geographic markets
-  languages       String[]
-  businessSkills  String[]
-  techSkills      String[]
-  seniorityLevel  String?  // Junior, Mid, Senior, etc.
-  
-  // Metrics
-  opportunitiesCount     Int @default(0)
-  activeOpportunitiesCount Int @default(0)
-  followersCount         Int @default(0)
-  avgRating              Float?
-  roundedRating          Int?
-  profileSharedCount     Int @default(0)
-  
-  // Preferences
-  lookingForOpportunities Boolean @default(true)
-  remote                  Boolean?
-  countries               String[]
-  regions                 String[]
-  opportunityTypes        String[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                       String   @id @default(cuid())
+  userId                   String   @unique
+  description              String?
+  tags                     String[]
+  industries               String[]
+  marketFocus              String[]
+  languages                String[]
+  businessSkills           String[]
+  techSkills               String[]
+  seniorityLevel           String?
+  opportunitiesCount       Int      @default(0)
+  activeOpportunitiesCount Int      @default(0)
+  followersCount           Int      @default(0)
+  avgRating                Float?
+  roundedRating            Int?
+  profileSharedCount       Int      @default(0)
+  lookingForOpportunities  Boolean  @default(true)
+  remote                   Boolean?
+  countries                String[]
+  regions                  String[]
+  opportunityTypes         String[]
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("bto_c_profiles")
 }
 
 model BtoBProfile {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Company details
-  companyName     String
-  logo            String?
-  headerImage     String?
-  punchline       String?
-  description     String?  @db.Text
-  longDescription String?  @db.Text
-  website         String?
-  linkedinUrl     String?
-  city            String?
-  country         String?
-  foundationDate  DateTime?
-  
-  // Business details
-  developmentStage String? // Ideation, MVP, Growth, Scale
-  industries       String[]
-  marketFocus      String[]
-  
-  // Metrics
-  followersCount      Int @default(0)
-  opportunitiesCount  Int @default(0)
-  profileSharedCount  Int @default(0)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  companyName        String
+  logo               String?
+  headerImage        String?
+  punchline          String?
+  description        String?
+  longDescription    String?
+  website            String?
+  linkedinUrl        String?
+  city               String?
+  country            String?
+  foundationDate     DateTime?
+  developmentStage   String?
+  industries         String[]
+  marketFocus        String[]
+  followersCount     Int       @default(0)
+  opportunitiesCount Int       @default(0)
+  profileSharedCount Int       @default(0)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("bto_b_profiles")
 }
 
-// ============================================
-// OPPORTUNITIES
-// ============================================
-
 model Opportunity {
-  id              String   @id @default(cuid())
-  name            String
-  punchline       String?
-  description     String?   @db.Text
-  type            OpportunityType
-  featureId       String?
-  feature         Feature?  @relation(fields: [featureId], references: [id], onDelete: SetNull)
-  status          OpportunityStatus @default(DRAFT)
-  
-  // Owner
-  ownerId         String
-  owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  
-  // Location & Details
-  city            String?
-  country         String?
-  region          String?
-  remote          Boolean?
-  startDate       DateTime?
-  endDate         DateTime?
-  expirationDate  DateTime?
-  
-  // Application Process
+  id                   String              @id @default(cuid())
+  name                 String
+  punchline            String?
+  description          String?
+  type                 OpportunityType
+  featureId            String?
+  status               OpportunityStatus   @default(DRAFT)
+  ownerId              String
+  city                 String?
+  country              String?
+  region               String?
+  remote               Boolean?
+  startDate            DateTime?
+  endDate              DateTime?
+  expirationDate       DateTime?
   applicationProcessId String?
-  applicationProcess  ApplicationProcess? @relation(fields: [applicationProcessId], references: [id], onDelete: SetNull)
-  needToCheckApplicant Boolean @default(false)
-  
-  // Media
-  image           String?
-  backgroundImage String?
-  file            String? // Attachments
-  
-  // Additional Info
-  url             String?
-  tags            String[]
-  industries      String[]
-  markets         String[]
-  
-  // Pricing (for paid opportunities)
-  price           Float?
-  currency        String?
-  pricingUnit     String? // per hour, per month, etc.
-  pricingDetails  String? @db.Text
-  
-  // AI Generated Content
-  aiGenerated     Boolean @default(false)
-  aiPrompt        String? @db.Text
-  aiOutput        String? @db.Text
-  
-  // Metrics
-  applicationsCount   Int @default(0)
-  likesCount          Int @default(0)
-  messagesCount       Int @default(0)
-  savedCount          Int @default(0)
-  sharedCount         Int @default(0)
-  viewsCount          Int @default(0)
-  // Pre-computed trending score: updated hourly by cron, used for fast ORDER BY without raw SQL
-  trendingScore       Float @default(0)
-  
-  // Premium Features
-  boosted            Boolean @default(false)
-  boostedUntil       DateTime?
-  qualified          Boolean @default(false)
-  
-  // Referral
-  referralAvailable  Boolean @default(false)
-  referralAmount     Float?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  applications   Application[]
-  publicDiscussions PublicDiscussion[]
-  referralCodes  ReferralCode[]
-  savedBy        SavedOpportunity[]
-  likedBy        LikedOpportunity[]
+  needToCheckApplicant Boolean             @default(false)
+  image                String?
+  backgroundImage      String?
+  file                 String?
+  url                  String?
+  tags                 String[]
+  industries           String[]
+  markets              String[]
+  price                Decimal?            @db.Decimal(12, 2)
+  currency             String?
+  pricingUnit          String?
+  pricingDetails       String?
+  aiGenerated          Boolean             @default(false)
+  aiPrompt             String?
+  aiOutput             String?
+  applicationsCount    Int                 @default(0)
+  likesCount           Int                 @default(0)
+  messagesCount        Int                 @default(0)
+  savedCount           Int                 @default(0)
+  sharedCount          Int                 @default(0)
+  viewsCount           Int                 @default(0)
+  boosted              Boolean             @default(false)
+  boostedUntil         DateTime?
+  qualified            Boolean             @default(false)
+  referralAvailable    Boolean             @default(false)
+  referralAmount       Decimal?            @db.Decimal(12, 2)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  trendingScore        Float               @default(0)
+  applications         Application[]
+  likedBy              LikedOpportunity[]
+  applicationProcess   ApplicationProcess? @relation(fields: [applicationProcessId], references: [id])
+  feature              Feature?            @relation(fields: [featureId], references: [id])
+  owner                User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  publicDiscussions    PublicDiscussion[]
+  referralCodes        ReferralCode[]
+  savedBy              SavedOpportunity[]
 
   @@index([ownerId])
   @@index([ownerId, status])
@@ -247,6 +184,316 @@ model Opportunity {
   @@index([boostedUntil])
   @@index([name])
   @@map("opportunities")
+}
+
+model ApplicationProcess {
+  id                   String        @id @default(cuid())
+  name                 String        @unique
+  description          String?
+  candidateDescription String?
+  opportunities        Opportunity[]
+
+  @@map("application_processes")
+}
+
+model Application {
+  id               String           @id @default(cuid())
+  opportunityId    String
+  candidateId      String
+  title            String?
+  goalLetter       String?
+  submissionDate   DateTime?
+  stage            ApplicationStage @default(DRAFT)
+  isClosed         Boolean          @default(false)
+  isDraft          Boolean          @default(true)
+  reviewDate       DateTime?
+  reviewFeedback   String?
+  feedbackTitle    String?
+  referralCodeUsed String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  externalLink     String?
+  externalLink2    String?
+  attachmentUrl    String?
+  deletedAt        DateTime?
+  candidate        User             @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  opportunity      Opportunity      @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([opportunityId, candidateId])
+  @@index([candidateId])
+  @@index([opportunityId])
+  @@index([opportunityId, stage])
+  @@index([stage])
+  @@index([createdAt])
+  @@map("applications")
+}
+
+model Message {
+  id                  String             @id @default(cuid())
+  content             String
+  senderId            String
+  receiverId          String?
+  privateDiscussionId String?
+  publicDiscussionId  String?
+  createdAt           DateTime           @default(now())
+  privateDiscussion   PrivateDiscussion? @relation(fields: [privateDiscussionId], references: [id], onDelete: Cascade)
+  publicDiscussion    PublicDiscussion?  @relation(fields: [publicDiscussionId], references: [id], onDelete: Cascade)
+  receiver            User?              @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender              User               @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([senderId, createdAt(sort: Desc)])
+  @@index([receiverId])
+  @@index([privateDiscussionId])
+  @@index([publicDiscussionId])
+  @@map("messages")
+}
+
+model PrivateDiscussion {
+  id            String        @id @default(cuid())
+  lastMessageAt DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  messages      Message[]
+  participants  Participant[] @relation("PrivateDiscussionParticipants")
+
+  @@index([lastMessageAt])
+  @@map("private_discussions")
+}
+
+model Participant {
+  id           String            @id @default(cuid())
+  userId       String
+  discussionId String
+  joinedAt     DateTime          @default(now())
+  unreadCount  Int               @default(0)
+  discussion   PrivateDiscussion @relation("PrivateDiscussionParticipants", fields: [discussionId], references: [id], onDelete: Cascade)
+  user         User              @relation("PrivateDiscussionParticipants", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, discussionId])
+  @@index([userId])
+  @@index([discussionId])
+  @@map("participants")
+}
+
+model PublicDiscussion {
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  image         String?
+  type          DiscussionType @default(OPEN_FORUM)
+  ownerId       String
+  opportunityId String?
+  messagesCount Int            @default(0)
+  membersCount  Int            @default(0)
+  likesCount    Int            @default(0)
+  lastMessageAt DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  messages      Message[]
+  opportunity   Opportunity?   @relation(fields: [opportunityId], references: [id])
+  owner         User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([opportunityId])
+  @@index([type])
+  @@map("public_discussions")
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model SavedOpportunity {
+  id            String      @id @default(cuid())
+  userId        String
+  opportunityId String
+  createdAt     DateTime    @default(now())
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, opportunityId])
+  @@index([userId])
+  @@index([opportunityId])
+  @@map("saved_opportunities")
+}
+
+model LikedOpportunity {
+  id            String      @id @default(cuid())
+  userId        String
+  opportunityId String
+  createdAt     DateTime    @default(now())
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, opportunityId])
+  @@index([userId])
+  @@index([opportunityId])
+  @@map("liked_opportunities")
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  itemId    String
+  userId    String
+  rating    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, userId])
+  @@index([itemId])
+  @@index([userId])
+  @@map("ratings")
+}
+
+model Task {
+  id              String     @id @default(cuid())
+  userId          String
+  relatedItemId   String?
+  relatedItemType String?
+  name            String
+  description     String?
+  status          TaskStatus @default(TODO)
+  dueDate         DateTime?
+  url             String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("tasks")
+}
+
+model ReferralCode {
+  id              String         @id @default(cuid())
+  code            String         @unique
+  ownerId         String
+  opportunityId   String?
+  type            ReferralType?
+  status          ReferralStatus @default(PENDING)
+  amount          Decimal?       @db.Decimal(12, 2)
+  usesCount       Int            @default(0)
+  potentialAmount Decimal?       @db.Decimal(12, 2) @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  opportunity     Opportunity?   @relation(fields: [opportunityId], references: [id])
+  owner           User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([ownerId, status])
+  @@index([ownerId, createdAt(sort: Desc)])
+  @@index([code])
+  @@index([opportunityId])
+  @@index([createdAt])
+  @@map("referral_codes")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String?
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([userId, isRead, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model Industry {
+  id                 String  @id @default(cuid())
+  name               String  @unique
+  description        String?
+  opportunitiesCount Int     @default(0)
+
+  @@map("industries")
+}
+
+model Market {
+  id    String  @id @default(cuid())
+  name  String  @unique
+  image String?
+
+  @@map("markets")
+}
+
+model Feature {
+  id                  String        @id @default(cuid())
+  name                String        @unique
+  description         String?
+  category            String?
+  order               Int?
+  aiPrompt            String?
+  seekerName          String?
+  creatorName         String?
+  seekerScenario      String?
+  creatorScenario     String?
+  displayType         String?
+  noApplicationNeeded Boolean       @default(false)
+  opportunitiesCount  Int           @default(0)
+  opportunities       Opportunity[]
+
+  @@map("features")
+}
+
+model AdminAuditLog {
+  id         String   @id @default(cuid())
+  adminId    String?
+  action     String
+  targetId   String?
+  targetType String?
+  details    String?
+  createdAt  DateTime @default(now())
+  admin      User?    @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([adminId])
+  @@index([createdAt])
+  @@index([targetId, targetType])
+  @@map("admin_audit_logs")
+}
+
+model NotificationPreferences {
+  id                        String  @id @default(cuid())
+  userId                    String  @unique
+  emailApplicationSubmitted Boolean @default(true)
+  emailApplicationReviewed  Boolean @default(true)
+  emailApplicationAccepted  Boolean @default(true)
+  emailOpportunityApproved  Boolean @default(true)
+  emailNewMessage           Boolean @default(true)
+  emailNewFollower          Boolean @default(true)
+  inAppApplicationSubmitted Boolean @default(true)
+  inAppApplicationReviewed  Boolean @default(true)
+  inAppApplicationAccepted  Boolean @default(true)
+  inAppOpportunityApproved  Boolean @default(true)
+  inAppNewMessage           Boolean @default(true)
+  inAppNewFollower          Boolean @default(true)
+  emailOpportunityRejected  Boolean @default(true)
+  inAppOpportunityRejected  Boolean @default(true)
+  user                      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+enum UserRole {
+  USER
+  ADMIN
 }
 
 enum OpportunityType {
@@ -279,67 +526,6 @@ enum OpportunityStatus {
   CLOSED
 }
 
-model ApplicationProcess {
-  id              String   @id @default(cuid())
-  name            String   @unique
-  description     String?  @db.Text
-  candidateDescription String? @db.Text
-  
-  opportunities   Opportunity[]
-  
-  @@map("application_processes")
-}
-
-// ============================================
-// APPLICATIONS
-// ============================================
-
-model Application {
-  id              String   @id @default(cuid())
-  opportunityId   String
-  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  
-  candidateId     String
-  candidate       User     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  
-  // Application Content
-  title           String?
-  goalLetter      String?  @db.Text
-  externalLink    String?
-  externalLink2   String?
-  submissionDate  DateTime?
-  
-  // Status & Workflow
-  stage           ApplicationStage @default(DRAFT)
-  isClosed        Boolean  @default(false)
-  isDraft         Boolean  @default(true)
-  
-  // Owner Review
-  reviewDate      DateTime?
-  reviewFeedback  String?  @db.Text
-  feedbackTitle   String?
-  
-  // Referral
-  referralCodeUsed String?
-
-  // Attachment (single file URL from Supabase storage)
-  attachmentUrl String?
-
-  // Soft-delete: candidate withdrawal before owner review
-  deletedAt     DateTime?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@unique([opportunityId, candidateId])
-  @@index([candidateId])
-  @@index([opportunityId])
-  @@index([opportunityId, stage])
-  @@index([stage])
-  @@index([createdAt])
-  @@map("applications")
-}
-
 enum ApplicationStage {
   DRAFT
   SUBMITTED
@@ -349,188 +535,9 @@ enum ApplicationStage {
   ARCHIVED
 }
 
-// ============================================
-// MESSAGING
-// ============================================
-
-model Message {
-  id              String   @id @default(cuid())
-  content         String   @db.Text
-  
-  senderId        String
-  sender          User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  
-  receiverId      String?
-  receiver        User?    @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
-  
-  // Discussion context
-  privateDiscussionId String?
-  privateDiscussion   PrivateDiscussion? @relation(fields: [privateDiscussionId], references: [id], onDelete: Cascade)
-  
-  publicDiscussionId String?
-  publicDiscussion    PublicDiscussion? @relation(fields: [publicDiscussionId], references: [id], onDelete: Cascade)
-  
-  createdAt     DateTime @default(now())
-
-  @@index([senderId])
-  @@index([senderId, createdAt])
-  @@index([receiverId])
-  @@index([privateDiscussionId])
-  @@index([publicDiscussionId])
-  @@map("messages")
-}
-
-model PrivateDiscussion {
-  id              String   @id @default(cuid())
-  participants    Participant[] @relation("PrivateDiscussionParticipants")
-  messages        Message[]
-  lastMessageAt   DateTime?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@map("private_discussions")
-}
-
-model Participant {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation("PrivateDiscussionParticipants", fields: [userId], references: [id], onDelete: Cascade)
-  discussionId    String
-  discussion      PrivateDiscussion @relation("PrivateDiscussionParticipants", fields: [discussionId], references: [id], onDelete: Cascade)
-  unreadCount     Int      @default(0)
-
-  joinedAt        DateTime @default(now())
-
-  @@unique([userId, discussionId])
-  @@index([userId])
-  @@index([discussionId])
-  @@map("participants")
-}
-
-model PublicDiscussion {
-  id              String   @id @default(cuid())
-  title           String
-  description     String?  @db.Text
-  image           String?
-  type            DiscussionType @default(OPEN_FORUM)
-  
-  ownerId         String
-  owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  
-  opportunityId   String?
-  opportunity     Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-  
-  messages        Message[]
-  messagesCount   Int      @default(0)
-  membersCount    Int      @default(0)
-  likesCount      Int      @default(0)
-  lastMessageAt   DateTime?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([ownerId])
-  @@index([opportunityId])
-  @@index([type])
-  @@map("public_discussions")
-}
-
 enum DiscussionType {
   OPEN_FORUM
   OPPORTUNITY_RELATED
-}
-
-// ============================================
-// SOCIAL FEATURES
-// ============================================
-
-model Follow {
-  id              String   @id @default(cuid())
-  followerId      String
-  follower        User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
-  followingId     String
-  following       User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
-  
-  createdAt     DateTime @default(now())
-
-  @@unique([followerId, followingId])
-  @@index([followerId])
-  @@index([followingId])
-  @@map("follows")
-}
-
-model SavedOpportunity {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  opportunityId   String
-  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  
-  createdAt     DateTime @default(now())
-
-  @@unique([userId, opportunityId])
-  @@index([userId])
-  @@index([opportunityId])
-  @@map("saved_opportunities")
-}
-
-model LikedOpportunity {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  opportunityId   String
-  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  
-  createdAt     DateTime @default(now())
-
-  @@unique([userId, opportunityId])
-  @@index([userId])
-  @@index([opportunityId])
-  @@map("liked_opportunities")
-}
-
-model Rating {
-  id              String   @id @default(cuid())
-  itemId          String   // Can be opportunity, user, etc.
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rating          Int      // 1-5 typically
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@unique([itemId, userId])
-  @@index([itemId])
-  @@index([userId])
-  @@map("ratings")
-}
-
-// ============================================
-// TASKS
-// ============================================
-
-model Task {
-  id              String   @id @default(cuid())
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Soft reference — no FK constraint (item may be deleted independently)
-  relatedItemId   String?
-  relatedItemType String?  // "opportunity" | "application"
-  
-  name            String
-  description     String?  @db.Text
-  status          TaskStatus @default(TODO)
-  dueDate         DateTime?
-  url             String?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([userId])
-  @@index([status])
-  @@map("tasks")
 }
 
 enum TaskStatus {
@@ -538,41 +545,6 @@ enum TaskStatus {
   WORKING_ON_IT
   IDEA
   DONE
-}
-
-// ============================================
-// REFERRAL SYSTEM
-// ============================================
-
-model ReferralCode {
-  id              String   @id @default(cuid())
-  code            String   @unique
-  ownerId         String
-  owner           User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  
-  // Context
-  opportunityId   String?
-  opportunity     Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-  
-  // Referral Details
-  type            ReferralType?
-  status          ReferralStatus @default(PENDING)
-  amount          Float?
-  
-  // Metrics
-  usesCount       Int      @default(0)
-  potentialAmount Float?   @default(0)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([ownerId])
-  @@index([ownerId, status])
-  @@index([ownerId, createdAt])
-  @@index([code])
-  @@index([opportunityId])
-  @@index([createdAt])
-  @@map("referral_codes")
 }
 
 enum ReferralType {
@@ -586,126 +558,4 @@ enum ReferralStatus {
   ACTIVE
   COMPLETED
   EXPIRED
-}
-
-// ============================================
-// IN-APP NOTIFICATIONS
-// ============================================
-
-model Notification {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  type        String   // e.g. "APPLICATION_REVIEWED", "NEW_MESSAGE", "APPLICATION_RECEIVED"
-  title       String
-  body        String?  @db.Text
-  link        String?  // Frontend route to navigate to
-
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-
-  @@index([userId, isRead])
-  @@index([userId, createdAt])
-  @@index([userId, isRead, createdAt])
-  @@map("notifications")
-}
-
-// ============================================
-// REFERENCE DATA
-// ============================================
-
-model Industry {
-  id              String   @id @default(cuid())
-  name            String   @unique
-  description     String?  @db.Text
-  opportunitiesCount Int    @default(0)
-  
-  @@map("industries")
-}
-
-model Market {
-  id              String   @id @default(cuid())
-  name            String   @unique
-  image           String?
-  
-  @@map("markets")
-}
-
-model Feature {
-  id              String   @id @default(cuid())
-  name            String   @unique
-  description     String?  @db.Text
-  category        String?
-  order           Int?
-
-  // AI Configuration
-  aiPrompt        String?  @db.Text
-  seekerName      String?
-  creatorName     String?
-  seekerScenario  String?  @db.Text
-  creatorScenario String? @db.Text
-
-  // Settings
-  displayType     String?
-  noApplicationNeeded Boolean @default(false)
-
-  opportunitiesCount Int   @default(0)
-
-  opportunities  Opportunity[]
-
-  @@map("features")
-}
-
-// ============================================
-// ADMIN AUDIT LOG
-// ============================================
-
-model AdminAuditLog {
-  id          String   @id @default(cuid())
-  adminId     String
-  admin       User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
-
-  action      String   // e.g. "BAN_USER", "APPROVE_OPPORTUNITY", "CHANGE_ROLE"
-  targetId    String?
-  targetType  String?  // "user", "opportunity", etc.
-  details     String?  @db.Text
-
-  createdAt   DateTime @default(now())
-
-  @@index([adminId])
-  @@index([createdAt])
-  @@index([targetId, targetType])
-  @@map("admin_audit_logs")
-}
-
-// ============================================
-// NOTIFICATION PREFERENCES
-// ============================================
-
-model NotificationPreferences {
-  id     String @id @default(cuid())
-  userId String @unique
-
-  // Email preferences — global emailOptOut on User takes precedence
-  emailApplicationSubmitted Boolean @default(true)
-  emailApplicationReviewed  Boolean @default(true)
-  emailApplicationAccepted  Boolean @default(true)
-  emailOpportunityApproved  Boolean @default(true)
-  emailOpportunityRejected  Boolean @default(true)
-  emailNewMessage           Boolean @default(true)
-  emailNewFollower          Boolean @default(true)
-
-  // In-app notification preferences
-  inAppApplicationSubmitted Boolean @default(true)
-  inAppApplicationReviewed  Boolean @default(true)
-  inAppApplicationAccepted  Boolean @default(true)
-  inAppOpportunityApproved  Boolean @default(true)
-  inAppOpportunityRejected  Boolean @default(true)
-  inAppNewMessage           Boolean @default(true)
-  inAppNewFollower          Boolean @default(true)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("notification_preferences")
 }

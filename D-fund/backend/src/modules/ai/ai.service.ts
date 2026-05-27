@@ -73,8 +73,9 @@ JSON schema (all fields required):
   "tags": string[]       // 3 to 5 relevant keyword tags (lowercase)
 }`;
 
+    const safeContext = context.replace(/[<>{}`]/g, '').slice(0, 1000).trim();
     const userPrompt = `Opportunity type: ${typeLabel}
-User context: ${context}
+User context: ${safeContext}
 
 Write a compelling listing for this opportunity.`;
 

@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtDecode } from 'jwt-decode';
+import { jwtVerify } from 'jose';
 
 /**
  * Server-side route protection.
  *
- * Protected paths require a valid access_token cookie.
- * Admin paths additionally require the decoded JWT to carry role=ADMIN —
- * this is a defence-in-depth check; the backend always enforces roles too.
+ * Protected paths require a valid, signature-verified access_token cookie.
+ * Admin paths additionally require role=ADMIN in the JWT payload.
+ *
+ * Unrecognised paths not explicitly listed as public are blocked by default
+ * (fail-closed) to prevent accidental exposure of new routes.
  */
 
 const PROTECTED_PREFIXES = [
@@ -48,43 +50,50 @@ interface JwtPayload {
   exp?: number;
 }
 
-function decodeToken(token: string): JwtPayload | null {
+async function verifyToken(token: string): Promise<JwtPayload | null> {
   try {
-    return jwtDecode<JwtPayload>(token);
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return null;
+    const key = new TextEncoder().encode(secret);
+    const { payload } = await jwtVerify(token, key);
+    return payload as JwtPayload;
   } catch {
     return null;
   }
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)) || pathname === '/') {
+  // Root is always public
+  if (pathname === '/') return NextResponse.next();
+
+  // Explicitly public paths — no token needed
+  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
+  // Unknown paths not in PROTECTED list: also check token (fail-closed)
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
-  if (!isProtected) return NextResponse.next();
 
   const tokenCookie = request.cookies.get('access_token');
   if (!tokenCookie?.value) {
+    if (!isProtected) return NextResponse.next(); // static assets, etc.
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Decode the JWT (no verification — edge runtime can't import crypto easily;
-  // the backend always verifies the signature on every API call).
-  const payload = decodeToken(tokenCookie.value);
+  const payload = await verifyToken(tokenCookie.value);
 
-  // Token is present but malformed / expired — send to login
-  if (!payload || (payload.exp && payload.exp * 1000 < Date.now())) {
+  if (!payload) {
+    if (!isProtected) return NextResponse.next();
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Admin routes: require ADMIN role
+  // Admin routes require ADMIN role
   if (pathname.startsWith('/admin') && payload.role !== 'ADMIN') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }

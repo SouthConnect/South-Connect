@@ -26,6 +26,7 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState('PENDING')
 
   const isAdmin = user?.role === 'ADMIN'
+  const [confirmPending, setConfirmPending] = useState<{ type: string; id: string } | null>(null)
 
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
@@ -405,13 +406,16 @@ export default function AdminPage() {
                           {/* Delete */}
                           <button
                             onClick={() => {
-                              if (confirm(`Supprimer l'utilisateur "${u.name || u.email}" ? Cette action est irréversible.`)) {
+                              if (confirmPending?.id === u.id) {
                                 deleteUserMutation.mutate(u.id)
+                                setConfirmPending(null)
+                              } else {
+                                setConfirmPending({ type: 'user', id: u.id })
                               }
                             }}
                             disabled={deleteUserMutation.isPending}
-                            title="Supprimer le compte"
-                            className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-50"
+                            title={confirmPending?.id === u.id ? 'Cliquer pour confirmer la suppression' : 'Supprimer le compte'}
+                            className={`p-1.5 rounded-lg disabled:opacity-50 transition-colors ${confirmPending?.id === u.id ? 'bg-red-500 text-white' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -477,10 +481,16 @@ export default function AdminPage() {
                         </div>
                         <button
                           onClick={() => {
-                            if (confirm(`Supprimer le secteur "${ind.name}" ?`)) deleteIndustryMutation.mutate(ind.id)
+                            if (confirmPending?.id === ind.id) {
+                              deleteIndustryMutation.mutate(ind.id)
+                              setConfirmPending(null)
+                            } else {
+                              setConfirmPending({ type: 'industry', id: ind.id })
+                            }
                           }}
                           disabled={deleteIndustryMutation.isPending}
-                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-50"
+                          title={confirmPending?.id === ind.id ? 'Cliquer pour confirmer' : 'Supprimer'}
+                          className={`p-1.5 rounded-lg disabled:opacity-50 transition-colors ${confirmPending?.id === ind.id ? 'bg-red-500 text-white' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -537,10 +547,16 @@ export default function AdminPage() {
                         <span className="text-sm font-medium text-gray-900">{mkt.name}</span>
                         <button
                           onClick={() => {
-                            if (confirm(`Supprimer le marché "${mkt.name}" ?`)) deleteMarketMutation.mutate(mkt.id)
+                            if (confirmPending?.id === mkt.id) {
+                              deleteMarketMutation.mutate(mkt.id)
+                              setConfirmPending(null)
+                            } else {
+                              setConfirmPending({ type: 'market', id: mkt.id })
+                            }
                           }}
                           disabled={deleteMarketMutation.isPending}
-                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-50"
+                          title={confirmPending?.id === mkt.id ? 'Cliquer pour confirmer' : 'Supprimer'}
+                          className={`p-1.5 rounded-lg disabled:opacity-50 transition-colors ${confirmPending?.id === mkt.id ? 'bg-red-500 text-white' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -611,10 +627,16 @@ export default function AdminPage() {
                         </div>
                         <button
                           onClick={() => {
-                            if (confirm(`Supprimer la fonctionnalité "${feat.name}" ?`)) deleteFeatureMutation.mutate(feat.id)
+                            if (confirmPending?.id === feat.id) {
+                              deleteFeatureMutation.mutate(feat.id)
+                              setConfirmPending(null)
+                            } else {
+                              setConfirmPending({ type: 'feature', id: feat.id })
+                            }
                           }}
                           disabled={deleteFeatureMutation.isPending}
-                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 disabled:opacity-50"
+                          title={confirmPending?.id === feat.id ? 'Cliquer pour confirmer' : 'Supprimer'}
+                          className={`p-1.5 rounded-lg disabled:opacity-50 transition-colors ${confirmPending?.id === feat.id ? 'bg-red-500 text-white' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

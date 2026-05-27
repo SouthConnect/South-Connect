@@ -105,9 +105,39 @@ export class ApplicationsService {
   /**
    * Creates a new application in DRAFT stage.
    *
-   * @throws ConflictException when the candidate has already applied to the same opportunity.
+   * If the candidate previously withdrew (soft-deleted), restores that record
+   * rather than creating a duplicate, so the DB unique constraint is respected.
+   *
+   * @throws ConflictException when an active (non-withdrawn) application already exists.
    */
   async create(candidateId: string, dto: CreateApplicationDto) {
+    const existing = await this.prisma.application.findFirst({
+      where: { opportunityId: dto.opportunityId, candidateId },
+    });
+
+    if (existing) {
+      if (!existing.deletedAt) {
+        throw new ConflictException('Application already exists');
+      }
+      // User previously withdrew — restore and reset the record
+      return this.prisma.application.update({
+        where: { id: existing.id },
+        data: {
+          deletedAt: null,
+          stage: ApplicationStage.DRAFT,
+          isDraft: true,
+          isClosed: false,
+          submissionDate: null,
+          reviewDate: null,
+          reviewFeedback: null,
+          feedbackTitle: null,
+          title: dto.title ?? existing.title,
+          goalLetter: dto.goalLetter ?? existing.goalLetter,
+          referralCodeUsed: dto.referralCodeUsed ?? null,
+        },
+      });
+    }
+
     try {
       return await this.prisma.application.create({
         data: {
@@ -207,10 +237,12 @@ export class ApplicationsService {
       }
     }
 
-    let updated: Awaited<ReturnType<typeof this.prisma.application.update>>;
+    // Atomic update: le filtre stage:DRAFT dans le WHERE garantit qu'aucune double soumission
+    // simultanée ne passe (race condition fix).
+    let updatedCount: { count: number };
     try {
-      updated = await this.prisma.application.update({
-        where: { id },
+      updatedCount = await this.prisma.application.updateMany({
+        where: { id, candidateId, stage: ApplicationStage.DRAFT },
         data: {
           stage: ApplicationStage.SUBMITTED,
           isDraft: false,
@@ -223,6 +255,12 @@ export class ApplicationsService {
       }
       throw err;
     }
+    if (updatedCount.count === 0) {
+      throw new BadRequestException('Only draft applications can be submitted');
+    }
+
+    const updated = await this.prisma.application.findUnique({ where: { id } });
+    if (!updated) throw new NotFoundException('Application not found after update');
 
     // Counters dénormalisés — dans une transaction groupée pour éviter la divergence.
     // Non-bloquant (pas d'await) : le cron nightly resynce si ça échoue.
@@ -278,6 +316,7 @@ export class ApplicationsService {
     });
 
     if (!application) throw new NotFoundException('Application not found');
+    if (!application.opportunity) throw new NotFoundException('Opportunity not found');
     if (application.opportunity.ownerId !== ownerId) {
       throw new ForbiddenException('You cannot review this application');
     }
@@ -361,7 +400,7 @@ export class ApplicationsService {
    * @throws BadRequestException when the application has already been reviewed.
    */
   async withdraw(id: string, candidateId: string) {
-    const application = await this.prisma.application.findUnique({
+    const application = await this.prisma.application.findFirst({
       where: { id, deletedAt: null },
     });
 
@@ -381,18 +420,26 @@ export class ApplicationsService {
     // Only decrement counter if the application was already submitted (counted)
     const wasCounted = application.stage !== ApplicationStage.DRAFT;
 
-    await this.prisma.$transaction([
-      this.prisma.application.update({
-        where: { id },
-        data: { deletedAt: new Date() },
-      }),
-      ...(wasCounted
-        ? [this.prisma.opportunity.updateMany({
-            where: { id: application.opportunityId },
-            data: { applicationsCount: { decrement: 1 } },
-          })]
-        : []),
-    ]);
+    // Atomic soft-delete: deletedAt: null dans le filtre garantit qu'un double retrait simultané
+    // ne décrémentera le compteur qu'une seule fois (race condition fix).
+    const updateResult = await this.prisma.application.updateMany({
+      where: { id, candidateId, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    if (updateResult.count === 0) {
+      // Soit déjà retiré, soit pas le bon owner
+      const existing = await this.prisma.application.findFirst({ where: { id } });
+      if (!existing) throw new NotFoundException('Application not found');
+      if (existing.candidateId !== candidateId) throw new ForbiddenException('You cannot withdraw this application');
+      throw new ConflictException('Application already withdrawn');
+    }
+
+    if (wasCounted) {
+      this.prisma.opportunity.updateMany({
+        where: { id: application.opportunityId },
+        data: { applicationsCount: { decrement: 1 } },
+      }).catch((err) => this.logger.error('Counter decrement failed on withdraw', err));
+    }
 
     return { message: 'Application withdrawn successfully' };
   }

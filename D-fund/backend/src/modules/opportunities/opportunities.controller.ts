@@ -144,6 +144,7 @@ export class OpportunitiesController {
   /** Records a share action for an opportunity (increments sharedCount). */
   @Post(':id/share')
   @UseGuards(JwtOptionalGuard)
+  @Throttle({ strict: {} })
   share(@Param('id', ParseIdPipe) id: string) {
     return this.opportunitiesService.incrementShares(id);
   }

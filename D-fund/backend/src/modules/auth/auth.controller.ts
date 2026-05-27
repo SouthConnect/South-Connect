@@ -70,8 +70,14 @@ export class AuthController {
 
   /** Clears both auth cookies (used on logout). */
   private clearAuthCookies(res: Response) {
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token', { path: '/api/v1/auth/refresh' });
+    const isProd = this.config.get<string>('NODE_ENV') === 'production';
+    const base = {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: (isProd ? 'strict' : 'lax') as 'strict' | 'lax',
+    };
+    res.clearCookie('access_token', base);
+    res.clearCookie('refresh_token', { ...base, path: '/api/v1/auth/refresh' });
   }
 
   // ─── Registration & Login ────────────────────────────────────────────────────
@@ -179,8 +185,12 @@ export class AuthController {
     // email/password auth. Redirect to login with an explicit error code so
     // the user can connect their account intentionally.
     if (req.user?.oauthError) {
-      return res.redirect(`${frontendUrl}/login?error=${req.user.oauthError}`);
+      const safeError = encodeURIComponent(String(req.user.oauthError).slice(0, 50));
+      return res.redirect(`${frontendUrl}/login?error=${safeError}`);
     }
+
+    if (req.user?.isBanned) return res.redirect(`${frontendUrl}/login?error=account_suspended`);
+    if (req.user?.deletedAt) return res.redirect(`${frontendUrl}/login?error=account_deleted`);
 
     const { accessToken, refreshToken } = this.authService.generateTokens(
       req.user.id,

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { apiCall } from '@/app/lib/api'
 import type { AuthUser } from '@/app/lib/types'
@@ -31,32 +31,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** Minimum ms between two successive /auth/me calls — matches staleTime. */
   const REFRESH_STALE_MS = 60_000
 
-  const refreshUser = async (force = false) => {
-    // Prevent concurrent calls (mount + visibilitychange firing at the same time)
+  const refreshUser = useCallback(async (force = false) => {
     if (isRefreshing.current) return
-    // Skip if data is still fresh — avoids an extra /auth/me on every tab switch
     if (!force && Date.now() - lastRefreshAt.current < REFRESH_STALE_MS) return
     isRefreshing.current = true
     try {
-      // apiCall handles silent token refresh on 401 internally before returning.
       const response = await apiCall('/auth/me')
       if (response.ok) {
         setUser(await response.json() as AuthUser)
         lastRefreshAt.current = Date.now()
       } else if (response.status === 401) {
-        // 401 = not authenticated (token absent/expired) → clear session.
-        // 403 = authenticated but email not verified or action forbidden → keep session.
         setUser(null)
       }
-      // 5xx / network errors: keep the current user state so a momentary backend
-      // hiccup does not log the user out.
     } catch {
-      // Network-level error (offline, timeout, CORS) — preserve current state.
+      // Network-level error — preserve current state.
     } finally {
       isRefreshing.current = false
       setLoading(false)
     }
-  }
+  }, []) // deps: only refs and stable setters — intentionally empty
+
+  const clearUserScopedQueries = useCallback(() => {
+    const userScopedKeys = [
+      'my-applications', 'my-opportunities', 'my-opportunities-dashboard',
+      'private-discussions', 'notifications', 'notifications-count',
+      'profile', 'tasks', 'saved-opportunities', 'is-following',
+      'notificationPrefs', 'referral', 'admin-stats', 'admin-opportunities',
+      'admin-users', 'owner-applications',
+    ]
+    queryClient.removeQueries({
+      predicate: (query) => {
+        const key = query.queryKey as unknown[]
+        return userScopedKeys.some((k) => key[0] === k)
+      },
+    })
+  }, [queryClient])
 
   useEffect(() => {
     refreshUser(true) // cold-start: always fetch regardless of stale window
@@ -68,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       channel.current = new BroadcastChannel(AUTH_CHANNEL)
       channel.current.onmessage = (e: MessageEvent<string>) => {
         if (e.data === 'logout') {
-          queryClient.clear()
+          clearUserScopedQueries()
           setUser(null)
           setLoading(false)
         } else if (e.data === 'login') {
@@ -89,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Fired by apiCall when a 401 is received AND the silent refresh also fails.
     const handleSessionExpired = () => {
-      queryClient.clear()
+      clearUserScopedQueries()
       setUser(null)
       setLoading(false)
     }
@@ -104,9 +113,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = (userData: AuthUser) => {
+  const login = useCallback((userData: AuthUser) => {
     setUser(userData)
-  }
+    channel.current?.postMessage('login')
+  }, [])
 
   const logout = async () => {
     try {
@@ -114,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // Best-effort — clear local state regardless
     }
-    queryClient.clear()
+    clearUserScopedQueries()
     setUser(null)
     // Notify all other open tabs so they clear their session immediately
     channel.current?.postMessage('logout')

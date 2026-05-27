@@ -54,9 +54,10 @@ export class CronService {
   /**
    * Runs `fn` only if this instance acquires the distributed lock.
    * Always releases the lock when `fn` completes (success or error).
+   * Pass a custom `ttlSeconds` for long-running jobs to avoid premature lock expiry.
    */
-  private async withLock(jobName: string, fn: () => Promise<void>): Promise<void> {
-    const acquired = await this.acquireLock(jobName);
+  private async withLock(jobName: string, fn: () => Promise<void>, ttlSeconds = 300): Promise<void> {
+    const acquired = await this.acquireLock(jobName, ttlSeconds);
     if (!acquired) {
       this.logger.debug(`Skipping ${jobName} — another instance holds the lock`);
       return;
@@ -133,6 +134,32 @@ export class CronService {
   }
 
   /**
+   * Clears expired email-verification and password-reset tokens from user records.
+   * Keeps the DB clean and avoids stale tokens being considered valid by accident.
+   * Runs at 03:05 UTC.
+   */
+  @Cron('5 3 * * *')
+  async cleanupExpiredTokens() {
+    await this.withLock('cleanupExpiredTokens', async () => {
+      const now = new Date();
+      try {
+        await this.prisma.user.updateMany({
+          where: { emailVerificationTokenExpiry: { lt: now }, emailVerificationToken: { not: null } },
+          data: { emailVerificationToken: null, emailVerificationTokenExpiry: null },
+        });
+        await this.prisma.user.updateMany({
+          where: { passwordResetExpiry: { lt: now }, passwordResetToken: { not: null } },
+          data: { passwordResetToken: null, passwordResetExpiry: null },
+        });
+        this.logger.log('Expired tokens cleaned up');
+      } catch (err) {
+        this.logger.error('Failed to clean up expired tokens', err);
+        Sentry.captureException(err, { tags: { cron: 'cleanupExpiredTokens' } });
+      }
+    });
+  }
+
+  /**
    * Deletes DRAFT opportunities not modified in the last 7 days.
    * 48 h was too aggressive — a user spending a weekend writing a draft
    * would silently lose their work.
@@ -161,6 +188,7 @@ export class CronService {
    *
    * Performance: N+1 queries for Industry/Feature/Discussion are replaced by
    * parallel batch fetches + single updateMany calls where possible.
+   * Lock TTL is 1800 s (30 min) to accommodate large datasets.
    */
   @Cron('0 4 * * *')
   async recountAllCounters() {
@@ -176,7 +204,7 @@ export class CronService {
         this.logger.error('Failed to resync counters', err);
         Sentry.captureException(err, { tags: { cron: 'recountAllCounters' } });
       }
-    });
+    }, 1800); // 30 min TTL — job peut être long sur une grande base
   }
 
   /**

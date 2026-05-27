@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import AuthGuard from '@/components/AuthGuard'
 import { Bell, Mail, Loader2, CheckCircle } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useAuth } from '@/app/lib/AuthContext'
 
 interface NotificationPreferences {
   emailApplicationSubmitted: boolean
@@ -65,24 +66,30 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 function PrefsPageContent() {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
   const [saved, setSaved] = useState(false)
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current) }, [])
 
   const { data: prefs, isLoading, isError } = useQuery<NotificationPreferences>({
-    queryKey: ['notificationPrefs'],
+    queryKey: ['notificationPrefs', user?.id],
     queryFn: () => apiJson('/notifications/preferences'),
+    enabled: !!user?.id,
   })
 
   const mutation = useMutation({
     mutationFn: (data: Partial<NotificationPreferences>) =>
       apiJson('/notifications/preferences', { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: (updated) => {
-      queryClient.setQueryData(['notificationPrefs'], updated)
+      queryClient.setQueryData(['notificationPrefs', user?.id], updated)
       setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = setTimeout(() => setSaved(false), 2000)
     },
     onError: () => {
       // Rollback optimistic update on error
-      queryClient.invalidateQueries({ queryKey: ['notificationPrefs'] })
+      queryClient.invalidateQueries({ queryKey: ['notificationPrefs', user?.id] })
     },
   })
 
@@ -90,9 +97,9 @@ function PrefsPageContent() {
     if (!prefs) return
     const previous = prefs
     const updated = { ...prefs, [key]: !prefs[key] }
-    queryClient.setQueryData(['notificationPrefs'], updated)
+    queryClient.setQueryData(['notificationPrefs', user?.id], updated)
     mutation.mutate({ [key]: !prefs[key] }, {
-      onError: () => queryClient.setQueryData(['notificationPrefs'], previous),
+      onError: () => queryClient.setQueryData(['notificationPrefs', user?.id], previous),
     })
   }
 
