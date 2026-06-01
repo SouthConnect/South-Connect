@@ -5,8 +5,8 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      // Next.js inline scripts need 'unsafe-inline'; lock down with a nonce in a future pass
-      "script-src 'self' 'unsafe-inline'",
+      // Next.js inline scripts need 'unsafe-inline'; dev mode also needs 'unsafe-eval' for webpack source maps
+      `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}`,
       "style-src 'self' 'unsafe-inline'",
       // Allow images from Supabase storage, Unsplash fallbacks and data URIs
       "img-src 'self' data: https:",
