@@ -1,6 +1,6 @@
-FROM node:22-alpine AS builder
+FROM node:22-slim AS builder
 
-RUN apk upgrade --no-cache
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -19,12 +19,13 @@ RUN npx prisma generate --schema=../prisma/schema.prisma
 RUN npm run build
 
 # ── Production image ───────────────────────────────────────────────────────────
-FROM node:22-alpine AS production
+FROM node:22-slim AS production
 
-RUN apk upgrade --no-cache && \
-    apk add --no-cache wget
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y wget && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN addgroup -S dfund && adduser -S dfund -G dfund
+RUN groupadd -r dfund && useradd -r -g dfund dfund
 
 WORKDIR /app/backend
 
