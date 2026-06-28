@@ -52,8 +52,8 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Standalone output bundles only what's needed to run — reduces Docker image size ~3x
-  output: 'standalone',
+  // Standalone output for Docker deployments — disabled on Vercel (it has its own pipeline)
+  output: process.env.VERCEL ? undefined : 'standalone',
   images: {
     remotePatterns: [
       // Supabase Storage — tous les buckets du projet
