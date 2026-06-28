@@ -1,5 +1,7 @@
 FROM node:22-slim AS builder
 
+LABEL cache-bust="v3"
+
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
