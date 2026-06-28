@@ -1,9 +1,11 @@
 import { Body, Controller, ForbiddenException, Get, Param, Put, Query, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtOptionalGuard } from '../auth/guards/jwt-optional.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ProfilesService } from './profiles.service';
 import { UpdateBtoCProfileDto, UpdateBtoBProfileDto } from './dto';
 
@@ -16,6 +18,7 @@ import { UpdateBtoCProfileDto, UpdateBtoBProfileDto } from './dto';
  */
 @ApiTags('profiles')
 @Controller('profiles')
+@Throttle({ default: {} })
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
@@ -25,7 +28,7 @@ export class ProfilesController {
    */
   @Get(':userId')
   @UseGuards(JwtOptionalGuard)
-  findByUserId(@Param('userId') userId: string, @CurrentUser() requester?: User) {
+  findByUserId(@Param('userId', ParseIdPipe) userId: string, @CurrentUser() requester?: User) {
     return this.profilesService.findByUserId(userId, requester?.id, requester?.role);
   }
 
@@ -66,7 +69,7 @@ export class ProfilesController {
   @Put('bto-c/:userId')
   @UseGuards(JwtAuthGuard)
   updateBtoCProfile(
-    @Param('userId') userId: string,
+    @Param('userId', ParseIdPipe) userId: string,
     @CurrentUser() user: User,
     @Body() dto: UpdateBtoCProfileDto,
   ) {
@@ -84,7 +87,7 @@ export class ProfilesController {
   @Put('bto-b/:userId')
   @UseGuards(JwtAuthGuard)
   updateBtoBProfile(
-    @Param('userId') userId: string,
+    @Param('userId', ParseIdPipe) userId: string,
     @CurrentUser() user: User,
     @Body() dto: UpdateBtoBProfileDto,
   ) {

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiJson } from '@/app/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useRouter } from 'next/navigation'
 import {
@@ -18,6 +18,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import type { PublicDiscussion, PrivateDiscussion } from '@/app/lib/types'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 type ChatMode = 'open' | 'private'
 type OpenTab = 'opportunity' | 'forum'
@@ -34,7 +35,7 @@ export default function ChatPage() {
   const [newTitle, setNewTitle] = useState('')
   const [newDescription, setNewDescription] = useState('')
 
-  const createForumMutation = useMutation({
+  const createForumMutation = useTrackedMutation('forum.create', {
     mutationFn: () =>
       apiJson('/messages/public', {
         method: 'POST',
@@ -47,12 +48,13 @@ export default function ChatPage() {
       setNewDescription('')
       if (discussion?.id) router.push(`/chat/public/${discussion.id}`)
     },
-    onError: (err: any) => toast.error(err.message || 'Impossible de créer la discussion.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de créer la discussion.')),
   })
 
   const {
     data: opportunityDiscussions,
     isLoading: isLoadingOpportunityDiscussions,
+    isError: isErrorOpportunityDiscussions,
   } = useQuery({
     queryKey: ['public-discussions', 'OPPORTUNITY_RELATED'],
     queryFn: () => apiJson('/messages/public?type=OPPORTUNITY_RELATED'),
@@ -61,6 +63,7 @@ export default function ChatPage() {
   const {
     data: forumDiscussions,
     isLoading: isLoadingForumDiscussions,
+    isError: isErrorForumDiscussions,
   } = useQuery({
     queryKey: ['public-discussions', 'OPEN_FORUM'],
     queryFn: () => apiJson('/messages/public?type=OPEN_FORUM'),
@@ -220,6 +223,9 @@ export default function ChatPage() {
             </div>
           )}
 
+          {(openTab === 'opportunity' ? isErrorOpportunityDiscussions : isErrorForumDiscussions) && (
+            <p className="text-sm text-red-500 text-center py-4">Impossible de charger les discussions. Réessayez.</p>
+          )}
           <DiscussionList
             discussions={activeOpenDiscussions}
             isLoading={
@@ -276,7 +282,7 @@ function DiscussionList({
   // Track liked discussions for the current session (resets on refresh)
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set())
 
-  const toggleLike = useMutation({
+  const toggleLike = useTrackedMutation('forum.like', {
     mutationFn: ({ id, liked }: { id: string; liked: boolean }) =>
       apiJson(`/social/discussion/like/${id}`, { method: liked ? 'DELETE' : 'POST' }),
     onMutate: ({ id, liked }) => {
@@ -426,7 +432,7 @@ function PrivateDiscussionList({
           >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-[#3b49df] overflow-hidden">
-                {otherParticipant?.profilePic ? (
+                {otherParticipant?.profilePic && /^https:\/\//.test(otherParticipant.profilePic) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={otherParticipant.profilePic}

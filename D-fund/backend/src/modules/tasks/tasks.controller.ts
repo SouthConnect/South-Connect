@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 
 /**
  * Exposes personal task management for the authenticated user.
@@ -19,6 +20,7 @@ import { User } from '@prisma/client';
 @Controller('tasks')
 @UseGuards(JwtAuthGuard)
 @SkipEmailVerification()
+@Throttle({ default: {} })
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 

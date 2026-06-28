@@ -167,8 +167,8 @@ model Opportunity {
   trendingScore        Float               @default(0)
   applications         Application[]
   likedBy              LikedOpportunity[]
-  applicationProcess   ApplicationProcess? @relation(fields: [applicationProcessId], references: [id])
-  feature              Feature?            @relation(fields: [featureId], references: [id])
+  applicationProcess   ApplicationProcess? @relation(fields: [applicationProcessId], references: [id], onDelete: SetNull)
+  feature              Feature?            @relation(fields: [featureId], references: [id], onDelete: SetNull)
   owner                User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   publicDiscussions    PublicDiscussion[]
   referralCodes        ReferralCode[]
@@ -179,7 +179,9 @@ model Opportunity {
   @@index([featureId])
   @@index([type])
   @@index([status])
+  @@index([status, createdAt(sort: Desc)])
   @@index([createdAt])
+  @@index([trendingScore(sort: Desc)])
   @@index([expirationDate])
   @@index([boostedUntil])
   @@index([name])
@@ -221,7 +223,9 @@ model Application {
 
   @@unique([opportunityId, candidateId])
   @@index([candidateId])
+  @@index([candidateId, deletedAt])
   @@index([opportunityId])
+  @@index([opportunityId, deletedAt])
   @@index([opportunityId, stage])
   @@index([stage])
   @@index([createdAt])
@@ -291,12 +295,13 @@ model PublicDiscussion {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   messages      Message[]
-  opportunity   Opportunity?   @relation(fields: [opportunityId], references: [id])
+  opportunity   Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
   owner         User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@index([ownerId])
   @@index([opportunityId])
   @@index([type])
+  @@index([lastMessageAt(sort: Desc)])
   @@map("public_discussions")
 }
 
@@ -388,7 +393,7 @@ model ReferralCode {
   potentialAmount Decimal?       @db.Decimal(12, 2) @default(0)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
-  opportunity     Opportunity?   @relation(fields: [opportunityId], references: [id])
+  opportunity     Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
   owner           User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@index([ownerId])

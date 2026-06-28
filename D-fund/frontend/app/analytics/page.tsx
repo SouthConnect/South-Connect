@@ -86,7 +86,7 @@ export default function AnalyticsPage() {
             <TrendingUp className="w-6 h-6 text-[#3b49df]" />
             <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
           </div>
-          <p className="text-sm text-gray-500">Vue d'ensemble de ton activité sur D-Fund.</p>
+          <p className="text-sm text-gray-500">Vue d'ensemble de ton activité sur SouthConnect.</p>
         </div>
 
         {/* Applications stats */}

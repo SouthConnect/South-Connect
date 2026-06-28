@@ -45,7 +45,14 @@ function LoginPageContent() {
     }
   }, [searchParams])
 
-  if (authLoading || user) return null
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-2 border-[#3b49df] border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+  if (user) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,7 +90,7 @@ function LoginPageContent() {
             Connexion
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Bienvenue sur la plateforme D-Fund
+            Bienvenue sur la plateforme SouthConnect
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -122,6 +129,7 @@ function LoginPageContent() {
                 id="password"
                 name="password"
                 type="password"
+                autoComplete="current-password"
                 required
                 className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-[#3b49df] focus:border-[#3b49df] sm:text-sm transition-all"
                 placeholder="••••••••"

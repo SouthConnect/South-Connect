@@ -1,14 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiJson } from '@/app/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import AuthGuard from '@/components/AuthGuard'
 import Link from 'next/link'
 import { CheckCircle, XCircle, Clock, Search, Eye, ShieldAlert, Users, Briefcase, FileText, TrendingUp, Ban, ShieldCheck, Trash2, UserCog, Plus, Tag, Globe2, Layers } from 'lucide-react'
 import Image from 'next/image'
 import { toast } from 'sonner'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-600',
@@ -41,7 +42,7 @@ export default function AdminPage() {
     enabled: isAdmin,
   })
 
-  const statusMutation = useMutation({
+  const statusMutation = useTrackedMutation('admin.updateStatus', {
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       apiJson(`/opportunities/admin/${id}/status`, {
         method: 'PUT',
@@ -49,7 +50,7 @@ export default function AdminPage() {
       }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['admin-opportunities'] }),
-    onError: (err: any) => toast.error(err.message || 'Impossible de mettre à jour le statut.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de mettre à jour le statut.')),
   })
 
   // ── Users tab ──
@@ -60,27 +61,27 @@ export default function AdminPage() {
     enabled: isAdmin && activeTab === 'users',
   })
 
-  const banMutation = useMutation({
+  const banMutation = useTrackedMutation('admin.ban', {
     mutationFn: ({ id, ban }: { id: string; ban: boolean }) =>
       apiJson(`/users/admin/${id}/${ban ? 'ban' : 'unban'}`, { method: 'PUT' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-    onError: (err: any) => toast.error(err.message || 'Impossible de modifier le statut du compte.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de modifier le statut du compte.')),
   })
 
-  const roleMutation = useMutation({
+  const roleMutation = useTrackedMutation('admin.updateRole', {
     mutationFn: ({ id, role }: { id: string; role: string }) =>
       apiJson(`/users/admin/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
-    onError: (err: any) => toast.error(err.message || 'Impossible de modifier le rôle.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de modifier le rôle.')),
   })
 
-  const deleteUserMutation = useMutation({
+  const deleteUserMutation = useTrackedMutation('admin.deleteUser', {
     mutationFn: (id: string) => apiJson(`/users/admin/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
       toast.success('Utilisateur supprimé.')
     },
-    onError: (err: any) => toast.error(err.message || 'Impossible de supprimer l\'utilisateur.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de supprimer l\'utilisateur.')),
   })
 
   // ── Industries tab ──
@@ -90,15 +91,15 @@ export default function AdminPage() {
     queryFn: () => apiJson('/industries'),
     enabled: isAdmin && activeTab === 'industries',
   })
-  const createIndustryMutation = useMutation({
+  const createIndustryMutation = useTrackedMutation('admin.createIndustry', {
     mutationFn: (name: string) => apiJson('/industries', { method: 'POST', body: JSON.stringify({ name }) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-industries'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/industries'] }); setNewIndustryName('') },
-    onError: (err: any) => toast.error(err.message || 'Impossible de créer le secteur.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de créer le secteur.')),
   })
-  const deleteIndustryMutation = useMutation({
+  const deleteIndustryMutation = useTrackedMutation('admin.deleteIndustry', {
     mutationFn: (id: string) => apiJson(`/industries/${id}`, { method: 'DELETE' }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-industries'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/industries'] }) },
-    onError: (err: any) => toast.error(err.message || 'Impossible de supprimer le secteur.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de supprimer le secteur.')),
   })
 
   // ── Markets tab ──
@@ -108,15 +109,15 @@ export default function AdminPage() {
     queryFn: () => apiJson('/markets'),
     enabled: isAdmin && activeTab === 'markets',
   })
-  const createMarketMutation = useMutation({
+  const createMarketMutation = useTrackedMutation('admin.createMarket', {
     mutationFn: (name: string) => apiJson('/markets', { method: 'POST', body: JSON.stringify({ name }) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-markets'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/markets'] }); setNewMarketName('') },
-    onError: (err: any) => toast.error(err.message || 'Impossible de créer le marché.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de créer le marché.')),
   })
-  const deleteMarketMutation = useMutation({
+  const deleteMarketMutation = useTrackedMutation('admin.deleteMarket', {
     mutationFn: (id: string) => apiJson(`/markets/${id}`, { method: 'DELETE' }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-markets'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/markets'] }) },
-    onError: (err: any) => toast.error(err.message || 'Impossible de supprimer le marché.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de supprimer le marché.')),
   })
 
   // ── Features tab ──
@@ -127,16 +128,16 @@ export default function AdminPage() {
     queryFn: () => apiJson('/features'),
     enabled: isAdmin && activeTab === 'features',
   })
-  const createFeatureMutation = useMutation({
+  const createFeatureMutation = useTrackedMutation('admin.createFeature', {
     mutationFn: ({ name, category }: { name: string; category?: string }) =>
       apiJson('/features', { method: 'POST', body: JSON.stringify({ name, category: category || undefined }) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-features'] }); setNewFeatureName(''); setNewFeatureCategory('') },
-    onError: (err: any) => toast.error(err.message || 'Impossible de créer la fonctionnalité.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de créer la fonctionnalité.')),
   })
-  const deleteFeatureMutation = useMutation({
+  const deleteFeatureMutation = useTrackedMutation('admin.deleteFeature', {
     mutationFn: (id: string) => apiJson(`/features/${id}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-features'] }),
-    onError: (err: any) => toast.error(err.message || 'Impossible de supprimer la fonctionnalité.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de supprimer la fonctionnalité.')),
   })
 
   return (
@@ -145,7 +146,7 @@ export default function AdminPage() {
         <div className="container mx-auto px-6 py-16 max-w-xl text-center">
           <ShieldAlert className="w-12 h-12 text-red-400 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-gray-900 mb-2">Accès restreint</h1>
-          <p className="text-sm text-gray-500 mb-4">Cette page est réservée aux administrateurs D-Fund.</p>
+          <p className="text-sm text-gray-500 mb-4">Cette page est réservée aux administrateurs SouthConnect.</p>
           <Link href="/" className="text-sm text-[#3b49df] hover:underline">Retour à l'accueil</Link>
         </div>
       ) : (
@@ -381,32 +382,60 @@ export default function AdminPage() {
                           <div className="text-xs text-gray-400">{u.email} · {new Date(u.createdAt).toLocaleDateString('fr-FR')}</div>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
-                          {/* Promote / demote */}
+                          {/* Promote / demote — double click to confirm */}
                           <button
-                            onClick={() => roleMutation.mutate({ id: u.id, role: u.role === 'ADMIN' ? 'USER' : 'ADMIN' })}
+                            onClick={() => {
+                              if (confirmPending?.id === u.id && confirmPending?.type === 'role') {
+                                roleMutation.mutate({ id: u.id, role: u.role === 'ADMIN' ? 'USER' : 'ADMIN' })
+                                setConfirmPending(null)
+                              } else {
+                                setConfirmPending({ type: 'role', id: u.id })
+                              }
+                            }}
                             disabled={roleMutation.isPending}
-                            title={u.role === 'ADMIN' ? 'Rétrograder en utilisateur' : 'Promouvoir admin'}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#3b49df] hover:bg-[#3b49df]/5 disabled:opacity-50"
+                            title={
+                              confirmPending?.id === u.id && confirmPending?.type === 'role'
+                                ? 'Cliquer pour confirmer'
+                                : u.role === 'ADMIN' ? 'Rétrograder en utilisateur' : 'Promouvoir admin'
+                            }
+                            className={`p-1.5 rounded-lg disabled:opacity-50 transition-colors ${
+                              confirmPending?.id === u.id && confirmPending?.type === 'role'
+                                ? 'bg-[#3b49df] text-white'
+                                : 'text-gray-400 hover:text-[#3b49df] hover:bg-[#3b49df]/5'
+                            }`}
                           >
                             <ShieldCheck className="w-4 h-4" />
                           </button>
-                          {/* Ban / unban */}
+                          {/* Ban / unban — double click to confirm */}
                           <button
-                            onClick={() => banMutation.mutate({ id: u.id, ban: !u.isBanned })}
+                            onClick={() => {
+                              if (confirmPending?.id === u.id && confirmPending?.type === 'ban') {
+                                banMutation.mutate({ id: u.id, ban: !u.isBanned })
+                                setConfirmPending(null)
+                              } else {
+                                setConfirmPending({ type: 'ban', id: u.id })
+                              }
+                            }}
                             disabled={banMutation.isPending}
-                            title={u.isBanned ? 'Débannir' : 'Bannir'}
+                            title={
+                              confirmPending?.id === u.id && confirmPending?.type === 'ban'
+                                ? 'Cliquer pour confirmer'
+                                : u.isBanned ? 'Débannir' : 'Bannir'
+                            }
                             className={`p-1.5 rounded-lg disabled:opacity-50 transition-colors ${
-                              u.isBanned
-                                ? 'text-green-500 hover:bg-green-50'
-                                : 'text-red-400 hover:text-red-600 hover:bg-red-50'
+                              confirmPending?.id === u.id && confirmPending?.type === 'ban'
+                                ? 'bg-red-500 text-white'
+                                : u.isBanned
+                                  ? 'text-green-500 hover:bg-green-50'
+                                  : 'text-red-400 hover:text-red-600 hover:bg-red-50'
                             }`}
                           >
                             <Ban className="w-4 h-4" />
                           </button>
-                          {/* Delete */}
+                          {/* Delete — double click to confirm */}
                           <button
                             onClick={() => {
-                              if (confirmPending?.id === u.id) {
+                              if (confirmPending?.id === u.id && confirmPending?.type === 'user') {
                                 deleteUserMutation.mutate(u.id)
                                 setConfirmPending(null)
                               } else {
@@ -414,8 +443,8 @@ export default function AdminPage() {
                               }
                             }}
                             disabled={deleteUserMutation.isPending}
-                            title={confirmPending?.id === u.id ? 'Cliquer pour confirmer la suppression' : 'Supprimer le compte'}
-                            className={`p-1.5 rounded-lg disabled:opacity-50 transition-colors ${confirmPending?.id === u.id ? 'bg-red-500 text-white' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
+                            title={confirmPending?.id === u.id && confirmPending?.type === 'user' ? 'Cliquer pour confirmer la suppression' : 'Supprimer le compte'}
+                            className={`p-1.5 rounded-lg disabled:opacity-50 transition-colors ${confirmPending?.id === u.id && confirmPending?.type === 'user' ? 'bg-red-500 text-white' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

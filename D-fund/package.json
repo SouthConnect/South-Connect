@@ -8,6 +8,7 @@
     "db:push": "cd backend && dotenv -e ../.env -- npx prisma db push --schema=../prisma/schema.prisma",
     "db:studio": "cd backend && dotenv -e ../.env -- npx prisma studio --schema=../prisma/schema.prisma",
     "db:migrate:glide": "dotenv -e .env -- tsx scripts/migrate.ts",
+    "db:resync": "node_modules/.bin/tsx --env-file=.env scripts/resync-counters.ts",
     "db:test": "dotenv -e .env -- tsx scripts/test-db-connection.ts",
     "test:opportunities": "dotenv -e .env -- tsx scripts/test-opportunities-clean.ts",
     "cleanup:test": "dotenv -e .env -- tsx scripts/cleanup-test-data.ts",

@@ -106,7 +106,9 @@ describe('Profiles (e2e)', () => {
         .expect(200);
 
       expect(res.body).toHaveProperty('id', alice.userId);
-      expect(res.body).toHaveProperty('email');
+      expect(res.body).toHaveProperty('name');
+      // email and phone are stripped from public responses (PII protection)
+      expect(res.body).not.toHaveProperty('email');
     });
 
     it('returns a profile with authentication', async () => {

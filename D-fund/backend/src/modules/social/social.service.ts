@@ -82,7 +82,7 @@ export class SocialService {
       .createInApp(
         followingId,
         'NEW_FOLLOWER',
-        `${follower?.name ?? 'Someone'} is now following you`,
+        `${follower?.name ?? 'Un utilisateur'} a commencé à vous suivre`,
         undefined,
         `/profiles/${followerId}`,
       )

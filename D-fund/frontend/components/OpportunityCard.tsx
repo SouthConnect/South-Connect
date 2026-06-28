@@ -2,16 +2,43 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { useState } from 'react'
 import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import type { Opportunity } from '@/app/lib/types'
-import { ThumbsUp, MessageSquare, Bookmark, Users, DollarSign } from 'lucide-react'
+import { ThumbsUp, MessageSquare, Bookmark, Users } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 interface OpportunityCardProps {
   opportunity: Opportunity
+}
+
+type PageData = { data: Opportunity[]; nextCursor?: string | null }
+
+function patchOpportunityInAllCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  opportunityId: string,
+  patch: Partial<Opportunity>,
+) {
+  const updater = (old: InfiniteData<PageData> | undefined) => {
+    if (!old?.pages) return old
+    return { ...old, pages: old.pages.map(p => ({ ...p, data: p.data.map(o => o.id === opportunityId ? { ...o, ...patch } : o) })) }
+  }
+  // /opportunities page
+  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: ['opportunities'] }, updater)
+  // home page feed (infinite)
+  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: ['opportunities-feed'] }, updater)
+  // home page preview (regular query, flat shape)
+  queryClient.setQueriesData<{ data: Opportunity[] }>(
+    { queryKey: ['opportunities-preview'] },
+    (old) => old?.data ? { ...old, data: old.data.map(o => o.id === opportunityId ? { ...o, ...patch } : o) } : old,
+  )
+  // detail page cache
+  queryClient.setQueryData<Opportunity>(['opportunity', opportunityId], (old) =>
+    old ? { ...old, ...patch } : old,
+  )
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -65,46 +92,52 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const typeColor = TYPE_COLORS[opportunity.type] ?? 'text-[#3b49df] bg-[#3b49df]/5'
   const typeLabel = opportunity.type.replace(/_/g, ' ')
 
-  const toggleLikeMutation = useMutation({
+  const toggleLikeMutation = useTrackedMutation<
+    unknown, Error, boolean, { nextLiked: boolean; nextLikeCount: number }
+  >('opportunity.like', {
     mutationFn: (currentlyLiked: boolean) =>
       apiJson(`/social/like/${opportunity.id}`, { method: currentlyLiked ? 'DELETE' : 'POST' }),
     onMutate: (currentlyLiked) => {
-      setLocalLiked(!currentlyLiked)
-      setLocalLikeCount((opportunity.likesCount ?? 0) + (currentlyLiked ? -1 : 1))
+      // Use displayLikeCount (not opportunity.likesCount) to handle rapid clicks correctly
+      const nextLiked = !currentlyLiked
+      const nextLikeCount = displayLikeCount + (currentlyLiked ? -1 : 1)
+      setLocalLiked(nextLiked)
+      setLocalLikeCount(nextLikeCount)
+      return { nextLiked, nextLikeCount }
+    },
+    onSuccess: (_, _vars, ctx) => {
+      if (!ctx) return
+      const patch = { isLiked: ctx.nextLiked, likesCount: ctx.nextLikeCount }
+      patchOpportunityInAllCaches(queryClient, opportunity.id, patch)
     },
     onError: () => {
-      // Roll back to server values
       setLocalLiked(null)
       setLocalLikeCount(null)
       toast.error('Impossible de mettre à jour le like')
     },
-    onSettled: () => {
-      // Let the server state win — reset locals so the next render uses fresh props
-      setLocalLiked(null)
-      setLocalLikeCount(null)
-      queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity.id] })
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
-    },
   })
 
-  const toggleSaveMutation = useMutation({
+  const toggleSaveMutation = useTrackedMutation<
+    unknown, Error, boolean, { nextSaved: boolean; nextSaveCount: number }
+  >('opportunity.save', {
     mutationFn: (currentlySaved: boolean) =>
       apiJson(`/social/save/${opportunity.id}`, { method: currentlySaved ? 'DELETE' : 'POST' }),
     onMutate: (currentlySaved) => {
-      setLocalSaved(!currentlySaved)
-      setLocalSaveCount((opportunity.savedCount ?? 0) + (currentlySaved ? -1 : 1))
+      const nextSaved = !currentlySaved
+      const nextSaveCount = displaySaveCount + (currentlySaved ? -1 : 1)
+      setLocalSaved(nextSaved)
+      setLocalSaveCount(nextSaveCount)
+      return { nextSaved, nextSaveCount }
+    },
+    onSuccess: (_, _vars, ctx) => {
+      if (!ctx) return
+      const patch = { isSaved: ctx.nextSaved, savedCount: ctx.nextSaveCount }
+      patchOpportunityInAllCaches(queryClient, opportunity.id, patch)
     },
     onError: () => {
       setLocalSaved(null)
       setLocalSaveCount(null)
       toast.error('Impossible de mettre à jour l\'enregistrement')
-    },
-    onSettled: () => {
-      setLocalSaved(null)
-      setLocalSaveCount(null)
-      queryClient.invalidateQueries({ queryKey: ['opportunity', opportunity.id] })
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
-      queryClient.invalidateQueries({ queryKey: ['saved-opportunities'] })
     },
   })
 
@@ -155,27 +188,26 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
             </div>
           </div>
 
-          {/* Right: price + stats */}
+          {/* Right: stats */}
           <div className="flex flex-col items-end gap-2 flex-shrink-0 ml-2">
-            {/* Price */}
-            {opportunity.price ? (
-              <div className="flex items-center gap-1 text-xs font-semibold text-[#3b49df]">
-                <DollarSign className="w-3.5 h-3.5" />
-                {opportunity.price.toLocaleString()}
-              </div>
-            ) : null}
-
             {/* Stats row */}
             <div className="flex items-center gap-3 text-gray-400">
-              <button
-                onClick={handleLikeClick}
-                disabled={toggleLikeMutation.isPending}
-                className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-50 ${displayIsLiked ? 'text-[#3b49df]' : 'hover:text-[#3b49df]'}`}
-                title="J'aime"
-              >
-                <ThumbsUp className={`w-3.5 h-3.5 ${displayIsLiked ? 'fill-[#3b49df]' : ''}`} />
-                <span>{displayLikeCount}</span>
-              </button>
+              {user ? (
+                <button
+                  onClick={handleLikeClick}
+                  disabled={toggleLikeMutation.isPending}
+                  className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-50 ${displayIsLiked ? 'text-[#3b49df]' : 'hover:text-[#3b49df]'}`}
+                  title="J'aime"
+                >
+                  <ThumbsUp className={`w-3.5 h-3.5 ${displayIsLiked ? 'fill-[#3b49df]' : ''}`} />
+                  <span>{displayLikeCount}</span>
+                </button>
+              ) : (
+                <span className="flex items-center gap-1 text-xs" title="J'aime">
+                  <ThumbsUp className="w-3.5 h-3.5" />
+                  <span>{displayLikeCount}</span>
+                </span>
+              )}
 
               <span className="flex items-center gap-1 text-xs" title="Messages">
                 <MessageSquare className="w-3.5 h-3.5" />
@@ -187,15 +219,22 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
                 <span>{opportunity.applicationsCount}</span>
               </span>
 
-              <button
-                onClick={handleSaveClick}
-                disabled={toggleSaveMutation.isPending}
-                className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-50 ${displayIsSaved ? 'text-[#3b49df]' : 'hover:text-[#3b49df]'}`}
-                title="Enregistrer"
-              >
-                <Bookmark className={`w-3.5 h-3.5 ${displayIsSaved ? 'fill-[#3b49df]' : ''}`} />
-                <span>{displaySaveCount}</span>
-              </button>
+              {user ? (
+                <button
+                  onClick={handleSaveClick}
+                  disabled={toggleSaveMutation.isPending}
+                  className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-50 ${displayIsSaved ? 'text-[#3b49df]' : 'hover:text-[#3b49df]'}`}
+                  title="Enregistrer"
+                >
+                  <Bookmark className={`w-3.5 h-3.5 ${displayIsSaved ? 'fill-[#3b49df]' : ''}`} />
+                  <span>{displaySaveCount}</span>
+                </button>
+              ) : (
+                <span className="flex items-center gap-1 text-xs" title="Enregistrer">
+                  <Bookmark className="w-3.5 h-3.5" />
+                  <span>{displaySaveCount}</span>
+                </span>
+              )}
             </div>
           </div>
         </div>

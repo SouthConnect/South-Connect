@@ -50,8 +50,9 @@ export class OpportunitiesController {
   /** Returns a paginated list of non-draft opportunities for the public feed. */
   @Get()
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
-  findAll(@Query() query: ListOpportunitiesDto) {
-    return this.opportunitiesService.findAll(query);
+  @UseGuards(JwtOptionalGuard)
+  findAll(@Query() query: ListOpportunitiesDto, @CurrentUser() user?: User) {
+    return this.opportunitiesService.findAll(query, user?.id);
   }
 
   /** Admin: returns platform-wide statistics (users, opportunities, applications). */
@@ -106,14 +107,14 @@ export class OpportunitiesController {
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 5, ttl: 30_000 } })
   create(@CurrentUser() user: User, @Body() dto: CreateOpportunityDto) {
-    return this.opportunitiesService.create(user.id, dto);
+    return this.opportunitiesService.create(user.id, dto, user.role);
   }
 
   /** Updates an opportunity. Only the owner may call this endpoint. */
   @Put(':id')
   @UseGuards(JwtAuthGuard)
   update(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User, @Body() dto: UpdateOpportunityDto) {
-    return this.opportunitiesService.update(id, user.id, dto);
+    return this.opportunitiesService.update(id, user.id, dto, user.role);
   }
 
   /** Deletes an opportunity. Only the owner may call this endpoint. */
@@ -141,11 +142,11 @@ export class OpportunitiesController {
     return this.opportunitiesService.findOne(id, requester?.id, viewerKey);
   }
 
-  /** Records a share action for an opportunity (increments sharedCount). */
+  /** Records a share action for an opportunity (increments sharedCount, once per user per day). */
   @Post(':id/share')
-  @UseGuards(JwtOptionalGuard)
+  @UseGuards(JwtAuthGuard)
   @Throttle({ strict: {} })
-  share(@Param('id', ParseIdPipe) id: string) {
-    return this.opportunitiesService.incrementShares(id);
+  share(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User) {
+    return this.opportunitiesService.incrementShares(id, user.id);
   }
 }

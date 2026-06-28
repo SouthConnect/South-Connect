@@ -22,25 +22,41 @@ import { tap } from 'rxjs/operators';
 export class HttpLoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger('HttpLogging');
 
+  /** Supprime les paramètres sensibles de l'URL avant de logger. */
+  private sanitizeUrl(url: string): string {
+    try {
+      const [path, qs] = url.split('?');
+      if (!qs) return url;
+      const params = new URLSearchParams(qs);
+      for (const key of ['token', 'access_token', 'refresh_token', 'secret', 'password', 'key']) {
+        if (params.has(key)) params.set(key, '[REDACTED]');
+      }
+      return `${path}?${params.toString()}`;
+    } catch {
+      return url;
+    }
+  }
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const ctx = context.switchToHttp();
     const req = ctx.getRequest<Request>();
     const res = ctx.getResponse<Response>();
     const start = Date.now();
 
-    const { method, originalUrl } = req;
+    const { method } = req;
+    const url = this.sanitizeUrl(req.originalUrl);
 
     return next.handle().pipe(
       tap({
         next: () => {
           const ms = Date.now() - start;
-          this.logger.log(`${method} ${originalUrl} → ${res.statusCode} (${ms}ms)`);
+          this.logger.log(`${method} ${url} → ${res.statusCode} (${ms}ms)`);
         },
         error: (err: { status?: number; message?: string }) => {
           const ms = Date.now() - start;
           const status = err?.status ?? 500;
           this.logger.warn(
-            `${method} ${originalUrl} → ${status} (${ms}ms) — ${err?.message ?? 'Unknown error'}`,
+            `${method} ${url} → ${status} (${ms}ms) — ${err?.message ?? 'Unknown error'}`,
           );
         },
       }),

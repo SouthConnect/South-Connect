@@ -1,14 +1,15 @@
 'use client'
 
 import { useAuth } from '@/app/lib/AuthContext'
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import AuthGuard from '@/components/AuthGuard'
-import type { Notification } from '@/app/lib/types'
+import type { Notification, NotificationPage } from '@/app/lib/types'
 import { Bell, BellOff, ExternalLink, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 const PAGE_SIZE = 30
 
@@ -39,15 +40,15 @@ export default function NotificationsPage() {
     isFetchingNextPage,
   } = useInfiniteQuery({
     queryKey: ['notifications', user?.id],
-    queryFn: ({ pageParam = 0 }) =>
-      apiJson<Notification[]>(`/notifications?take=${PAGE_SIZE}&skip=${pageParam}`),
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) =>
-      lastPage.length === PAGE_SIZE ? allPages.flat().length : undefined,
+    queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
+      apiJson<NotificationPage>(`/notifications?take=${PAGE_SIZE}${pageParam ? `&cursor=${pageParam}` : ''}`),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage): string | undefined =>
+      lastPage.nextCursor ?? undefined,
     enabled: !!user?.id,
   })
 
-  const notifications = data?.pages.flat() ?? []
+  const notifications = data?.pages.flatMap((p) => p.data) ?? []
 
   // Cleanup IntersectionObserver on unmount
   useEffect(() => {
@@ -66,7 +67,7 @@ export default function NotificationsPage() {
     observerRef.current.observe(node)
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
-  const readAllMutation = useMutation({
+  const readAllMutation = useTrackedMutation('notifications.readAll', {
     mutationFn: () => apiJson('/notifications/read-all', { method: 'POST' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] })
@@ -75,7 +76,7 @@ export default function NotificationsPage() {
     onError: (error: unknown) => toast.error(getErrorMessage(error, 'Impossible de tout marquer comme lu.')),
   })
 
-  const readOneMutation = useMutation({
+  const readOneMutation = useTrackedMutation('notifications.readOne', {
     mutationFn: (id: string) => apiJson(`/notifications/${id}/read`, { method: 'POST' }),
     onSuccess: () => {
       setPendingReadId(null)
@@ -140,7 +141,7 @@ export default function NotificationsPage() {
                         setPendingReadId(notif.id)
                         readOneMutation.mutate(notif.id)
                       }
-                      if (notif.link) router.push(notif.link)
+                      if (notif.link?.startsWith('/')) router.push(notif.link)
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -149,7 +150,7 @@ export default function NotificationsPage() {
                           setPendingReadId(notif.id)
                           readOneMutation.mutate(notif.id)
                         }
-                        if (notif.link) router.push(notif.link)
+                        if (notif.link?.startsWith('/')) router.push(notif.link)
                       }
                     }}
                   >

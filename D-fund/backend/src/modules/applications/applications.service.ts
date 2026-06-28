@@ -63,11 +63,11 @@ export class ApplicationsService {
             name: true,
             firstName: true,
             lastName: true,
-            email: true,
             profilePic: true,
             city: true,
             country: true,
             bio: true,
+            // email masqué ici — révélé uniquement en OWNER_REVIEW+ via la logique post-fetch
           },
         },
       },
@@ -234,6 +234,10 @@ export class ApplicationsService {
       }
       if (referral.ownerId === candidateId) {
         throw new BadRequestException('You cannot use your own referral code');
+      }
+      // Vérifier que le code est bien lié à cette opportunité (empêche l'utilisation cross-opportunité)
+      if (referral.opportunityId && referral.opportunityId !== application.opportunityId) {
+        throw new BadRequestException('This referral code is not valid for this opportunity');
       }
     }
 

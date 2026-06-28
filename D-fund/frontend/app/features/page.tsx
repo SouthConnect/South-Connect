@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { Lightbulb, MessageSquarePlus, ArrowUpRight, CheckCircle2, Clock, Rocket } from 'lucide-react'
-import { useMutation } from '@tanstack/react-query'
-import { apiJson } from '@/app/lib/api'
+import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { toast } from 'sonner'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 type Tab = 'features' | 'feedbacks'
 
@@ -34,7 +34,7 @@ const PLANNED_FEATURES = [
   {
     id: 4,
     title: 'Tâches & gestion de projet',
-    description: 'Gérez les tâches de votre projet directement dans D-Fund aux côtés de vos opportunités.',
+    description: 'Gérez les tâches de votre projet directement dans SouthConnect aux côtés de vos opportunités.',
     status: 'done',
     votes: 12,
   },
@@ -64,7 +64,7 @@ const PLANNED_FEATURES = [
   {
     id: 8,
     title: 'Application mobile (iOS & Android)',
-    description: 'Accédez à D-Fund en déplacement avec une expérience mobile native.',
+    description: 'Accédez à SouthConnect en déplacement avec une expérience mobile native.',
     status: 'planned',
     votes: 67,
   },
@@ -114,14 +114,14 @@ export default function FeaturesPage() {
   const [submitted, setSubmitted] = useState(false)
   const [voted, setVoted] = useState<Set<number>>(new Set())
 
-  const feedbackMutation = useMutation({
+  const feedbackMutation = useTrackedMutation('feature.feedback', {
     mutationFn: (data: { title: string; description: string }) =>
       apiJson('/feedback', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       setSubmitted(true)
     },
-    onError: (err: any) => {
-      toast.error(err.message || 'Impossible d\'envoyer votre retour. Veuillez réessayer.')
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, 'Impossible d\'envoyer votre retour. Veuillez réessayer.'))
     },
   })
 
@@ -139,11 +139,11 @@ export default function FeaturesPage() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">
-          Aidez-nous à améliorer D-Fund !
+          Aidez-nous à améliorer SouthConnect !
         </h1>
         <p className="text-sm text-[#3b49df] mt-1 max-w-2xl">
           Votre avis compte ! Partagez vos retours, signalez des problèmes et votez pour les nouvelles fonctionnalités
-          afin de construire l'avenir de D-Fund ensemble.
+          afin de construire l'avenir de SouthConnect ensemble.
         </p>
       </div>
 
@@ -229,7 +229,7 @@ export default function FeaturesPage() {
                 Merci pour votre retour !
               </h2>
               <p className="text-xs text-gray-500 mb-4">
-                Vos suggestions nous aident à améliorer D-Fund pour tout le monde.
+                Vos suggestions nous aident à améliorer SouthConnect pour tout le monde.
               </p>
               <button
                 onClick={() => setSubmitted(false)}

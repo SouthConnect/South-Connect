@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -17,7 +18,7 @@ import { User } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, ResetPasswordDto, ForgotPasswordDto } from './dto';
+import { RegisterDto, LoginDto, ResetPasswordDto, ForgotPasswordDto, ChangePasswordDto } from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
@@ -167,6 +168,7 @@ export class AuthController {
 
   /** Initiates the Google OAuth2 redirect flow. */
   @Get('google')
+  @Throttle({ auth: {} })
   @UseGuards(AuthGuard('google'))
   googleLogin() {
     // Passport redirects to Google — no response body needed
@@ -177,6 +179,7 @@ export class AuthController {
    * The JWT is never exposed in the redirect URL or browser history.
    */
   @Get('google/callback')
+  @Throttle({ auth: {} })
   @UseGuards(AuthGuard('google'))
   googleCallback(@Req() req: any, @Res() res: Response) {
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
@@ -195,6 +198,7 @@ export class AuthController {
     const { accessToken, refreshToken } = this.authService.generateTokens(
       req.user.id,
       req.user.email,
+      req.user.role,
     );
     this.setAuthCookies(res, accessToken, refreshToken);
     return res.redirect(`${frontendUrl}/auth/google/success`);
@@ -266,5 +270,16 @@ export class AuthController {
   @SkipEmailVerification()
   resubscribeEmail(@CurrentUser() user: User) {
     return this.authService.resubscribeEmail(user.id);
+  }
+
+  /** Changes the authenticated user's password (requires current password). */
+  @ApiOperation({ summary: 'Change password for authenticated user' })
+  @ApiBearerAuth('JWT')
+  @Put('change-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ auth: {} })
+  @UseGuards(JwtAuthGuard)
+  changePassword(@CurrentUser() user: User, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);
   }
 }

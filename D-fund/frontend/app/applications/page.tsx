@@ -56,7 +56,7 @@ export default function ApplicationsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Mes Candidatures</h1>
             <p className="text-sm text-gray-500">
-              Rédigez, soumettez et suivez vos candidatures aux opportunités D-Fund.
+              Rédigez, soumettez et suivez vos candidatures aux opportunités SouthConnect.
             </p>
           </div>
         </div>

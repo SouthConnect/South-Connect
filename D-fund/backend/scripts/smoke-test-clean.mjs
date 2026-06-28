@@ -27,7 +27,12 @@ async function http(method, path, data, token) {
     payload = text;
   }
 
-  return { status: res.status, payload };
+  // Extract access_token from Set-Cookie header if present
+  const setCookie = res.headers.get('set-cookie') ?? '';
+  const tokenMatch = setCookie.match(/access_token=([^;]+)/);
+  const extractedToken = tokenMatch ? tokenMatch[1] : null;
+
+  return { status: res.status, payload, token: extractedToken };
 }
 
 async function main() {
@@ -60,9 +65,24 @@ async function main() {
       return;
     }
 
-    const user = res.payload.user;
-    const token = res.payload.token;
-    created.userId = user.id;
+    created.userId = res.payload.user.id;
+
+    // Login to get the access_token cookie
+    console.log('2b) POST /auth/login');
+    res = await http('POST', '/auth/login', { email, password });
+    console.log('status', res.status);
+    if (res.status !== 200) {
+      console.error('login failed', res.payload);
+      process.exitCode = 1;
+      return;
+    }
+
+    const token = res.token;
+    if (!token) {
+      console.error('No access_token in Set-Cookie after login');
+      process.exitCode = 1;
+      return;
+    }
 
     console.log('3) POST /opportunities');
     res = await http(
@@ -72,7 +92,7 @@ async function main() {
         name: 'Test Opportunity',
         type: 'JOB_OPPORTUNITY',
         description: 'Opportunity created during smoke test',
-        status: 'DRAFT',
+        status: 'ACTIVE',
       },
       token,
     );
@@ -84,6 +104,12 @@ async function main() {
     }
 
     created.opportunityId = res.payload.id;
+
+    // Promote to ACTIVE via DB (creation always starts as DRAFT for security)
+    await prisma.opportunity.update({
+      where: { id: created.opportunityId },
+      data: { status: 'ACTIVE' },
+    });
 
     console.log('4) POST /applications');
     res = await http(

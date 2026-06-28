@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiJson } from '@/app/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { stageLabel, stageColor } from '@/app/lib/stage-labels'
 import Link from 'next/link'
@@ -19,6 +19,7 @@ import {
 import AuthGuard from '@/components/AuthGuard'
 import { toast } from 'sonner'
 import type { Application } from '@/app/lib/types'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 type ReviewStage = 'OWNER_REVIEW' | 'SUCCESS' | 'ARCHIVED'
 
@@ -72,7 +73,7 @@ export default function OpportunityApplicationsPage() {
     }
   }, [selectedApplication])
 
-  const reviewMutation = useMutation({
+  const reviewMutation = useTrackedMutation('application.review', {
     mutationFn: () =>
       apiJson(`/applications/${selectedAppId}/review`, {
         method: 'PUT',
@@ -87,7 +88,7 @@ export default function OpportunityApplicationsPage() {
       setReviewSaved(true)
       setTimeout(() => setReviewSaved(false), 3000)
     },
-    onError: (err: any) => toast.error(err.message || 'Impossible d\'enregistrer la revue.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible d\'enregistrer la revue.')),
   })
 
   return (

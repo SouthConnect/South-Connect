@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiJson } from '@/app/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useSocket } from '@/app/hooks/useSocket'
 import { ArrowLeft, Send, Eye } from 'lucide-react'
@@ -11,6 +11,7 @@ import Image from 'next/image'
 import AuthGuard from '@/components/AuthGuard'
 import { toast } from 'sonner'
 import type { PrivateDiscussion, Message } from '@/app/lib/types'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -60,17 +61,36 @@ export default function PrivateDiscussionPage() {
   })
 
   // ── send mutation ──────────────────────────────────────────────────────────
-  const mutation = useMutation({
+  const mutation = useTrackedMutation('message.send', {
     mutationFn: ({ text, clientMessageId }: { text: string; clientMessageId: string }) =>
       apiJson(`/messages/private/${id}`, {
         method: 'POST',
         body: JSON.stringify({ content: text, clientMessageId }),
       }),
-    onSuccess: () => {
-      // Le socket va broadcaster et mettre à jour le cache
+    onMutate: async ({ text, clientMessageId }) => {
+      await queryClient.cancelQueries({ queryKey: ['private-discussion-messages', id] })
+      const prev = queryClient.getQueryData(['private-discussion-messages', id])
+      const optimistic: Message = {
+        id: clientMessageId,
+        content: text,
+        createdAt: new Date().toISOString(),
+        senderId: user?.id ?? '',
+        sender: user ? { id: user.id, name: user.name, profilePic: user.profilePic } : undefined,
+        clientMessageId,
+      }
+      queryClient.setQueryData(['private-discussion-messages', id], (old: Message[] | undefined) =>
+        old ? [...old, optimistic] : [optimistic],
+      )
+      return { prev, clientMessageId }
+    },
+    onSuccess: (_, __, ctx) => {
+      // Socket will deliver the confirmed message and replace the optimistic one via clientMessageId
       queryClient.invalidateQueries({ queryKey: ['private-discussions', user?.id] })
     },
-    onError: (err: any) => toast.error(err.message || 'Impossible d\'envoyer le message.'),
+    onError: (err: unknown, __, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['private-discussion-messages', id], ctx.prev)
+      toast.error(getErrorMessage(err, 'Impossible d\'envoyer le message.'))
+    },
   })
 
   // ── socket : rejoindre la room + écouter les events ───────────────────────
@@ -81,6 +101,10 @@ export default function PrivateDiscussionPage() {
     const handleNewMessage = (msg: Message) => {
       queryClient.setQueryData(['private-discussion-messages', id], (old: Message[] | undefined) => {
         if (!old) return [msg]
+        // Replace optimistic message by clientMessageId if it exists
+        if (msg.clientMessageId && old.some((m) => m.id === msg.clientMessageId)) {
+          return old.map((m) => m.id === msg.clientMessageId ? msg : m)
+        }
         if (old.some((m) => m.id === msg.id)) return old
         return [...old, msg]
       })
@@ -336,6 +360,7 @@ export default function PrivateDiscussionPage() {
           <textarea
             ref={textareaRef}
             value={content}
+            maxLength={2000}
             onChange={(e) => {
               setContent(e.target.value)
               handleTypingInput()

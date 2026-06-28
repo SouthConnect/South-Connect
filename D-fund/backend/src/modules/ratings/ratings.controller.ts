@@ -6,6 +6,7 @@ import { CreateRatingDto } from './dto/create-rating.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtOptionalGuard } from '../auth/guards/jwt-optional.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Throttle } from '@nestjs/throttler';
 
 /**
  * Exposes rating operations.
@@ -14,6 +15,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
  */
 @ApiTags('ratings')
 @Controller('ratings')
+@Throttle({ default: {} })
 export class RatingsController {
   constructor(private readonly ratingsService: RatingsService) {}
 

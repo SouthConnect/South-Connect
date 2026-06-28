@@ -91,6 +91,7 @@ function ResetPasswordContent() {
               </label>
               <input
                 type="password"
+                autoComplete="new-password"
                 required
                 minLength={8}
                 value={password}
@@ -105,6 +106,7 @@ function ResetPasswordContent() {
               </label>
               <input
                 type="password"
+                autoComplete="new-password"
                 required
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}

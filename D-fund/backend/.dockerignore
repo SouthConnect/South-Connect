@@ -1,0 +1,35 @@
+# Secrets — jamais dans l'image
+.env
+.env.*
+!.env.example
+
+# Dépendances — reconstruites dans l'image
+node_modules/
+
+# Git
+.git/
+.gitignore
+
+# Artifacts de build (reconstruits dans l'image)
+dist/
+
+# Tests & coverage
+coverage/
+test/
+tests/
+**/*.spec.ts
+**/*.e2e-spec.ts
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Docker lui-même
+Dockerfile*
+docker-compose*.yml
+.dockerignore

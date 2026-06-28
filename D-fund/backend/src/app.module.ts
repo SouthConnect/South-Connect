@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { RedisModule } from './modules/redis/redis.module';
@@ -26,6 +27,7 @@ import { FeaturesModule } from './modules/features/features.module';
 import { AiModule } from './modules/ai/ai.module';
 import { CronModule } from './modules/cron/cron.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { EmailQueueModule } from './modules/email-queue/email-queue.module';
 
 @Module({
   imports: [
@@ -46,23 +48,30 @@ import { AuditModule } from './modules/audit/audit.module';
      * In the test environment all limits are set very high so E2E tests are
      * never blocked by rate limiting.
      */
-    ThrottlerModule.forRoot(
-      process.env.NODE_ENV === 'test'
-        ? [
-            { name: 'default',   ttl: 60_000, limit: 10_000 },
-            { name: 'auth',      ttl: 60_000, limit: 10_000 },
-            { name: 'strict',    ttl: 60_000, limit: 10_000 },
-            { name: 'messaging', ttl: 60_000, limit: 10_000 },
-          ]
-        : [
-            // default: 100 req/min — une navigation SPA génère 5-10 requêtes
-            // GET simultanées ; 20 était atteint après 2-3 navigations.
-            { name: 'default',   ttl: 60_000, limit: 100 },
-            { name: 'auth',      ttl: 60_000, limit: 5   },
-            { name: 'strict',    ttl: 60_000, limit: 3   },
-            { name: 'messaging', ttl: 60_000, limit: 30  },
-          ],
-    ),
+    ThrottlerModule.forRootAsync({
+      // P0 — storage Redis pour que le rate-limit soit global sur toutes les instances
+      // (sans Redis, chaque instance a son propre compteur → bypass en multi-pod)
+      useFactory: () => ({
+        throttlers: process.env.NODE_ENV === 'test'
+          ? [
+              { name: 'default',   ttl: 60_000, limit: 10_000 },
+              { name: 'auth',      ttl: 60_000, limit: 10_000 },
+              { name: 'strict',    ttl: 60_000, limit: 10_000 },
+              { name: 'messaging', ttl: 60_000, limit: 10_000 },
+            ]
+          : [
+              { name: 'default',   ttl: 60_000, limit: 100 },
+              { name: 'auth',      ttl: 60_000, limit: 5   },
+              { name: 'strict',    ttl: 60_000, limit: 3   },
+              { name: 'messaging', ttl: 60_000, limit: 30  },
+            ],
+        // In test mode use in-memory storage so each NestJS test app starts with
+        // fresh counters — prevents Redis state from accumulating across suites.
+        storage: process.env.NODE_ENV !== 'test' && process.env.REDIS_URL
+          ? new ThrottlerStorageRedisService(process.env.REDIS_URL)
+          : undefined,
+      }),
+    }),
     PrismaModule,
     RedisModule,
     AuthModule,
@@ -86,6 +95,7 @@ import { AuditModule } from './modules/audit/audit.module';
     AiModule,
     CronModule,
     AuditModule,
+    EmailQueueModule,
   ],
   providers: [
     {

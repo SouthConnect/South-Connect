@@ -1,4 +1,6 @@
-FROM node:22-alpine3.21 AS builder
+FROM node:22-alpine AS builder
+
+RUN apk upgrade --no-cache
 
 WORKDIR /app/frontend
 
@@ -8,24 +10,41 @@ RUN npm ci
 
 COPY frontend ./
 
+# NEXT_PUBLIC_* sont des variables build-time — à passer via --build-arg
+ARG NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
+ARG NEXT_PUBLIC_WS_URL=http://localhost:3001
+ARG NEXT_PUBLIC_SENTRY_DSN=
+
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
+
 RUN npm run build
 
-FROM node:22-alpine3.21 AS production
+# ── Production image ──────────────────────────────────────────────────────────
+FROM node:22-alpine AS production
+
+RUN apk upgrade --no-cache && \
+    apk add --no-cache wget
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app/frontend
 
 ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
-# standalone output contains only the minimal server + deps — no full node_modules needed
 COPY --from=builder /app/frontend/.next/standalone ./
 COPY --from=builder /app/frontend/.next/static ./.next/static
 COPY --from=builder /app/frontend/public ./public
 
-# Run as non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 RUN chown -R appuser:appgroup /app/frontend
 USER appuser
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:3000 || exit 1
 
 CMD ["node", "server.js"]

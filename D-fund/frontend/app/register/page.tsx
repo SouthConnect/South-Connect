@@ -44,7 +44,6 @@ export default function RegisterPage() {
       const registerData = {
         ...formData,
         name: `${formData.firstName} ${formData.lastName}`.trim(),
-        role: 'USER' as const,
       }
 
       const data = await apiJson<{ user: any }>('/auth/register', {
@@ -76,7 +75,7 @@ export default function RegisterPage() {
             Créer un compte
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Rejoignez l'écosystème D-Fund
+            Rejoignez l&apos;écosystème SouthConnect
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>

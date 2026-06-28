@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, keepPreviousData } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
-import { Search, Filter } from 'lucide-react'
+import { Search, Filter, Loader2 } from 'lucide-react'
 
 // DRAFT intentionally excluded — drafts are never shown in the public feed
 const STATUS_OPTIONS = ['ACTIVE', 'PENDING', 'CLOSED', 'ARCHIVED'] as const
@@ -41,25 +41,31 @@ export default function OpportunitiesPage() {
   const [type, setType] = useState<TypeFilter>('')
 
   const {
-    data: opportunities,
+    data,
     isLoading,
     isError,
     error,
-  } = useQuery({
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['opportunities', { search, status, type }],
-    queryFn: () => {
+    queryFn: ({ pageParam }) => {
       const params = new URLSearchParams()
-      params.set('take', '50')
-
+      params.set('take', '20')
+      if (pageParam) params.set('cursor', pageParam as string)
       if (search) params.set('search', search)
       if (status) params.set('status', status)
       if (type) params.set('type', type)
-
-      const qs = params.toString()
-      const endpoint = qs ? `/opportunities?${qs}` : '/opportunities'
-      return apiJson(endpoint)
+      return apiJson(`/opportunities?${params.toString()}`)
     },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage: any) => lastPage.nextCursor ?? undefined,
+    placeholderData: keepPreviousData,
   })
+
+  const opportunities = data?.pages.flatMap((p: any) => p.data) ?? []
+  const total = data?.pages[0]?.total
 
   return (
     <div className="bg-gray-50 min-h-screen pb-12">
@@ -143,7 +149,7 @@ export default function OpportunitiesPage() {
 
         {!isLoading && !isError && (
           <>
-            {!opportunities?.data || opportunities.data.length === 0 ? (
+            {opportunities.length === 0 ? (
               <div className="text-center py-16 text-gray-500 bg-white rounded-2xl border border-dashed border-gray-200">
                 <p className="mb-4">
                   Aucune opportunité ne correspond à vos filtres.
@@ -168,12 +174,28 @@ export default function OpportunitiesPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {opportunities.total !== undefined && (
-                  <p className="text-xs text-gray-400 mb-2">{opportunities.total} résultat{opportunities.total !== 1 ? 's' : ''}</p>
+                {total !== undefined && (
+                  <p className="text-xs text-gray-400 mb-2">{total} résultat{total !== 1 ? 's' : ''}</p>
                 )}
-                {opportunities.data.map((opportunity: any) => (
+                {opportunities.map((opportunity: any) => (
                   <OpportunityCard key={opportunity.id} opportunity={opportunity} />
                 ))}
+
+                {hasNextPage && (
+                  <div className="flex justify-center pt-4">
+                    <button
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      {isFetchingNextPage ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Chargement…</>
+                      ) : (
+                        'Voir plus'
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </>

@@ -39,6 +39,7 @@ class UpdateRoleDto {
 @ApiTags('users')
 @ApiBearerAuth('JWT')
 @Controller('users')
+@Throttle({ default: {} })
 export class UsersController {
   constructor(
     private usersService: UsersService,
@@ -151,6 +152,20 @@ export class UsersController {
     const result = await this.usersService.adminSetBan(id, false);
     this.auditService.log(admin.id, 'UNBAN_USER', id, 'user');
     return result;
+  }
+
+  /** RGPD art. 17 — l'utilisateur supprime et anonymise son propre compte. */
+  @ApiOperation({ summary: 'Delete and anonymise own account (RGPD art. 17)' })
+  @Delete('me')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ strict: {} })
+  async deleteMe(@CurrentUser() user: User, @Res({ passthrough: true }) res: Response) {
+    await this.usersService.deleteMe(user.id);
+    this.auditService.log(user.id, 'DELETE_OWN_ACCOUNT', user.id, 'user');
+    // Invalider les cookies auth immédiatement
+    res.clearCookie('access_token');
+    res.clearCookie('refresh_token');
+    return { success: true };
   }
 
   /** Admin: permanently deletes a user account. */

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { apiJson } from '@/app/lib/api'
+import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { Plus, Users, Pencil, Eye, CheckCircle, Clock, Archive, Send, Info } from 'lucide-react'
 import Image from 'next/image'
@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import ConfirmModal from '@/components/ConfirmModal'
 import AuthGuard from '@/components/AuthGuard'
 import type { Opportunity } from '@/app/lib/types'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 type StatusFilter = 'ALL' | 'DRAFT' | 'PENDING' | 'ACTIVE' | 'ARCHIVED' | 'CLOSED'
 
@@ -55,7 +56,7 @@ export default function MyOpportunitiesPage() {
     enabled: !!user?.id,
   })
 
-  const publishMutation = useMutation({
+  const publishMutation = useTrackedMutation('opportunity.publish', {
     mutationFn: (id: string) =>
       apiJson(`/opportunities/${id}`, {
         method: 'PUT',
@@ -67,11 +68,11 @@ export default function MyOpportunitiesPage() {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
       toast.success('Soumise ! Votre opportunité sera visible après approbation (généralement sous 24h).')
     },
-    onError: (err: any) => toast.error(err.message || 'Impossible de soumettre l\'opportunité.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de soumettre l\'opportunité.')),
     onSettled: () => setPendingActionId(null),
   })
 
-  const archiveMutation = useMutation({
+  const archiveMutation = useTrackedMutation('opportunity.archive', {
     mutationFn: (id: string) =>
       apiJson(`/opportunities/${id}`, {
         method: 'PUT',
@@ -83,11 +84,11 @@ export default function MyOpportunitiesPage() {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
       toast.success('Opportunité archivée.')
     },
-    onError: (err: any) => toast.error(err.message || 'Impossible d\'archiver l\'opportunité.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible d\'archiver l\'opportunité.')),
     onSettled: () => setPendingActionId(null),
   })
 
-  const resubmitMutation = useMutation({
+  const resubmitMutation = useTrackedMutation('opportunity.resubmit', {
     mutationFn: (id: string) =>
       apiJson(`/opportunities/${id}`, {
         method: 'PUT',
@@ -99,7 +100,7 @@ export default function MyOpportunitiesPage() {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
       toast.success('Soumise de nouveau pour révision !')
     },
-    onError: (err: any) => toast.error(err.message || 'Impossible de resoumettre l\'opportunité.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de resoumettre l\'opportunité.')),
     onSettled: () => setPendingActionId(null),
   })
 

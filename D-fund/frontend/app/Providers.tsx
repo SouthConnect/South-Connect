@@ -1,12 +1,24 @@
 'use client'
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, MutationCache } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
+import * as Sentry from '@sentry/nextjs'
 import { useState } from 'react'
 import { ApiError } from '@/app/lib/api'
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
+    mutationCache: new MutationCache({
+      // Global fallback: catches any mutation not already wrapped by useTrackedMutation.
+      // useTrackedMutation handles named mutations with richer context; this is defense-in-depth.
+      onError: (error) => {
+        if (process.env.NODE_ENV !== 'production') return
+        const status = error instanceof ApiError ? error.status : null
+        if (!status || status >= 500) {
+          Sentry.captureException(error, { tags: { source: 'mutation-cache' } })
+        }
+      },
+    }),
     defaultOptions: {
       queries: {
         // 3 minutes before a cached result is considered stale.

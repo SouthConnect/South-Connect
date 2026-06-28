@@ -1,11 +1,12 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import AuthGuard from '@/components/AuthGuard'
 import { Bell, Mail, Loader2, CheckCircle } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/app/lib/AuthContext'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 interface NotificationPreferences {
   emailApplicationSubmitted: boolean
@@ -78,7 +79,7 @@ function PrefsPageContent() {
     enabled: !!user?.id,
   })
 
-  const mutation = useMutation({
+  const mutation = useTrackedMutation('notifications.updateSettings', {
     mutationFn: (data: Partial<NotificationPreferences>) =>
       apiJson('/notifications/preferences', { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: (updated) => {
@@ -151,7 +152,7 @@ function PrefsPageContent() {
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <div className="flex items-center gap-2 mb-5">
           <Bell className="h-5 w-5 text-gray-400" />
-          <h2 className="text-base font-semibold text-gray-800">Notifications dans l'application</h2>
+          <h2 className="text-base font-semibold text-gray-800">Notifications dans l&apos;application</h2>
         </div>
         <div className="space-y-4">
           {INAPP_PREFS.map(({ key, label }) => (

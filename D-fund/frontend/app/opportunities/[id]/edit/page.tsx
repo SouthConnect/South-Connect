@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { apiJson, uploadImage, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
@@ -10,6 +10,7 @@ import { ArrowLeft, Save, Info, MapPin, Globe, DollarSign, Image as ImageIcon, X
 import Link from 'next/link'
 import AuthGuard from '@/components/AuthGuard'
 import MultiSelect from '@/components/MultiSelect'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 export default function EditOpportunityPage() {
   const params = useParams()
@@ -54,7 +55,7 @@ export default function EditOpportunityPage() {
     }
   }, [opportunity])
 
-  const updateMutation = useMutation({
+  const updateMutation = useTrackedMutation('opportunity.update', {
     mutationFn: async (data: any) => {
       setErrorMessage(null)
 

@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Post,
   UploadedFile,
   UseGuards,
@@ -13,6 +14,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { StorageService } from './storage.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { Throttle } from '@nestjs/throttler';
 
 /**
  * Proxies file upload and deletion requests to Supabase Storage.
@@ -25,6 +28,7 @@ import { StorageService } from './storage.service';
 @ApiBearerAuth('JWT')
 @Controller('storage')
 @UseGuards(JwtAuthGuard)
+@Throttle({ default: {} })
 export class StorageController {
   /** Maximum accepted file size in bytes (5 MB). */
   private static readonly MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -32,7 +36,10 @@ export class StorageController {
   /** Storage buckets that callers are allowed to target. */
   private static readonly ALLOWED_BUCKETS = ['images', 'avatars', 'covers', 'attachments'];
 
-  constructor(private readonly storageService: StorageService) {}
+  constructor(
+    private readonly storageService: StorageService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   /**
    * Uploads an image file and returns its public URL.
@@ -48,9 +55,12 @@ export class StorageController {
   @ApiOperation({ summary: 'Upload an image file' })
   @ApiConsumes('multipart/form-data')
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  }))
   async uploadFile(
     @UploadedFile() file: any,
+    @CurrentUser() user: any,
     @Body('bucket') bucket?: string,
     @Body('prefix') prefix?: string,
     @Body('resourceId') resourceId?: string,
@@ -81,6 +91,18 @@ export class StorageController {
     if (!prefix || !resourceId) {
       throw new BadRequestException('prefix and resourceId are required');
     }
+
+    // Vérification d'ownership selon le préfixe pour empêcher la pollution du namespace d'autrui
+    const userOwnedPrefixes = ['avatars', 'covers', 'profile'];
+    if (userOwnedPrefixes.includes(prefix)) {
+      if (resourceId !== user.id) throw new ForbiddenException('You can only upload to your own namespace');
+    } else if (prefix === 'opportunities') {
+      const opp = await this.prisma.opportunity.findUnique({ where: { id: resourceId }, select: { ownerId: true } });
+      if (!opp || opp.ownerId !== user.id) throw new ForbiddenException('You do not own this opportunity');
+    } else if (prefix === 'attachments') {
+      if (resourceId !== user.id) throw new ForbiddenException('You can only upload to your own namespace');
+    }
+
     const filePath = this.storageService.generateFilePath(prefix!, resourceId!, file.mimetype);
 
     const publicUrl = await this.storageService.uploadFile(
@@ -118,10 +140,23 @@ export class StorageController {
     }
 
     // Path format from generateFilePath: {prefix}/{resourceId}/{timestamp}-{random}.{ext}
-    // We enforce that resourceId matches the authenticated user's ID.
+    // For user files (avatar, cover, profile): parts[1] === userId → direct check.
+    // For opportunity files: parts[0] === 'opportunities', parts[1] === opportunityId
+    //   → verify the authenticated user owns that opportunity via DB lookup.
     const parts = path.split('/');
-    if (parts.length < 2 || parts[1] !== user.id) {
-      throw new BadRequestException('You are not allowed to delete this file');
+    if (parts.length < 2) throw new BadRequestException('You are not allowed to delete this file');
+
+    if (parts[0] === 'opportunities') {
+      const opportunityId = parts[1];
+      const opp = await this.prisma.opportunity.findUnique({
+        where: { id: opportunityId },
+        select: { ownerId: true },
+      });
+      if (!opp || opp.ownerId !== user.id) {
+        throw new ForbiddenException('You are not allowed to delete this file');
+      }
+    } else if (parts[1] !== user.id) {
+      throw new ForbiddenException('You are not allowed to delete this file');
     }
 
     await this.storageService.deleteFile(bucket, path);

@@ -4,6 +4,7 @@ import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MessagesModule } from '../messages/messages.module';
+import { EmailQueueModule } from '../email-queue/email-queue.module';
 
 /**
  * Manages in-app notifications and transactional email.
@@ -14,7 +15,7 @@ import { MessagesModule } from '../messages/messages.module';
  * module can still boot if MessagesModule is not loaded (e.g. in unit tests).
  */
 @Module({
-  imports: [ConfigModule, PrismaModule, forwardRef(() => MessagesModule)],
+  imports: [ConfigModule, PrismaModule, forwardRef(() => MessagesModule), forwardRef(() => EmailQueueModule)],
   controllers: [NotificationsController],
   providers: [NotificationsService],
   exports: [NotificationsService],

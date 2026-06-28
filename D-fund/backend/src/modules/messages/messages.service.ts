@@ -237,8 +237,9 @@ export class MessagesService {
       where: { id: senderId },
       select: { isBanned: true, deletedAt: true },
     });
-    if (sender?.deletedAt) throw new ForbiddenException('Your account has been deleted');
-    if (sender?.isBanned) throw new ForbiddenException('Your account has been suspended');
+    if (!sender) throw new ForbiddenException('Sender not found');
+    if (sender.deletedAt) throw new ForbiddenException('Your account has been deleted');
+    if (sender.isBanned) throw new ForbiddenException('Your account has been suspended');
 
     const discussion = await this.prisma.publicDiscussion.findUnique({
       where: { id: discussionId },
@@ -333,24 +334,27 @@ export class MessagesService {
       where: { id: senderId },
       select: { isBanned: true, deletedAt: true },
     });
-    if (sender?.deletedAt) throw new ForbiddenException('Your account has been deleted');
-    if (sender?.isBanned) throw new ForbiddenException('Your account has been suspended');
+    if (!sender) throw new ForbiddenException('Sender not found');
+    if (sender.deletedAt) throw new ForbiddenException('Your account has been deleted');
+    if (sender.isBanned) throw new ForbiddenException('Your account has been suspended');
 
     const otherParticipant = discussion.participants.find((p) => p.userId !== senderId);
 
-    const message = await this.prisma.message.create({
-      data: {
-        content,
-        senderId,
-        receiverId: otherParticipant?.userId,
-        privateDiscussionId: discussionId,
-      },
-      include: { sender: { select: { id: true, name: true, profilePic: true } } },
-    });
-
-    await this.prisma.privateDiscussion.update({
-      where: { id: discussionId },
-      data: { lastMessageAt: new Date() },
+    const message = await this.prisma.$transaction(async (tx) => {
+      const msg = await tx.message.create({
+        data: {
+          content,
+          senderId,
+          receiverId: otherParticipant?.userId,
+          privateDiscussionId: discussionId,
+        },
+        include: { sender: { select: { id: true, name: true, profilePic: true } } },
+      });
+      await tx.privateDiscussion.update({
+        where: { id: discussionId },
+        data: { lastMessageAt: new Date() },
+      });
+      return msg;
     });
 
     this.chatGateway.broadcastMessage(discussionId, message);

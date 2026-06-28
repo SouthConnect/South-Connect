@@ -221,6 +221,13 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const allowed = await this.messagesService.isParticipant(client.userId, payload.discussionId);
     if (!allowed) return; // silently ignore unauthorized typing events
 
+    // Rate limit: 1 typing event per user per discussion per second to prevent spam.
+    if (this.redis) {
+      const rateKey = `typing:rate:${client.userId}:${payload.discussionId}`;
+      const isNew = await this.redis.set(rateKey, '1', 'EX', 1, 'NX').catch(() => 'OK');
+      if (isNew !== 'OK') return; // throttled — drop event silently
+    }
+
     client.to(payload.discussionId).emit('typing', {
       userId: client.userId,
       name: payload.name,

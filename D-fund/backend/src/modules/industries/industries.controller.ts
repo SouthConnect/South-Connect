@@ -7,6 +7,7 @@ import { CreateIndustryDto, UpdateIndustryDto } from './dto/industry.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Throttle } from '@nestjs/throttler';
 
 /**
  * Exposes industry reference data.
@@ -15,6 +16,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
  */
 @ApiTags('industries')
 @Controller('industries')
+@Throttle({ default: {} })
 export class IndustriesController {
   constructor(private readonly industriesService: IndustriesService) {}
 

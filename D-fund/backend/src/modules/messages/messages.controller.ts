@@ -16,6 +16,7 @@ import { MessagesService } from './messages.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { CreateDiscussionDto } from './dto/create-discussion.dto';
 
@@ -27,6 +28,7 @@ import { CreateDiscussionDto } from './dto/create-discussion.dto';
  */
 @ApiTags('messages')
 @Controller('messages')
+@Throttle({ default: {} })
 export class MessagesController {
   constructor(private readonly messagesService: MessagesService) {}
 
@@ -48,6 +50,7 @@ export class MessagesController {
   /** Creates a new public discussion thread. Requires authentication. */
   @Post('public')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   @Throttle({ auth: {} })
   createPublicDiscussion(@CurrentUser() user: User, @Body() dto: CreateDiscussionDto) {
     return this.messagesService.createPublicDiscussion(user.id, dto.title, dto.description);
@@ -56,6 +59,7 @@ export class MessagesController {
   /** Returns all private discussions for the authenticated user, including the last message preview. */
   @Get('private')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   findPrivateDiscussions(@CurrentUser() user: User) {
     return this.messagesService.findPrivateDiscussionsForUser(user.id);
   }
@@ -63,7 +67,7 @@ export class MessagesController {
   /** Returns messages for a public discussion thread. */
   @Get('public/:discussionId')
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
-  findPublicMessages(@Param('discussionId') discussionId: string) {
+  findPublicMessages(@Param('discussionId', ParseIdPipe) discussionId: string) {
     return this.messagesService.findPublicDiscussionMessages(discussionId);
   }
 
@@ -73,8 +77,9 @@ export class MessagesController {
    */
   @Get('private/:discussionId')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   findPrivateMessages(
-    @Param('discussionId') discussionId: string,
+    @Param('discussionId', ParseIdPipe) discussionId: string,
     @CurrentUser() user: User,
   ) {
     return this.messagesService.findPrivateDiscussionMessages(discussionId, user.id);
@@ -83,9 +88,10 @@ export class MessagesController {
   /** Posts a message to a public discussion. Rate-limited to 30 per minute. */
   @Post('public/:discussionId')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   @Throttle({ messaging: {} })
   createPublicMessage(
-    @Param('discussionId') discussionId: string,
+    @Param('discussionId', ParseIdPipe) discussionId: string,
     @CurrentUser() user: User,
     @Body() dto: CreateMessageDto,
   ) {
@@ -95,9 +101,10 @@ export class MessagesController {
   /** Posts a message to a private discussion. Rate-limited to 30 per minute. */
   @Post('private/:discussionId')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   @Throttle({ messaging: {} })
   createPrivateMessage(
-    @Param('discussionId') discussionId: string,
+    @Param('discussionId', ParseIdPipe) discussionId: string,
     @CurrentUser() user: User,
     @Body() dto: CreateMessageDto,
   ) {
@@ -115,7 +122,7 @@ export class MessagesController {
   @Throttle({ auth: {} })
   startPrivateDiscussion(
     @CurrentUser() user: User,
-    @Param('targetUserId') targetUserId: string,
+    @Param('targetUserId', ParseIdPipe) targetUserId: string,
   ) {
     return this.messagesService.startPrivateDiscussion(user.id, targetUserId);
   }
@@ -123,8 +130,9 @@ export class MessagesController {
   /** Marks all messages in a private discussion as read. Only participants may call this. */
   @Post('private/:discussionId/read')
   @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
   @HttpCode(HttpStatus.OK)
-  markAsRead(@CurrentUser() user: User, @Param('discussionId') discussionId: string) {
+  markAsRead(@CurrentUser() user: User, @Param('discussionId', ParseIdPipe) discussionId: string) {
     return this.messagesService.markPrivateDiscussionAsRead(discussionId, user.id);
   }
 }

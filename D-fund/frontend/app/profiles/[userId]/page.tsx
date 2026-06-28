@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import Link from 'next/link'
@@ -9,6 +9,7 @@ import { MapPin, Users, Briefcase, MessageCircle, UserPlus, UserCheck } from 'lu
 import Image from 'next/image'
 import { toast } from 'sonner'
 import StarRating from '@/components/StarRating'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 export default function PublicProfilePage() {
   const params = useParams()
@@ -31,7 +32,7 @@ export default function PublicProfilePage() {
 
   const isFollowing: boolean = followData?.following ?? false
 
-  const followMutation = useMutation({
+  const followMutation = useTrackedMutation('profile.follow', {
     mutationFn: () =>
       apiJson(`/social/follow/${userId}`, {
         method: isFollowing ? 'DELETE' : 'POST',
@@ -43,7 +44,7 @@ export default function PublicProfilePage() {
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de modifier le suivi')),
   })
 
-  const messageMutation = useMutation({
+  const messageMutation = useTrackedMutation('conversation.start', {
     mutationFn: () =>
       apiJson(`/messages/private/start/${userId}`, { method: 'POST' }),
     onSuccess: (discussion: any) => {
@@ -96,7 +97,11 @@ export default function PublicProfilePage() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
         <div
           className="h-32 bg-gradient-to-r from-[#1a237e] to-[#3f51b5]"
-          style={profile.headerImage ? { backgroundImage: `url(${profile.headerImage})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+          style={
+            profile.headerImage && /^https:\/\//.test(profile.headerImage)
+              ? { backgroundImage: `url(${profile.headerImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+              : {}
+          }
         />
         <div className="px-6 pb-6">
           <div className="flex items-end justify-between -mt-10 mb-4">
@@ -149,7 +154,7 @@ export default function PublicProfilePage() {
             )}
           </div>
 
-          <h1 className="text-xl font-bold text-gray-900">{profile.name || profile.email}</h1>
+          <h1 className="text-xl font-bold text-gray-900">{profile.name || 'Utilisateur'}</h1>
           {profile.bio && <p className="text-sm text-gray-600 mt-1 line-clamp-2">{profile.bio}</p>}
           {location && (
             <div className="flex items-center gap-1 text-xs text-gray-400 mt-1.5">
@@ -284,15 +289,17 @@ export default function PublicProfilePage() {
           {profile.linkedinUrl && (
             <div className="bg-white rounded-2xl border border-gray-100 p-5">
               <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Liens</div>
-              <a
-                href={profile.linkedinUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-[#3b49df] hover:underline block truncate"
-              >
-                LinkedIn
-              </a>
-              {profile.website && (
+              {/^https:\/\//.test(profile.linkedinUrl) && (
+                <a
+                  href={profile.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-[#3b49df] hover:underline block truncate"
+                >
+                  LinkedIn
+                </a>
+              )}
+              {profile.website && /^https?:\/\//.test(profile.website) && (
                 <a
                   href={profile.website}
                   target="_blank"
@@ -305,15 +312,17 @@ export default function PublicProfilePage() {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 text-xs text-gray-500">
-            <p>
-              Pour modifier votre profil, rendez-vous dans{' '}
-              <Link href="/profile" className="text-[#3b49df] font-semibold hover:underline">
-                les paramètres du profil
-              </Link>
-              .
-            </p>
-          </div>
+          {isOwnProfile && (
+            <div className="bg-white rounded-2xl border border-gray-100 p-5 text-xs text-gray-500">
+              <p>
+                Pour modifier votre profil, rendez-vous dans{' '}
+                <Link href="/profile" className="text-[#3b49df] font-semibold hover:underline">
+                  les paramètres du profil
+                </Link>
+                .
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

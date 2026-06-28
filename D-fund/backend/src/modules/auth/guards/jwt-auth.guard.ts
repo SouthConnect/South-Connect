@@ -23,7 +23,8 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       context.getClass(),
     ]);
 
-    if (!skip && resolved?.isEmailVerified === false) {
+    const enforcedVerification = process.env.ENFORCE_EMAIL_VERIFICATION !== 'false';
+    if (enforcedVerification && !skip && resolved?.isEmailVerified === false) {
       throw new ForbiddenException('EMAIL_NOT_VERIFIED');
     }
 

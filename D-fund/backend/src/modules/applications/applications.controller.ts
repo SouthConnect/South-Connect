@@ -23,6 +23,7 @@ import { CreateApplicationDto, ReviewApplicationDto, UpdateApplicationDto } from
 @ApiTags('applications')
 @ApiBearerAuth('JWT')
 @Controller('applications')
+@Throttle({ default: {} })
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
 
@@ -34,7 +35,7 @@ export class ApplicationsController {
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
   findByOpportunity(
-    @Param('opportunityId') opportunityId: string,
+    @Param('opportunityId', ParseIdPipe) opportunityId: string,
     @CurrentUser() user: User,
   ) {
     return this.applicationsService.findByOpportunityForOwner(opportunityId, user.id);
@@ -47,7 +48,7 @@ export class ApplicationsController {
   @Get('user/:userId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  findForUser(@Param('userId') userId: string, @CurrentUser() user: User) {
+  findForUser(@Param('userId', ParseIdPipe) userId: string, @CurrentUser() user: User) {
     if (user.id !== userId) {
       throw new ForbiddenException('You can only access your own applications');
     }

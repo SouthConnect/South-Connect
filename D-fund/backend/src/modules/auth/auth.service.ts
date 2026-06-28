@@ -105,8 +105,7 @@ export class AuthService implements OnModuleDestroy {
         // Verification token hashed (high-security: prevents account takeover from DB dump)
         emailVerificationToken: this.hashToken(rawVerificationToken),
         emailVerificationTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 h
-        // Unsubscribe token stored as-is: low-security, must be recoverable for email footers
-        emailUnsubscribeToken: rawUnsubscribeToken,
+        emailUnsubscribeToken: this.hashToken(rawUnsubscribeToken),
         isEmailVerified: false,
         // Create sub-rows in the same transaction so new users can edit their profile
         // and receive notification preferences immediately after signup.
@@ -119,7 +118,7 @@ export class AuthService implements OnModuleDestroy {
       where: { id: created.id },
       select: USER_SAFE_SELECT,
     });
-    const tokens = this.generateTokens(created.id, created.email);
+    const tokens = this.generateTokens(created.id, created.email, created.role);
 
     const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
     const verificationLink = `${frontendUrl}/verify-email?token=${rawVerificationToken}`;
@@ -198,15 +197,51 @@ export class AuthService implements OnModuleDestroy {
     return { message: 'Email de vérification renvoyé.' };
   }
 
+  // Brute-force protection — max tentatives et durée de lock
+  private static readonly MAX_LOGIN_ATTEMPTS = 5;
+  private static readonly LOCK_TTL_SECONDS = 15 * 60; // 15 minutes
+
+  private loginAttemptKey(email: string) {
+    return `login:attempts:${email.toLowerCase()}`;
+  }
+
+  private async checkAndIncrementLoginAttempts(email: string): Promise<void> {
+    if (!this.redis) return;
+    const key = this.loginAttemptKey(email);
+    const attempts = await this.redis.incr(key);
+    if (attempts === 1) {
+      await this.redis.expire(key, AuthService.LOCK_TTL_SECONDS);
+    }
+    if (attempts > AuthService.MAX_LOGIN_ATTEMPTS) {
+      throw new UnauthorizedException('Too many failed attempts — try again in 15 minutes');
+    }
+  }
+
+  private async resetLoginAttempts(email: string): Promise<void> {
+    if (!this.redis) return;
+    await this.redis.del(this.loginAttemptKey(email));
+  }
+
   /**
    * Authenticates a user with email and password.
+   * Brute-force protection : après 5 échecs sur le même compte, lock 15 min via Redis.
    *
    * @throws UnauthorizedException for any credential mismatch (generic message to prevent enumeration).
    */
   async login(dto: LoginDto) {
+    // Vérifier le lock brute-force avant de toucher la DB (fail-fast)
+    if (this.redis) {
+      const key = this.loginAttemptKey(dto.email);
+      const attempts = parseInt(await this.redis.get(key) ?? '0', 10);
+      if (attempts >= AuthService.MAX_LOGIN_ATTEMPTS) {
+        throw new UnauthorizedException('Too many failed attempts — try again in 15 minutes');
+      }
+    }
+
     const raw = await this.prisma.user.findUnique({ where: { email: dto.email } });
 
     if (!raw || !raw.password) {
+      await this.checkAndIncrementLoginAttempts(dto.email);
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -220,14 +255,18 @@ export class AuthService implements OnModuleDestroy {
 
     const isValid = await bcrypt.compare(dto.password, raw.password);
     if (!isValid) {
+      await this.checkAndIncrementLoginAttempts(dto.email);
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    // Succès — réinitialiser le compteur
+    await this.resetLoginAttempts(dto.email);
 
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: raw.id },
       select: USER_SAFE_SELECT,
     });
-    const tokens = this.generateTokens(raw.id, raw.email);
+    const tokens = this.generateTokens(raw.id, raw.email, raw.role);
 
     return { user, ...tokens };
   }
@@ -269,14 +308,14 @@ export class AuthService implements OnModuleDestroy {
    * (REFRESH_TOKEN_SECRET or JWT_SECRET + '_refresh') so that a stolen
    * refresh token cannot be used to forge access tokens.
    */
-  generateTokens(userId: string, email: string): { accessToken: string; refreshToken: string } {
-    const accessToken = this.jwtService.sign({ userId, email }, { expiresIn: '15m' });
+  generateTokens(userId: string, email: string, role: string): { accessToken: string; refreshToken: string } {
+    const accessToken = this.jwtService.sign({ userId, email, role }, { expiresIn: '15m' });
 
     const refreshSecret =
       this.config.get<string>('REFRESH_TOKEN_SECRET') ??
       (this.config.get<string>('JWT_SECRET')! + '_refresh');
     const refreshToken = this.jwtService.sign(
-      { userId, email },
+      { userId, email, role },
       { secret: refreshSecret, expiresIn: '7d' },
     );
 
@@ -324,7 +363,7 @@ export class AuthService implements OnModuleDestroy {
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, email: true, isBanned: true, deletedAt: true, passwordChangedAt: true },
+        select: { id: true, email: true, role: true, isBanned: true, deletedAt: true, passwordChangedAt: true },
       });
       if (!user) throw new UnauthorizedException('User not found');
       if (user.deletedAt) throw new UnauthorizedException('Account deleted');
@@ -339,7 +378,7 @@ export class AuthService implements OnModuleDestroy {
         }
       }
 
-      return this.generateTokens(user.id, user.email);
+      return this.generateTokens(user.id, user.email, user.role);
     } catch (err) {
       if (err instanceof UnauthorizedException) throw err;
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -501,7 +540,7 @@ export class AuthService implements OnModuleDestroy {
    * Always returns a success response even for unknown emails to prevent user enumeration.
    */
   async forgotPassword(email: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findFirst({ where: { email, deletedAt: null } });
 
     if (!user) return { message: 'If this email exists, a reset link has been sent.' };
 
@@ -584,26 +623,49 @@ export class AuthService implements OnModuleDestroy {
    *
    * @throws BadRequestException when the token is absent or unknown.
    */
+  /**
+   * Changes the password for an authenticated user.
+   * Requires the current password to prevent unauthorized changes from stolen sessions.
+   * Rotating passwordChangedAt invalidates all existing JWTs.
+   *
+   * @throws UnauthorizedException when currentPassword does not match.
+   * @throws BadRequestException for OAuth-only accounts that have no password.
+   */
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, password: true },
+    });
+
+    if (!user) throw new BadRequestException('Compte introuvable.');
+
+    if (!user.password) {
+      throw new BadRequestException(
+        'Ce compte a été créé via Google et ne possède pas de mot de passe. Utilisez la réinitialisation de mot de passe par email.',
+      );
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) throw new UnauthorizedException('Mot de passe actuel incorrect.');
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashed, passwordChangedAt: new Date() },
+    });
+
+    return { message: 'Mot de passe mis à jour avec succès.' };
+  }
+
   async unsubscribeEmail(token: string) {
     if (!token) throw new BadRequestException('Token de désabonnement manquant.');
 
-    // Primary lookup by hash. Permanent plaintext fallback for unsubscribe tokens
-    // since old email footers in users' inboxes may contain pre-hash tokens.
-    let user = await this.prisma.user.findFirst({
-      where: { emailUnsubscribeToken: this.hashToken(token) },
+    // Direct lookup: the token stored in DB is exactly what appears in the email footer URL
+    // (the hash for new accounts, raw for pre-migration accounts). No re-hashing needed.
+    const user = await this.prisma.user.findFirst({
+      where: { emailUnsubscribeToken: token },
     });
-    if (!user) {
-      user = await this.prisma.user.findFirst({
-        where: { emailUnsubscribeToken: token },
-      });
-      // Opportunistically upgrade the stored token to its hash on first use
-      if (user) {
-        await this.prisma.user.update({
-          where: { id: user.id },
-          data: { emailUnsubscribeToken: this.hashToken(token) },
-        }).catch(() => undefined);
-      }
-    }
 
     if (!user) throw new BadRequestException('Lien de désabonnement invalide.');
 

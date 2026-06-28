@@ -132,9 +132,9 @@ describe('Notifications (e2e)', () => {
         .set('Authorization', `Bearer ${alice.token}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThanOrEqual(2);
-      const notif = res.body.find((n: { id: string }) => n.id === notifId);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+      const notif = res.body.data.find((n: { id: string }) => n.id === notifId);
       expect(notif).toBeDefined();
       expect(notif.title).toBe('E2E Notification 1');
     });
@@ -145,9 +145,9 @@ describe('Notifications (e2e)', () => {
         .set('Authorization', `Bearer ${bob.token}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
       // Bob has no seeded notifications
-      const aliceNotif = res.body.find((n: { id: string }) => n.id === notifId);
+      const aliceNotif = res.body.data.find((n: { id: string }) => n.id === notifId);
       expect(aliceNotif).toBeUndefined();
     });
   });
@@ -299,25 +299,30 @@ describe('Notifications (e2e)', () => {
         .set('Authorization', `Bearer ${paginationToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBe(2);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBe(2);
     });
 
-    it('?skip=3 skips the 3 most recent notifications', async () => {
-      const all = await request(app.getHttpServer())
-        .get('/api/v1/notifications')
+    it('cursor paginates to the next page', async () => {
+      // Page 1 — take 2
+      const page1 = await request(app.getHttpServer())
+        .get('/api/v1/notifications?take=2')
         .set('Authorization', `Bearer ${paginationToken}`)
         .expect(200);
 
-      const skipped = await request(app.getHttpServer())
-        .get('/api/v1/notifications?skip=3')
+      expect(page1.body.nextCursor).toBeTruthy();
+
+      // Page 2 — start after the cursor
+      const page2 = await request(app.getHttpServer())
+        .get(`/api/v1/notifications?take=2&cursor=${page1.body.nextCursor}`)
         .set('Authorization', `Bearer ${paginationToken}`)
         .expect(200);
 
-      // skipped list should be shorter
-      expect(skipped.body.length).toBe(all.body.length - 3);
-      // First item in skipped should match 4th item in full list
-      expect(skipped.body[0].id).toBe(all.body[3].id);
+      expect(Array.isArray(page2.body.data)).toBe(true);
+      // Items on page 2 should be different from page 1
+      const page1Ids = page1.body.data.map((n: { id: string }) => n.id);
+      const page2Ids = page2.body.data.map((n: { id: string }) => n.id);
+      expect(page1Ids).not.toEqual(page2Ids);
     });
 
     it('results are ordered most-recent first', async () => {
@@ -326,7 +331,7 @@ describe('Notifications (e2e)', () => {
         .set('Authorization', `Bearer ${paginationToken}`)
         .expect(200);
 
-      const dates = res.body.map((n: { createdAt: string }) => new Date(n.createdAt).getTime());
+      const dates = res.body.data.map((n: { createdAt: string }) => new Date(n.createdAt).getTime());
       for (let i = 0; i < dates.length - 1; i++) {
         expect(dates[i]).toBeGreaterThanOrEqual(dates[i + 1]);
       }
@@ -347,7 +352,7 @@ describe('Notifications (e2e)', () => {
         .set('Authorization', `Bearer ${paginationToken}`)
         .expect(200);
 
-      expect(res.body.length).toBeLessThanOrEqual(100);
+      expect(res.body.data.length).toBeLessThanOrEqual(100);
     });
   });
 });

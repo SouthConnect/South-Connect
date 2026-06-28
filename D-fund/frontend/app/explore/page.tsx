@@ -74,7 +74,7 @@ export default function ExplorePage() {
       {/* Hero */}
       <div className="bg-gradient-to-br from-[#1a237e] to-[#3b49df] py-14 px-4">
         <div className="container mx-auto max-w-3xl text-center">
-          <h1 className="text-3xl font-extrabold text-white mb-3">Explorer D-Fund</h1>
+          <h1 className="text-3xl font-extrabold text-white mb-3">Explorer SouthConnect</h1>
           <p className="text-white/70 mb-8 text-base">
             Découvrez des opportunités, talents, investisseurs et collaborateurs dans tout l'écosystème.
           </p>
@@ -157,7 +157,7 @@ export default function ExplorePage() {
         {activeGroup === null && (profiles?.length ?? 0) > 0 && (
           <section>
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-gray-900">Personnes sur D-Fund</h2>
+              <h2 className="text-lg font-bold text-gray-900">Personnes sur SouthConnect</h2>
               <Link href="/profiles" className="text-sm text-[#3b49df] font-semibold flex items-center gap-1 hover:underline">
                 Voir tout <ArrowRight className="w-3.5 h-3.5" />
               </Link>

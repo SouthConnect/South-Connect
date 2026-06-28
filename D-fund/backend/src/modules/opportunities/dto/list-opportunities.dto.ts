@@ -47,4 +47,10 @@ export class ListOpportunitiesDto {
   @IsOptional()
   @IsEnum(SortEnum)
   sort?: SortEnum;
+
+  /** Cursor-based pagination: ID of the last item from the previous page. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(36)
+  cursor?: string;
 }

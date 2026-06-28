@@ -113,8 +113,15 @@ export interface Opportunity {
 
 export interface OpportunityListResponse {
   data: Opportunity[]
-  total: number
-  hasMore: boolean
+  nextCursor: string | null
+  // Present only on the first page (offset path) — optional for cursor pages
+  total?: number
+  hasMore?: boolean
+}
+
+export interface NotificationPage {
+  data: Notification[]
+  nextCursor: string | null
 }
 
 export interface ApplicationCandidate {
@@ -206,6 +213,7 @@ export interface Message {
   privateDiscussionId?: string
   publicDiscussionId?: string
   createdAt: string
+  clientMessageId?: string
 }
 
 export interface BtoCProfile {

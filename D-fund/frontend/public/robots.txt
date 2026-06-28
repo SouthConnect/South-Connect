@@ -3,4 +3,4 @@ Allow: /
 Disallow: /admin
 Disallow: /api/
 
-Sitemap: https://dfund.com/sitemap.xml
+Sitemap: https://southconnect.io/sitemap.xml

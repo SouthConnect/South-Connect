@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { Star } from 'lucide-react'
 import { toast } from 'sonner'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 interface RatingStats {
   itemId: string
@@ -49,7 +50,7 @@ export default function StarRating({ itemId, interactive = false, size = 'md' }:
     enabled: !!user && interactive,
   })
 
-  const upsertMutation = useMutation({
+  const upsertMutation = useTrackedMutation('opportunity.rate', {
     mutationFn: (rating: number) =>
       apiJson('/ratings', { method: 'POST', body: JSON.stringify({ itemId, rating }) }),
     onSuccess: () => {

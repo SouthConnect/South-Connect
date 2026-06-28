@@ -23,6 +23,8 @@ const logger = new Logger('RedisModule');
           enableOfflineQueue: false,
           retryStrategy: (times: number) => Math.min(times * 200, 5000),
           connectTimeout: 3000,
+          // P1 — timeout par commande : évite qu'un Redis dégradé bloque chaque requête HTTP
+          commandTimeout: 5000,
         });
         client.on('error', () => {});
         try {

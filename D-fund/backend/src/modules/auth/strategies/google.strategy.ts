@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
@@ -22,6 +23,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret,
       callbackURL: `${config.get<string>('BACKEND_URL') || 'http://localhost:3001'}/api/v1/auth/google/callback`,
       scope: ['email', 'profile'],
+      // Passport génère et vérifie automatiquement le paramètre state anti-CSRF
+      state: true,
     });
   }
 
@@ -47,15 +50,21 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       if (user.isBanned) {
         return done(new UnauthorizedException('Account suspended'), undefined);
       }
+      if (user.deletedAt) {
+        return done(null, { oauthError: 'OAUTH_AUTH_REQUIRED' } as any);
+      }
       // If the user registered with email/password and has no googleId, auto-linking
       // is a security risk: an attacker who controls a Google account with the same
       // email would silently take over the existing account.
       // Instead, signal the conflict so the controller can redirect to a clear error page.
       if (!user.googleId) {
-        return done(null, { oauthError: 'EMAIL_EXISTS_DIFFERENT_METHOD' } as any);
+        // Use a generic code — never confirm that an email/password account exists
+        // for this email, which would allow harvesting of registered addresses.
+        return done(null, { oauthError: 'OAUTH_AUTH_REQUIRED' } as any);
       }
     } else {
       try {
+        const rawUnsubscribeToken = crypto.randomBytes(32).toString('hex');
         user = await this.prisma.user.create({
           data: {
             googleId,
@@ -66,6 +75,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
             profilePic: photos?.[0]?.value || null,
             // Google has already verified the email — no need for a separate verification step
             isEmailVerified: true,
+            // Required so email footers have a valid one-click unsubscribe link
+            emailUnsubscribeToken: rawUnsubscribeToken,
             btoCProfile: { create: {} },
             notificationPreferences: { create: {} },
           },

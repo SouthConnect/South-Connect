@@ -9,22 +9,22 @@ import { Toaster } from 'sonner'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'D-Fund - La plateforme tout-en-un pour les entrepreneurs africains',
-  description: "Connectez-vous avec des investisseurs, trouvez des co-fondateurs, accédez aux talents et opportunités de financement — tout en un seul endroit pour l'écosystème startup africain.",
+  title: 'SouthConnect - La plateforme tout-en-un pour les entrepreneurs africains',
+  description: "Connectez-vous avec des investisseurs, trouvez des co-fondateurs, accédez aux talents et aux opportunités de financement, tout en un seul endroit pour l'écosystème startup africain.",
   icons: {
     icon: '/favicon.ico',
   },
   openGraph: {
-    title: 'D-Fund - La plateforme tout-en-un pour les entrepreneurs africains',
+    title: 'SouthConnect - La plateforme tout-en-un pour les entrepreneurs africains',
     description: "Connectez-vous avec des investisseurs, trouvez des co-fondateurs, accédez aux talents et opportunités de financement.",
-    url: 'https://d-fund.co',
-    siteName: 'D-Fund',
+    url: 'https://southconnect.io',
+    siteName: 'SouthConnect',
     locale: 'fr_FR',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'D-Fund',
+    title: 'SouthConnect',
     description: "La plateforme tout-en-un pour les entrepreneurs africains.",
   },
 }

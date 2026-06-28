@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import AuthGuard from '@/components/AuthGuard'
 import { Plus, Trash2, ExternalLink, Check, Circle, Lightbulb, Loader2, X, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Task, TaskStatus } from '@/app/lib/types'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 const STATUS_CONFIG: Record<
   TaskStatus,
@@ -74,7 +75,7 @@ function TasksContent() {
     queryFn: () => apiJson('/tasks'),
   })
 
-  const createMutation = useMutation({
+  const createMutation = useTrackedMutation('task.create', {
     mutationFn: (dto: Partial<Task>) => apiJson('/tasks', { method: 'POST', body: JSON.stringify(dto) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -84,7 +85,7 @@ function TasksContent() {
     onError: (e: any) => toast.error(e.message || 'Impossible de créer la tâche.'),
   })
 
-  const updateMutation = useMutation({
+  const updateMutation = useTrackedMutation('task.update', {
     mutationFn: ({ id, ...dto }: Partial<Task> & { id: string }) =>
       apiJson(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify(dto) }),
     onSuccess: () => {
@@ -94,7 +95,7 @@ function TasksContent() {
     onError: (e: any) => toast.error(e.message || 'Impossible de mettre à jour la tâche.'),
   })
 
-  const deleteMutation = useMutation({
+  const deleteMutation = useTrackedMutation('task.delete', {
     mutationFn: (id: string) => apiJson(`/tasks/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })

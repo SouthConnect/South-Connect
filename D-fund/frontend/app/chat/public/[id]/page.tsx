@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiJson } from '@/app/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useSocket } from '@/app/hooks/useSocket'
 import { ArrowLeft, Users, Send } from 'lucide-react'
@@ -11,6 +11,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import type { PublicDiscussion, Message } from '@/app/lib/types'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -54,13 +55,32 @@ export default function PublicDiscussionPage() {
   })
 
   // Envoi
-  const mutation = useMutation({
+  const mutation = useTrackedMutation('message.send', {
     mutationFn: ({ text, clientMessageId }: { text: string; clientMessageId: string }) =>
       apiJson(`/messages/public/${id}`, {
         method: 'POST',
         body: JSON.stringify({ content: text, clientMessageId }),
       }),
-    onError: (err: any) => toast.error(err.message || 'Impossible d\'envoyer le message.'),
+    onMutate: async ({ text, clientMessageId }) => {
+      await queryClient.cancelQueries({ queryKey: ['public-discussion-messages', id] })
+      const prev = queryClient.getQueryData(['public-discussion-messages', id])
+      const optimistic: Message = {
+        id: clientMessageId,
+        content: text,
+        createdAt: new Date().toISOString(),
+        senderId: user?.id ?? '',
+        sender: user ? { id: user.id, name: user.name, profilePic: user.profilePic } : undefined,
+        clientMessageId,
+      }
+      queryClient.setQueryData(['public-discussion-messages', id], (old: Message[] | undefined) =>
+        old ? [...old, optimistic] : [optimistic],
+      )
+      return { prev }
+    },
+    onError: (err: unknown, __, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(['public-discussion-messages', id], ctx.prev)
+      toast.error(getErrorMessage(err, 'Impossible d\'envoyer le message.'))
+    },
   })
 
   // Socket
@@ -71,6 +91,9 @@ export default function PublicDiscussionPage() {
     const handleNewMessage = (msg: Message) => {
       queryClient.setQueryData(['public-discussion-messages', id], (old: Message[] | undefined) => {
         if (!old) return [msg]
+        if (msg.clientMessageId && old.some((m) => m.id === msg.clientMessageId)) {
+          return old.map((m) => m.id === msg.clientMessageId ? msg : m)
+        }
         if (old.some((m) => m.id === msg.id)) return old
         return [...old, msg]
       })
@@ -283,6 +306,7 @@ export default function PublicDiscussionPage() {
             <textarea
               ref={textareaRef}
               value={content}
+              maxLength={2000}
               onChange={(e) => {
                 setContent(e.target.value)
                 handleTypingInput()

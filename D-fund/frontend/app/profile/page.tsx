@@ -3,13 +3,15 @@
 import { Suspense, useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/lib/AuthContext'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { apiJson, uploadImage } from '@/app/lib/api'
+import { useRouter } from 'next/navigation'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
-import { User, Mail, Phone, MapPin, Linkedin, Globe, Shield, UserCircle, Building2, Save } from 'lucide-react'
+import { User, Mail, Phone, MapPin, Linkedin, Globe, Shield, UserCircle, Building2, Save, Lock, Trash2, Download, AlertTriangle } from 'lucide-react'
 import Image from 'next/image'
 import AuthGuard from '@/components/AuthGuard'
 import MultiSelect from '@/components/MultiSelect'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 // Cette page lit les search params et des données utilisateur côté client,
 // on force un rendu dynamique pour éviter les erreurs de pré-rendu.
@@ -19,10 +21,15 @@ function ProfilePageContent() {
   const { user: authUser, refreshUser } = useAuth()
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()
-  const [activeTab, setActiveTab] = useState<'info' | 'btoc' | 'btob'>(() => {
-    const tab = searchParams?.get('tab') as 'info' | 'btoc' | 'btob' | null
+  const router = useRouter()
+  const { logout } = useAuth()
+  const [activeTab, setActiveTab] = useState<'info' | 'btoc' | 'btob' | 'security'>(() => {
+    const tab = searchParams?.get('tab') as 'info' | 'btoc' | 'btob' | 'security' | null
     return tab ?? 'info'
   })
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [pwError, setPwError] = useState<string | null>(null)
+  const [pwSuccess, setPwSuccess] = useState(false)
 
   const isOnboarding = searchParams?.get('onboarding') === 'true'
 
@@ -68,7 +75,7 @@ function ProfilePageContent() {
     if (profile?.btoBProfile?.marketFocus?.length) setBtobMarkets(profile.btoBProfile.marketFocus)
   }, [profile])
 
-  const updateMeMutation = useMutation({
+  const updateMeMutation = useTrackedMutation('profile.updateMe', {
     mutationFn: (data: any) => apiJson('/users/me', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -82,7 +89,7 @@ function ProfilePageContent() {
     },
   })
 
-  const updateBtoCMutation = useMutation({
+  const updateBtoCMutation = useTrackedMutation('profile.updateBtoC', {
     mutationFn: (data: any) => apiJson(`/profiles/bto-c/${authUser?.id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -95,7 +102,7 @@ function ProfilePageContent() {
     },
   })
 
-  const updateBtoBMutation = useMutation({
+  const updateBtoBMutation = useTrackedMutation('profile.updateBtoB', {
     mutationFn: (data: any) =>
       apiJson(`/profiles/bto-b/${authUser?.id}`, {
         method: 'PUT',
@@ -106,6 +113,45 @@ function ProfilePageContent() {
       setSavedBtoB(true)
       if (savedBtoBTimer.current) clearTimeout(savedBtoBTimer.current)
       savedBtoBTimer.current = setTimeout(() => setSavedBtoB(false), 3000)
+    },
+  })
+
+  const changePasswordMutation = useMutation({
+    mutationFn: (data: { currentPassword: string; newPassword: string }) =>
+      apiJson('/auth/change-password', { method: 'PUT', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      setPwSuccess(true)
+      setPwError(null)
+    },
+    onError: (err: any) => {
+      setPwError(err?.message || 'Impossible de changer le mot de passe.')
+      setPwSuccess(false)
+    },
+  })
+
+  const deleteMeMutation = useMutation({
+    mutationFn: () => apiJson('/users/me', { method: 'DELETE' }),
+    onSuccess: async () => {
+      await logout()
+      router.replace('/')
+    },
+    onError: (err: any) => setPwError(err?.message || 'Impossible de supprimer le compte.'),
+  })
+
+  const exportDataMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1'}/users/me/export`,
+        { method: 'POST', credentials: 'include' },
+      )
+      if (!res.ok) throw new Error('Export échoué')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `southconnect-export-${Date.now()}.json`
+      a.click()
+      URL.revokeObjectURL(url)
     },
   })
 
@@ -137,7 +183,7 @@ function ProfilePageContent() {
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-lg shrink-0">D</div>
             <div className="flex-1">
-              <p className="text-base font-bold mb-1">Bienvenue sur D-Fund, {authUser?.firstName || authUser?.name} !</p>
+              <p className="text-base font-bold mb-1">Bienvenue sur SouthConnect, {authUser?.firstName || authUser?.name} !</p>
               <p className="text-sm text-white/80 mb-4">
                 Complétez votre profil en 3 étapes pour commencer à vous connecter avec l&apos;écosystème.
               </p>
@@ -250,6 +296,15 @@ function ProfilePageContent() {
           >
             <Building2 className="w-4 h-4" />
             Profil entreprise
+          </button>
+          <button
+            onClick={() => setActiveTab('security')}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-colors ${
+              activeTab === 'security' ? 'text-[#3b49df] bg-[#3b49df]/5' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Lock className="w-4 h-4" />
+            Sécurité
           </button>
         </div>
       </div>
@@ -565,6 +620,133 @@ function ProfilePageContent() {
               </button>
             </div>
           </form>
+        )}
+
+        {activeTab === 'security' && (
+          <div className="space-y-10">
+            {/* Change password */}
+            <section>
+              <h2 className="text-xl font-bold text-gray-900 mb-1">Changer le mot de passe</h2>
+              <p className="text-sm text-gray-500 mb-6">Votre nouveau mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre.</p>
+              <form
+                className="space-y-4 max-w-md"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  const fd = new FormData(e.currentTarget)
+                  const currentPassword = fd.get('currentPassword') as string
+                  const newPassword = fd.get('newPassword') as string
+                  const confirmPassword = fd.get('confirmPassword') as string
+                  if (newPassword !== confirmPassword) {
+                    setPwError('Les mots de passe ne correspondent pas.')
+                    return
+                  }
+                  setPwError(null)
+                  setPwSuccess(false)
+                  changePasswordMutation.mutate({ currentPassword, newPassword })
+                  ;(e.target as HTMLFormElement).reset()
+                }}
+              >
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Mot de passe actuel</label>
+                  <input
+                    name="currentPassword"
+                    type="password"
+                    required
+                    autoComplete="current-password"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Nouveau mot de passe</label>
+                  <input
+                    name="newPassword"
+                    type="password"
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Confirmer le nouveau mot de passe</label>
+                  <input
+                    name="confirmPassword"
+                    type="password"
+                    required
+                    autoComplete="new-password"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[#3b49df] focus:border-[#3b49df]"
+                  />
+                </div>
+                {pwError && (
+                  <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{pwError}</div>
+                )}
+                {pwSuccess && (
+                  <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-700 font-medium">Mot de passe mis à jour avec succès.</div>
+                )}
+                <button
+                  type="submit"
+                  disabled={changePasswordMutation.isPending}
+                  className="flex items-center gap-2 px-5 py-2 bg-[#3b49df] text-white rounded-lg text-sm font-bold hover:bg-[#2d3aba] transition-colors disabled:opacity-50"
+                >
+                  <Lock className="w-4 h-4" />
+                  {changePasswordMutation.isPending ? 'Mise à jour…' : 'Mettre à jour le mot de passe'}
+                </button>
+              </form>
+            </section>
+
+            <hr className="border-gray-100" />
+
+            {/* RGPD export */}
+            <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-1">Exporter mes données</h2>
+              <p className="text-sm text-gray-500 mb-4">Téléchargez une copie de toutes vos données personnelles (RGPD Article 20).</p>
+              <button
+                type="button"
+                onClick={() => exportDataMutation.mutate()}
+                disabled={exportDataMutation.isPending}
+                className="inline-flex items-center gap-2 px-5 py-2 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                <Download className="w-4 h-4" />
+                {exportDataMutation.isPending ? 'Préparation…' : 'Télécharger mes données'}
+              </button>
+            </section>
+
+            <hr className="border-red-100" />
+
+            {/* Account deletion */}
+            <section>
+              <div className="flex items-start gap-3 mb-4">
+                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <div>
+                  <h2 className="text-lg font-bold text-red-600">Supprimer mon compte</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Cette action est <strong>irréversible</strong>. Toutes vos données (profil, opportunités, candidatures, messages) seront définitivement supprimées.
+                  </p>
+                </div>
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-5 max-w-md">
+                <label className="block text-xs font-semibold text-gray-700 mb-2">
+                  Tapez <span className="font-mono font-bold text-red-600">SUPPRIMER</span> pour confirmer
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirm}
+                  onChange={(e) => setDeleteConfirm(e.target.value)}
+                  placeholder="SUPPRIMER"
+                  className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm focus:ring-red-400 focus:border-red-400 bg-white mb-4"
+                />
+                <button
+                  type="button"
+                  disabled={deleteConfirm !== 'SUPPRIMER' || deleteMeMutation.isPending}
+                  onClick={() => deleteMeMutation.mutate()}
+                  className="inline-flex items-center gap-2 px-5 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {deleteMeMutation.isPending ? 'Suppression…' : 'Supprimer définitivement mon compte'}
+                </button>
+              </div>
+            </section>
+          </div>
         )}
 
         {activeTab === 'btob' && (

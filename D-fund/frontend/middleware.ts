@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
+import { decodeJwt } from 'jose';
 
 /**
  * Server-side route protection.
  *
- * Protected paths require a valid, signature-verified access_token cookie.
- * Admin paths additionally require role=ADMIN in the JWT payload.
- *
- * Unrecognised paths not explicitly listed as public are blocked by default
- * (fail-closed) to prevent accidental exposure of new routes.
+ * Checks cookie presence + expiry only — does NOT verify the JWT signature.
+ * This avoids sharing JWT_SECRET with the frontend (Edge runtime).
+ * True authentication is enforced by the backend on every API call (401 → redirect).
+ * Admin paths additionally require role=ADMIN in the decoded payload.
  */
 
 const PROTECTED_PREFIXES = [
@@ -33,6 +32,7 @@ const PUBLIC_PREFIXES = [
   '/forgot-password',
   '/reset-password',
   '/verify-email',
+  '/unsubscribe',
   '/opportunities',
   '/profiles',
   '/explore',
@@ -50,13 +50,11 @@ interface JwtPayload {
   exp?: number;
 }
 
-async function verifyToken(token: string): Promise<JwtPayload | null> {
+function decodeToken(token: string): JwtPayload | null {
   try {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) return null;
-    const key = new TextEncoder().encode(secret);
-    const { payload } = await jwtVerify(token, key);
-    return payload as JwtPayload;
+    const payload = decodeJwt(token) as JwtPayload;
+    if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+    return payload;
   } catch {
     return null;
   }
@@ -77,25 +75,25 @@ export async function middleware(request: NextRequest) {
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
 
   const tokenCookie = request.cookies.get('access_token');
+
+  // No cookie at all → definitely logged out → redirect immediately
   if (!tokenCookie?.value) {
-    if (!isProtected) return NextResponse.next(); // static assets, etc.
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  const payload = await verifyToken(tokenCookie.value);
-
-  if (!payload) {
     if (!isProtected) return NextResponse.next();
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // Admin routes require ADMIN role
-  if (pathname.startsWith('/admin') && payload.role !== 'ADMIN') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  // Cookie exists but may be expired → decode without hard-redirecting.
+  // If expired, the client will silently refresh via /auth/refresh.
+  // AppShell handles the redirect to /login if the refresh also fails.
+  const payload = decodeToken(tokenCookie.value);
+
+  // Admin routes: always require a valid, non-expired ADMIN token
+  if (pathname.startsWith('/admin')) {
+    if (!payload || payload.role !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
   }
 
   return NextResponse.next();

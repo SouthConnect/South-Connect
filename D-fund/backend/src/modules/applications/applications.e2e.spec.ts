@@ -300,14 +300,15 @@ describe('Applications module (e2e)', () => {
     });
 
     it('should allow the opportunity owner to review an application', async () => {
+      // SUBMITTED → OWNER_REVIEW is the first valid review transition
       const res = await request(app.getHttpServer())
         .put(`/api/v1/applications/${applicationId}/review`)
         .set('Authorization', `Bearer ${ownerToken}`)
-        .send({ stage: 'SUCCESS', reviewFeedback: 'Great candidate!' })
+        .send({ stage: 'OWNER_REVIEW', reviewFeedback: 'Great candidate!' })
         .expect(200);
 
-      expect(res.body.stage).toBe('SUCCESS');
-      expect(res.body.isClosed).toBe(true);
+      expect(res.body.stage).toBe('OWNER_REVIEW');
+      expect(res.body.isClosed).toBe(false);
       expect(res.body.reviewFeedback).toBe('Great candidate!');
     });
   });

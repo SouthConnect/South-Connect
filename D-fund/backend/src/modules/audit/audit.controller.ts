@@ -5,10 +5,12 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { AuditService } from './audit.service';
+import { Throttle } from '@nestjs/throttler';
 
 @ApiTags('audit')
 @ApiBearerAuth('JWT')
 @Controller('audit')
+@Throttle({ default: {} })
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 

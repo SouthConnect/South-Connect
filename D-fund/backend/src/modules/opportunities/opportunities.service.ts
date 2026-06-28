@@ -8,6 +8,8 @@ import { CreateOpportunityDto, ListOpportunitiesDto, SortEnum, UpdateOpportunity
 
 const ADMIN_STATS_CACHE_KEY = 'admin:stats';
 const ADMIN_STATS_TTL_SECONDS = 60;
+const FEED_CACHE_PREFIX = 'opp:feed:v1';
+const FEED_CACHE_TTL_SECONDS = 45;
 
 /**
  * Manages opportunity lifecycle: creation, retrieval, update, deletion, and admin moderation.
@@ -29,6 +31,12 @@ export class OpportunitiesService {
     if (this.redis) await this.redis.del(ADMIN_STATS_CACHE_KEY).catch(() => undefined);
   }
 
+  private async invalidateFeedCache() {
+    if (!this.redis) return;
+    const keys = await this.redis.keys(`${FEED_CACHE_PREFIX}:*`).catch(() => [] as string[]);
+    if (keys.length) await this.redis.del(...keys).catch(() => undefined);
+  }
+
   /**
    * Returns a paginated list of opportunities for the public feed.
    *
@@ -38,10 +46,21 @@ export class OpportunitiesService {
    *
    * @returns `{ data, total, hasMore }` envelope.
    */
-  async findAll(params?: ListOpportunitiesDto) {
-    const { take: rawTake = 20, skip: rawSkip = 0, status, type, types, ownerId, search, sort } = params || {};
+  /** Enriches opportunity items with isLiked/isSaved flags for the given user. Single bulk query per type. */
+  private async attachSocialState<T extends { id: string }>(items: T[], userId: string): Promise<(T & { isLiked: boolean; isSaved: boolean })[]> {
+    const ids = items.map((i) => i.id);
+    const [liked, saved] = await Promise.all([
+      this.prisma.likedOpportunity.findMany({ where: { userId, opportunityId: { in: ids } }, select: { opportunityId: true } }),
+      this.prisma.savedOpportunity.findMany({ where: { userId, opportunityId: { in: ids } }, select: { opportunityId: true } }),
+    ]);
+    const likedSet = new Set(liked.map((l) => l.opportunityId));
+    const savedSet = new Set(saved.map((s) => s.opportunityId));
+    return items.map((item) => ({ ...item, isLiked: likedSet.has(item.id), isSaved: savedSet.has(item.id) }));
+  }
+
+  async findAll(params?: ListOpportunitiesDto, requesterId?: string) {
+    const { take: rawTake = 20, skip: rawSkip = 0, status, type, types, ownerId, search, sort, cursor } = params || {};
     const take = Math.min(Math.max(rawTake, 1), 100);
-    const skip = Math.max(rawSkip, 0);
     const where: Prisma.OpportunityWhereInput = {};
 
     // Public feed never exposes DRAFT opportunities regardless of explicit status filter
@@ -73,34 +92,77 @@ export class OpportunitiesService {
       ];
     }
 
+    // id as tiebreaker ensures stable cursor pagination even when trendingScore is equal
     const orderBy: Prisma.OpportunityOrderByWithRelationInput[] =
       sort === SortEnum.TRENDING
-        ? [{ trendingScore: 'desc' }, { createdAt: 'desc' }]
-        : [{ createdAt: 'desc' }];
+        ? [{ trendingScore: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }]
+        : [{ createdAt: 'desc' }, { id: 'desc' }];
 
+    // Cache first-page public feed in Redis (no cursor, no owner filter)
+    const isCacheable = !cursor && !ownerId && this.redis;
+    let feedCacheKey: string | null = null;
+    if (isCacheable) {
+      feedCacheKey = `${FEED_CACHE_PREFIX}:${JSON.stringify({ take, status: status ?? 'no-draft', type: type ?? '', types: types ?? '', search: search ?? '', sort: sort ?? '' })}`;
+      const cached = await this.redis!.get(feedCacheKey).catch(() => null);
+      if (cached) {
+        const base = JSON.parse(cached);
+        if (requesterId) {
+          const enriched = await this.attachSocialState(base.data, requesterId);
+          return { ...base, data: enriched };
+        }
+        return base;
+      }
+    }
+
+    // Cursor-based path: no COUNT query, O(log n) lookup via index
+    if (cursor) {
+      const raw = await this.prisma.opportunity.findMany({
+        take: take + 1,
+        cursor: { id: cursor },
+        skip: 1,
+        orderBy,
+        where,
+        include: {
+          owner: { select: { id: true, name: true, profilePic: true } },
+        },
+      });
+
+      const hasNext = raw.length > take;
+      const items = hasNext ? raw.slice(0, take) : raw;
+      const nextCursor = hasNext ? items[items.length - 1].id : null;
+      const data = requesterId ? await this.attachSocialState(items, requesterId) : items;
+
+      return { data, nextCursor };
+    }
+
+    // Offset-based path (first page, admin, my-opportunities): keep total + hasMore
+    const skip = Math.max(rawSkip, 0);
     const [items, total] = await Promise.all([
       this.prisma.opportunity.findMany({
-        take,
+        take: take + 1,
         skip,
         orderBy,
         where,
         include: {
           owner: { select: { id: true, name: true, profilePic: true } },
-          _count: { select: { likedBy: true, savedBy: true, applications: true } },
         },
       }),
       this.prisma.opportunity.count({ where }),
     ]);
 
-    // Flatten Prisma _count relation into top-level fields expected by the frontend
-    const data = items.map((item) => ({
-      ...item,
-      likesCount: item._count.likedBy,
-      savedCount: item._count.savedBy,
-      applicationsCount: item._count.applications,
-    }));
+    const hasNext = items.length > take;
+    const pageItems = hasNext ? items.slice(0, take) : items;
+    const nextCursor = hasNext ? pageItems[pageItems.length - 1].id : null;
 
-    return { data, total, hasMore: skip + take < total };
+    const result = { data: pageItems, total, hasMore: skip + take < total, nextCursor };
+    if (isCacheable && feedCacheKey) {
+      this.redis!.setex(feedCacheKey, FEED_CACHE_TTL_SECONDS, JSON.stringify(result)).catch(() => undefined);
+    }
+    if (requesterId) {
+      const enriched = await this.attachSocialState(pageItems, requesterId);
+      return { ...result, data: enriched };
+    }
+    return result;
   }
 
   /**
@@ -112,7 +174,9 @@ export class OpportunitiesService {
    * @param requesterId - ID of the requesting user (used for draft visibility check).
    */
   findByOwner(ownerId: string, params?: ListOpportunitiesDto, requesterId?: string) {
-    const { take = 20, skip = 0, status, type, search } = params || {};
+    const { take: rawTake = 20, skip: rawSkip = 0, status, type, search } = params || {};
+    const take = Math.min(Math.max(rawTake, 1), 100);
+    const skip = Math.max(rawSkip, 0);
     const where: Prisma.OpportunityWhereInput = { ownerId };
 
     if (requesterId !== ownerId) {
@@ -142,7 +206,6 @@ export class OpportunitiesService {
       where,
       include: {
         owner: { select: { id: true, name: true, profilePic: true } },
-        _count: { select: { applications: true } },
       },
     });
   }
@@ -161,7 +224,6 @@ export class OpportunitiesService {
       where: { id },
       include: {
         owner: { select: { id: true, name: true, profilePic: true } },
-        _count: { select: { applications: true, likedBy: true, savedBy: true } },
       },
     });
 
@@ -194,14 +256,7 @@ export class OpportunitiesService {
       });
     }
 
-    return {
-      ...opportunity,
-      likesCount: opportunity._count.likedBy,
-      savedCount: opportunity._count.savedBy,
-      applicationsCount: opportunity._count.applications,
-      isLiked,
-      isSaved,
-    };
+    return { ...opportunity, isLiked, isSaved };
   }
 
   /**
@@ -223,18 +278,31 @@ export class OpportunitiesService {
   }
 
   /**
-   * Increments the share counter for a single opportunity.
-   * Called when the user copies the share link.
+   * Increments the share counter once per user per day.
+   * Returns { success: true } whether or not the counter was actually incremented
+   * so the frontend cannot tell if the user already shared today.
    */
-  async incrementShares(id: string) {
+  async incrementShares(id: string, userId: string) {
+    if (this.redis) {
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const key = `share:${userId}:${id}:${today}`;
+      const isNew = await this.redis.set(key, '1', 'EX', 86400, 'NX').catch(() => null);
+      if (isNew !== 'OK') return { success: true }; // already shared today — no double-count
+    }
     await this.prisma.opportunity.updateMany({ where: { id }, data: { sharedCount: { increment: 1 } } });
     return { success: true };
   }
 
   /** Creates a new opportunity owned by the given user. Defaults to DRAFT status. */
-  async create(ownerId: string, dto: CreateOpportunityDto) {
+  async create(ownerId: string, dto: CreateOpportunityDto, role?: string) {
     if (dto.startDate && dto.endDate && new Date(dto.startDate) >= new Date(dto.endDate)) {
       throw new BadRequestException('startDate must be earlier than endDate');
+    }
+    const isAdmin = role === 'ADMIN';
+    if (!isAdmin) {
+      dto.boosted = false;
+      dto.boostedUntil = undefined;
+      dto.qualified = false;
     }
     const result = await this.prisma.opportunity.create({
       data: {
@@ -243,7 +311,7 @@ export class OpportunitiesService {
         punchline: dto.punchline,
         description: dto.description,
         type: dto.type,
-        status: dto.status || 'DRAFT',
+        status: 'DRAFT',
         featureId: dto.featureId,
         city: dto.city,
         country: dto.country,
@@ -283,7 +351,7 @@ export class OpportunitiesService {
     this.prisma.btoBProfile.updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { increment: 1 } } })
       .catch((err) => this.logger.warn(`Counter increment failed (btoBProfile): ${err.message}`));
 
-    await this.invalidateStatsCache();
+    await Promise.all([this.invalidateStatsCache(), this.invalidateFeedCache()]);
     return result;
   }
 
@@ -349,7 +417,7 @@ export class OpportunitiesService {
         .catch((err) => this.logger.warn(`Failed to send rejection in-app notification: ${err.message}`));
     }
 
-    await this.invalidateStatsCache();
+    await Promise.all([this.invalidateStatsCache(), this.invalidateFeedCache()]);
     return updated;
   }
 
@@ -373,18 +441,18 @@ export class OpportunitiesService {
       totalApplications,
       newApplications,
     ] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      this.prisma.user.count({ where: { deletedAt: null } }),
+      this.prisma.user.count({ where: { deletedAt: null, createdAt: { gte: thirtyDaysAgo } } }),
       this.prisma.opportunity.groupBy({
         by: ['status'],
         _count: { _all: true },
       }),
-      this.prisma.application.count(),
-      this.prisma.application.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
+      this.prisma.application.count({ where: { deletedAt: null, isDraft: false } }),
+      this.prisma.application.count({ where: { deletedAt: null, isDraft: false, createdAt: { gte: thirtyDaysAgo } } }),
     ]);
 
     const statusMap = Object.fromEntries(
-      opportunityByStatus.map((row) => [row.status, row._count._all]),
+      opportunityByStatus.map((row) => [row.status, (row._count as { _all?: number })._all ?? 0]),
     );
 
     const stats = {
@@ -422,7 +490,9 @@ export class OpportunitiesService {
    * Includes owner information and application count.
    */
   adminFindAll(params?: ListOpportunitiesDto) {
-    const { take = 50, skip = 0, status, search } = params || {};
+    const { take: rawTake = 50, skip: rawSkip = 0, status, search } = params || {};
+    const take = Math.min(Math.max(rawTake, 1), 100);
+    const skip = Math.max(rawSkip, 0);
     const where: Prisma.OpportunityWhereInput = {};
 
     if (status) where.status = status;
@@ -440,7 +510,6 @@ export class OpportunitiesService {
       orderBy: { createdAt: 'desc' },
       include: {
         owner: { select: { id: true, name: true, email: true, profilePic: true } },
-        _count: { select: { applications: true } },
       },
     });
   }
@@ -451,11 +520,18 @@ export class OpportunitiesService {
    * @throws NotFoundException  when the opportunity does not exist.
    * @throws ForbiddenException when the requester is not the owner.
    */
-  async update(id: string, ownerId: string, dto: UpdateOpportunityDto) {
+  async update(id: string, ownerId: string, dto: UpdateOpportunityDto, role?: string) {
     const opportunity = await this.prisma.opportunity.findUnique({ where: { id } });
 
     if (!opportunity) throw new NotFoundException('Opportunity not found');
     if (opportunity.ownerId !== ownerId) throw new ForbiddenException('You cannot update this opportunity');
+
+    const isAdmin = role === 'ADMIN';
+    if (!isAdmin) {
+      delete dto.boosted;
+      delete dto.boostedUntil;
+      delete dto.qualified;
+    }
 
     // Owners may only move to DRAFT or PENDING — ACTIVE/ARCHIVED/CLOSED are admin-only
     const adminOnlyStatuses: string[] = ['ACTIVE', 'ARCHIVED', 'CLOSED'];
@@ -506,7 +582,7 @@ export class OpportunitiesService {
         referralAmount: dto.referralAmount,
       },
     });
-    await this.invalidateStatsCache();
+    await Promise.all([this.invalidateStatsCache(), this.invalidateFeedCache()]);
     return result;
   }
 
@@ -536,7 +612,7 @@ export class OpportunitiesService {
     this.prisma.btoBProfile.updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { decrement: 1 } } })
       .catch((err) => this.logger.warn(`Counter decrement failed (btoBProfile): ${err.message}`));
 
-    await this.invalidateStatsCache();
+    await Promise.all([this.invalidateStatsCache(), this.invalidateFeedCache()]);
     return result;
   }
 }

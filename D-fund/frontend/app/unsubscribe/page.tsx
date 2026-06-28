@@ -42,7 +42,7 @@ function UnsubscribeContent() {
           <BellOff className="mx-auto mb-4 h-12 w-12 text-gray-400" />
           <h1 className="text-xl font-semibold text-gray-900 mb-2">Se désabonner des emails</h1>
           <p className="text-gray-600 mb-6">
-            Vous ne recevrez plus d&apos;emails de notification de D-Fund. Vous pourrez vous réabonner
+            Vous ne recevrez plus d&apos;emails de notification de SouthConnect. Vous pourrez vous réabonner
             à tout moment depuis votre profil.
           </p>
           {!token && (

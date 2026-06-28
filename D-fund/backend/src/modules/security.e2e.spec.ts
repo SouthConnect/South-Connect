@@ -190,7 +190,10 @@ describe('Security (e2e)', () => {
     let draftId: string;
 
     beforeAll(async () => {
-      draftId = await createOpportunity(app, userA.token, { status: 'DRAFT', name: 'My Secret Draft' });
+      const opp = await prisma.opportunity.create({
+        data: { name: 'My Secret Draft', type: 'JOB_OPPORTUNITY', status: 'DRAFT', ownerId: userA.userId },
+      });
+      draftId = opp.id;
     });
 
     afterAll(async () => {
@@ -249,7 +252,10 @@ describe('Security (e2e)', () => {
     let oppId: string;
 
     beforeAll(async () => {
-      oppId = await createOpportunity(app, userA.token, { status: 'ACTIVE', name: 'UserA Opportunity' });
+      const opp = await prisma.opportunity.create({
+        data: { name: 'UserA Opportunity', type: 'JOB_OPPORTUNITY', status: 'ACTIVE', ownerId: userA.userId },
+      });
+      oppId = opp.id;
     });
 
     afterAll(async () => {
@@ -429,7 +435,7 @@ describe('Security (e2e)', () => {
         .field('prefix', 'avatars')
         .field('resourceId', userA.userId)
         .attach('file', bigBuffer, { filename: 'big.jpg', contentType: 'image/jpeg' })
-        .expect(400);
+        .expect(413); // Express returns 413 Payload Too Large for oversized bodies
     });
 
     it('delete file without authentication → 401', () =>

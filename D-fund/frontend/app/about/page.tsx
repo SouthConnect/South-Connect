@@ -2,11 +2,11 @@ export default function AboutPage() {
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-4xl font-bold mb-6 text-gray-900">À propos de D-Fund</h1>
+        <h1 className="text-4xl font-bold mb-6 text-gray-900">À propos de SouthConnect</h1>
         
         <div className="prose prose-lg max-w-none">
           <p className="text-xl text-gray-600 mb-6">
-            D-Fund est une plateforme dédiée à connecter les entrepreneurs africains 
+            SouthConnect est une plateforme dédiée à connecter les entrepreneurs africains 
             aux ressources essentielles dont ils ont besoin pour faire croître leurs startups.
           </p>
 

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRatingDto } from './dto/create-rating.dto';
 
@@ -19,6 +19,19 @@ export class RatingsService {
    * Returns the full statistics for the item after the update.
    */
   async upsert(userId: string, dto: CreateRatingDto) {
+    if (dto.itemId === userId) {
+      throw new BadRequestException('You cannot rate yourself');
+    }
+
+    // Vérifier que l'itemId correspond à un User ou une Opportunity existante
+    const [targetUser, targetOpportunity] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: dto.itemId, deletedAt: null }, select: { id: true } }),
+      this.prisma.opportunity.findUnique({ where: { id: dto.itemId }, select: { id: true } }),
+    ]);
+    if (!targetUser && !targetOpportunity) {
+      throw new NotFoundException('Rated item not found');
+    }
+
     await this.prisma.rating.upsert({
       where: { itemId_userId: { itemId: dto.itemId, userId } },
       create: { itemId: dto.itemId, userId, rating: dto.rating },

@@ -10,21 +10,44 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Gitleaks — scan des secrets dans le code avant tout autre job
+  # ──────────────────────────────────────────────────────────────────────────────
+  secrets-scan:
+    name: Secrets Scan (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+
   # ──────────────────────────────────────────────────────────────────────────────
   # Backend — lint, type-check, unit tests, E2E tests
   # ──────────────────────────────────────────────────────────────────────────────
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    needs: [secrets-scan]
+
+    permissions:
+      contents: read
 
     env:
       NODE_ENV: test
-      # Minimal secrets required to boot the NestJS app in test mode.
-      # Real DB is needed for E2E — use a Supabase test project or
-      # swap for a local Postgres service below.
       DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
       JWT_SECRET: ${{ secrets.TEST_JWT_SECRET }}
+      REFRESH_TOKEN_SECRET: ${{ secrets.TEST_REFRESH_TOKEN_SECRET }}
       SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
       SUPABASE_SERVICE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_KEY }}
       RESEND_API_KEY: ${{ secrets.TEST_RESEND_API_KEY }}
@@ -58,7 +81,7 @@ jobs:
         run: npm test -- --passWithNoTests --forceExit --runInBand
 
       - name: E2E tests
-        run: npm run test:e2e -- --passWithNoTests --forceExit --testTimeout=30000
+        run: npm run test:e2e -- --forceExit --testTimeout=30000
         env:
           NODE_ENV: test
 
@@ -68,6 +91,10 @@ jobs:
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
+    needs: [secrets-scan]
+
+    permissions:
+      contents: read
 
     defaults:
       run:
@@ -94,11 +121,85 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Build-time env vars — non-sensitive placeholder values are fine for
-          # type-checking the build; sensitive values come from secrets.
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1' }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Playwright E2E — smoke tests (pages publiques, CSP, redirections auth)
+  # ──────────────────────────────────────────────────────────────────────────────
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: [frontend]
+
+    permissions:
+      contents: read
+
+    env:
+      TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+      STAGING_URL: ${{ secrets.STAGING_URL }}
+
+    defaults:
+      run:
+        working-directory: D-fund/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: D-fund/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Build Next.js
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1' }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN || '' }}
+
+      - name: Start Next.js (production)
+        run: npm start &
+        env:
+          PORT: 3000
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1' }}
+
+      - name: Wait for Next.js to be ready
+        run: npx wait-on http://localhost:3000 --timeout 60000
+
+      - name: Run Playwright smoke tests
+        run: npx playwright test tests/e2e/smoke/
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+
+      - name: Run full E2E suite (staging)
+        if: env.TEST_EMAIL != '' && env.STAGING_URL != ''
+        run: npx playwright test --ignore=tests/e2e/smoke/
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          TEST_APPLICATION_ID: ${{ secrets.TEST_APPLICATION_ID }}
+          TEST_PROFILE_ID: ${{ secrets.TEST_PROFILE_ID }}
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: D-fund/frontend/playwright-report/
+          retention-days: 14
 
   # ──────────────────────────────────────────────────────────────────────────────
   # Docker build — validate both images build correctly
@@ -109,6 +210,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
 
     defaults:
       run:

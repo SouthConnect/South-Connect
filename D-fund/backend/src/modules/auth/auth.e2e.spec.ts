@@ -83,6 +83,9 @@ const mockPrisma = {
 const mockRedis = {
   set: jest.fn().mockResolvedValue('OK'),
   get: jest.fn().mockResolvedValue(null),
+  del: jest.fn().mockResolvedValue(1),
+  incr: jest.fn().mockResolvedValue(1),
+  expire: jest.fn().mockResolvedValue(1),
   getdel: jest.fn().mockResolvedValue(null),
   exists: jest.fn().mockResolvedValue(0),
 };

@@ -1,0 +1,13 @@
+version: "3.9"
+
+# docker-compose.dev.yml — overlay dev local : expose les ports directement
+# Usage : docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  backend:
+    ports:
+      - "3001:3001"
+
+  frontend:
+    ports:
+      - "3000:3000"

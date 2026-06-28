@@ -66,7 +66,7 @@ function VerifyContent() {
             <p className="text-sm text-gray-500 mb-6">{message}</p>
             <p className="text-xs text-gray-400">Redirection automatique dans 3 secondes…</p>
             <Link href="/" className="mt-4 inline-block px-6 py-2 bg-[#3b49df] text-white rounded-lg font-semibold text-sm hover:bg-[#2d3aba] transition-colors">
-              Aller sur D-Fund
+              Aller sur SouthConnect
             </Link>
           </>
         )}

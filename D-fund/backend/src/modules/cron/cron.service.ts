@@ -330,7 +330,7 @@ export class CronService {
       this.prisma.savedOpportunity.groupBy({ by: ['opportunityId'], _count: { _all: true } }),
       this.prisma.application.groupBy({
         by: ['opportunityId'],
-        where: { isDraft: false },
+        where: { isDraft: false, deletedAt: null },
         _count: { _all: true },
       }),
     ]);

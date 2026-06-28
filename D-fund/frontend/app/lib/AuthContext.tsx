@@ -40,8 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         setUser(await response.json() as AuthUser)
         lastRefreshAt.current = Date.now()
+        localStorage.setItem('sc_has_session', '1')
       } else if (response.status === 401) {
         setUser(null)
+        localStorage.removeItem('sc_has_session')
       }
     } catch {
       // Network-level error — preserve current state.
@@ -50,22 +52,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }
   }, []) // deps: only refs and stable setters — intentionally empty
-
-  const clearUserScopedQueries = useCallback(() => {
-    const userScopedKeys = [
-      'my-applications', 'my-opportunities', 'my-opportunities-dashboard',
-      'private-discussions', 'notifications', 'notifications-count',
-      'profile', 'tasks', 'saved-opportunities', 'is-following',
-      'notificationPrefs', 'referral', 'admin-stats', 'admin-opportunities',
-      'admin-users', 'owner-applications',
-    ]
-    queryClient.removeQueries({
-      predicate: (query) => {
-        const key = query.queryKey as unknown[]
-        return userScopedKeys.some((k) => key[0] === k)
-      },
-    })
-  }, [queryClient])
 
   useEffect(() => {
     refreshUser(true) // cold-start: always fetch regardless of stale window
@@ -77,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       channel.current = new BroadcastChannel(AUTH_CHANNEL)
       channel.current.onmessage = (e: MessageEvent<string>) => {
         if (e.data === 'logout') {
-          clearUserScopedQueries()
+          queryClient.clear()
           setUser(null)
           setLoading(false)
         } else if (e.data === 'login') {
@@ -98,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Fired by apiCall when a 401 is received AND the silent refresh also fails.
     const handleSessionExpired = () => {
-      clearUserScopedQueries()
+      queryClient.clear()
       setUser(null)
       setLoading(false)
     }
@@ -111,24 +97,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (visibilityDebounce.current) clearTimeout(visibilityDebounce.current)
       channel.current?.close()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const login = useCallback((userData: AuthUser) => {
     setUser(userData)
+    localStorage.setItem('sc_has_session', '1')
     channel.current?.postMessage('login')
   }, [])
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await apiCall('/auth/logout', { method: 'POST' })
     } catch {
       // Best-effort — clear local state regardless
     }
-    clearUserScopedQueries()
+    // Clear ALL query cache on logout — wipes isLiked/isSaved/social state
+    // that would otherwise remain visible after the user disconnects.
+    queryClient.clear()
     setUser(null)
-    // Notify all other open tabs so they clear their session immediately
+    localStorage.removeItem('sc_has_session')
     channel.current?.postMessage('logout')
-  }
+  }, [queryClient])
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>

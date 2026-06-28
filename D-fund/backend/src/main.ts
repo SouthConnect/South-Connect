@@ -1,3 +1,8 @@
+// Node 18 doesn't expose `crypto` as a global — @nestjs/schedule v6 requires it.
+// Must be the very first line so the global is available before any module loads.
+import { webcrypto } from 'node:crypto';
+if (!globalThis.crypto) (globalThis as any).crypto = webcrypto;
+
 // Sentry must be initialised before any other import
 import './instrument';
 
@@ -8,6 +13,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import * as cookieParser from 'cookie-parser';
+import * as session from 'express-session';
 import { JsonLoggerService } from './common/logger/json-logger.service';
 import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor';
 import { CorsIoAdapter } from './common/adapters/cors-io.adapter';
@@ -15,13 +21,45 @@ import { SentryExceptionFilter } from './common/filters/sentry-exception.filter'
 
 const logger = new Logger('Bootstrap');
 
+// P0 — capturer toute promesse rejetée non gérée avant qu'elle ne tue le process
+process.on('unhandledRejection', (reason: unknown) => {
+  logger.error('Unhandled promise rejection', reason instanceof Error ? reason.stack : String(reason));
+  if (process.env.NODE_ENV === 'production') {
+    const Sentry = require('@sentry/nestjs');
+    Sentry.captureException(reason);
+  }
+});
+
+process.on('uncaughtException', (err: Error) => {
+  logger.error('Uncaught exception — shutting down', err.stack);
+  if (process.env.NODE_ENV === 'production') {
+    const Sentry = require('@sentry/nestjs');
+    Sentry.captureException(err);
+  }
+  process.exit(1);
+});
+
 async function bootstrap() {
-  // Fail fast if critical env vars are missing
+  // Fail fast si les vars critiques sont absentes ou trop courtes
   const required = ['DATABASE_URL', 'JWT_SECRET', 'REFRESH_TOKEN_SECRET', 'FRONTEND_URL'];
   for (const key of required) {
     if (!process.env[key]) {
       throw new Error(`Missing required environment variable: ${key}`);
     }
+  }
+  // Les secrets JWT doivent faire au moins 32 caractères pour être sécurisés
+  for (const key of ['JWT_SECRET', 'REFRESH_TOKEN_SECRET']) {
+    if ((process.env[key] ?? '').length < 32) {
+      throw new Error(`${key} must be at least 32 characters long`);
+    }
+  }
+  // SESSION_SECRET doit être distinct de JWT_SECRET pour éviter la réutilisation de clé
+  if (!process.env.SESSION_SECRET) {
+    logger.warn('SESSION_SECRET not set — falling back to JWT_SECRET. Set a distinct SESSION_SECRET in production.');
+  }
+  // REDIS_PASSWORD requis en production pour sécuriser l'accès Redis
+  if (process.env.NODE_ENV === 'production' && !process.env.REDIS_PASSWORD) {
+    logger.warn('REDIS_PASSWORD not set in production — Redis is running without authentication.');
   }
 
   // Warn about optional-but-important vars
@@ -45,8 +83,26 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   app.useWebSocketAdapter(new CorsIoAdapter(app, configService));
 
+  // Trust le premier proxy (Nginx / Railway / Render) pour que req.ip soit l'IP
+  // réelle du client — requis pour le rate-limiting et les logs corrects.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   // Cookie parser — required for HttpOnly JWT cookie extraction
   app.use(cookieParser());
+
+  // Session middleware — required only for the Google OAuth state parameter (CSRF protection).
+  // User authentication relies exclusively on JWT HttpOnly cookies, not on this session.
+  app.use(session({
+    secret: process.env.SESSION_SECRET || process.env.JWT_SECRET!,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      maxAge: 10 * 60 * 1000, // 10 min — long enough for the OAuth dance
+    },
+  }));
 
   // Limit JSON body size to prevent memory-exhaustion attacks
   app.use(require('express').json({ limit: '1mb' }));
@@ -74,7 +130,14 @@ async function bootstrap() {
     .filter(Boolean);
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      if (!origin || allowedOrigins.includes(origin)) {
+      // Requests without an Origin header come from non-browser clients (curl, Postman,
+      // server-to-server). CORS cannot protect against these — that is by design.
+      // CSRF protection relies on SameSite=Strict cookies + JWT Bearer tokens, not CORS.
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error(`Origin ${origin} not allowed by CORS`));

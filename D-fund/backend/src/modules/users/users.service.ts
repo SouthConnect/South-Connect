@@ -22,12 +22,20 @@ const USER_PUBLIC_SELECT = {
   website: true,
   visibility: true,
   role: true,
-  isBanned: true,
-  isEmailVerified: true,
   createdAt: true,
   updatedAt: true,
   btoCProfile: true,
   btoBProfile: true,
+} as const;
+
+/**
+ * Fields returned for admin-facing user lookups.
+ * Extends USER_PUBLIC_SELECT with ban and verification status needed by the admin panel.
+ */
+const USER_ADMIN_SELECT = {
+  ...USER_PUBLIC_SELECT,
+  isBanned: true,
+  isEmailVerified: true,
 } as const;
 
 @Injectable()
@@ -47,7 +55,7 @@ export class UsersService {
    * For internal use only (e.g. authentication); never expose to API consumers.
    */
   findByEmail(email: string) {
-    return this.prisma.user.findUnique({ where: { email } });
+    return this.prisma.user.findFirst({ where: { email, deletedAt: null } });
   }
 
   /** Updates the authenticated user's editable fields and returns the updated public profile. */
@@ -107,7 +115,7 @@ export class UsersService {
         skip,
         where,
         orderBy: { createdAt: 'desc' },
-        select: USER_PUBLIC_SELECT,
+        select: USER_ADMIN_SELECT,
       }),
       this.prisma.user.count({ where }),
     ]).then(([data, total]) => ({ data, total }));
@@ -121,7 +129,7 @@ export class UsersService {
   async adminUpdateRole(id: string, role: UserRole) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
-    return this.prisma.user.update({ where: { id }, data: { role }, select: USER_PUBLIC_SELECT });
+    return this.prisma.user.update({ where: { id }, data: { role }, select: USER_ADMIN_SELECT });
   }
 
   /**
@@ -132,7 +140,7 @@ export class UsersService {
   async adminSetBan(id: string, isBanned: boolean) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
-    return this.prisma.user.update({ where: { id }, data: { isBanned }, select: USER_PUBLIC_SELECT });
+    return this.prisma.user.update({ where: { id }, data: { isBanned }, select: USER_ADMIN_SELECT });
   }
 
   /**
@@ -198,6 +206,39 @@ export class UsersService {
       exportedAt: new Date().toISOString(),
       data: user,
     };
+  }
+
+  /**
+   * RGPD art. 17 — droit à l'effacement.
+   * Anonymise toutes les données personnelles et marque le compte comme supprimé.
+   * Les enregistrements liés (candidatures, messages) sont conservés avec un userId
+   * anonymisé pour ne pas casser l'intégrité référentielle.
+   */
+  async deleteMe(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const anon = `deleted_${userId}`;
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: `${anon}@deleted.invalid`,
+        name: 'Compte supprimé',
+        firstName: '',
+        lastName: '',
+        bio: null,
+        phone: null,
+        profilePic: null,
+        city: null,
+        country: null,
+        linkedinUrl: null,
+        website: null,
+        googleId: null,
+        password: null,
+        deletedAt: new Date(),
+      },
+    });
+    return { success: true };
   }
 
   /**

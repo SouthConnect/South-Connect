@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiJson } from '@/app/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import AuthGuard from '@/components/AuthGuard'
 import { Search, Copy, CheckCheck, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 export default function ReferralPage() {
   const { user } = useAuth()
@@ -21,10 +22,10 @@ export default function ReferralPage() {
     enabled: !!user?.id,
   })
 
-  const createMutation = useMutation({
+  const createMutation = useTrackedMutation('referral.create', {
     mutationFn: () => apiJson('/referral', { method: 'POST', body: JSON.stringify({}) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['referral', user?.id] }),
-    onError: (err: any) => toast.error(err.message || 'Impossible de créer le code de parrainage.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de créer le code de parrainage.')),
   })
 
   const codes: any[] = data?.codes || []
@@ -58,7 +59,7 @@ export default function ReferralPage() {
               Suivez vos gains et votre progression
             </h1>
             <p className="text-white/60 text-sm max-w-xl">
-              Partagez vos codes de parrainage avec votre réseau et gagnez des récompenses lorsqu'ils rejoignent D-Fund.
+              Partagez vos codes de parrainage avec votre réseau et gagnez des récompenses lorsqu&apos;ils rejoignent SouthConnect.
             </p>
           </div>
           <div className="absolute right-8 top-1/2 -translate-y-1/2 opacity-10 text-[120px] font-black text-white select-none">
@@ -109,7 +110,7 @@ export default function ReferralPage() {
             </div>
           ) : isError ? (
             <div className="px-5 py-12 text-center text-sm text-gray-500">
-              <p className="mb-3">Vous n'avez pas encore de code de parrainage.</p>
+              <p className="mb-3">Vous n&apos;avez pas encore de code de parrainage.</p>
               <button
                 type="button"
                 onClick={() => createMutation.mutate()}
@@ -126,7 +127,7 @@ export default function ReferralPage() {
                 <p>Aucun code ne correspond à votre recherche.</p>
               ) : (
                 <>
-                  <p className="mb-3">Vous n'avez pas encore de code de parrainage.</p>
+                  <p className="mb-3">Vous n&apos;avez pas encore de code de parrainage.</p>
                   <button
                     type="button"
                     onClick={() => createMutation.mutate()}

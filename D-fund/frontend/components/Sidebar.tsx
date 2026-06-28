@@ -38,7 +38,7 @@ const TOP_LINKS = [
 
 const BOTTOM_LINKS = [
   { href: '/dashboard',  label: 'Tableau de bord',      icon: LayoutDashboard },
-  { href: '/profiles',   label: 'Profils',               icon: User            },
+  { href: '/profile',    label: 'Mon profil',            icon: User            },
   { href: '/analytics',  label: 'Analytiques',           icon: BarChart2       },
   { href: '/community',  label: 'Communauté',            icon: Users           },
   { href: '/features',   label: 'Nouveautés',            icon: Rocket          },
@@ -119,10 +119,31 @@ export default function Sidebar() {
   // Fermeture auto sur changement de route (mobile)
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
+  const prefetchRoute = (href: string) => {
+    const opts = { staleTime: 3 * 60 * 1000 }
+    switch (href) {
+      case '/community':
+        queryClient.prefetchQuery({ queryKey: ['community-members'],   queryFn: () => apiJson('/profiles/lists/members?take=60'),   ...opts })
+        queryClient.prefetchQuery({ queryKey: ['community-talents'],   queryFn: () => apiJson('/profiles/lists/talents?take=60'),   ...opts })
+        queryClient.prefetchQuery({ queryKey: ['community-companies'], queryFn: () => apiJson('/profiles/lists/companies?take=60'), ...opts })
+        break
+      case '/explore':
+        queryClient.prefetchQuery({ queryKey: ['explore', ''],    queryFn: () => apiJson('/opportunities?status=ACTIVE&take=12'), ...opts })
+        queryClient.prefetchQuery({ queryKey: ['explore-profiles'], queryFn: () => apiJson('/profiles/lists/members?take=6'),      ...opts })
+        break
+      case '/notifications':
+        queryClient.prefetchQuery({ queryKey: ['notifications'], queryFn: () => apiJson('/notifications?take=20'), staleTime: 30_000 })
+        break
+    }
+  }
+
   // Liens auth-gated filtrés selon connexion
   const topLinks    = TOP_LINKS.filter(l => l.href === '/' || !!user)
   const bottomLinks = [
-    ...BOTTOM_LINKS.filter(l => l.href !== '/analytics' || !!user).filter(l => l.href !== '/dashboard' || !!user),
+    ...BOTTOM_LINKS.filter((l) => {
+      if (!user && (l.href === '/analytics' || l.href === '/dashboard' || l.href === '/profile')) return false
+      return true
+    }),
     ...(user?.role === 'ADMIN' ? [{ href: '/admin', label: 'Admin', icon: ShieldCheck }] : []),
   ]
 
@@ -183,6 +204,7 @@ export default function Sidebar() {
                 key={link.href}
                 {...link}
                 pathname={pathname}
+                onPrefetch={() => prefetchRoute(link.href)}
                 badge={
                 link.href === '/chat' && unreadChatCount > 0 ? unreadChatCount
                 : link.href === '/notifications' && unreadNotifCount > 0 ? unreadNotifCount
@@ -198,7 +220,7 @@ export default function Sidebar() {
           {/* Groupe 2 */}
           <div className="space-y-0.5">
             {bottomLinks.map(link => (
-              <NavLink key={link.href} {...link} pathname={pathname} />
+              <NavLink key={link.href} {...link} pathname={pathname} onPrefetch={() => prefetchRoute(link.href)} />
             ))}
           </div>
         </nav>
@@ -254,12 +276,14 @@ function NavLink({
   icon: Icon,
   pathname,
   badge,
+  onPrefetch,
 }: {
   href: string
   label: string
   icon: React.ElementType
   pathname: string | null
   badge?: number
+  onPrefetch?: () => void
 }) {
   const isActive =
     href === '/'
@@ -269,6 +293,7 @@ function NavLink({
   return (
     <Link
       href={href}
+      onMouseEnter={onPrefetch}
       className={`
         flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
         transition-colors

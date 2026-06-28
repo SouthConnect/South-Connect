@@ -2,8 +2,8 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/app/lib/AuthContext'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiJson, uploadImage } from '@/app/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiJson, uploadImage, getErrorMessage } from '@/app/lib/api'
 import AuthGuard from '@/components/AuthGuard'
 import { ArrowLeft, FileText, Paperclip, Gift, Send, ExternalLink, Upload, X, Download } from 'lucide-react'
 import { stageLabel, stageColor } from '@/app/lib/stage-labels'
@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import ConfirmModal from '@/components/ConfirmModal'
 import type { Application } from '@/app/lib/types'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 type Tab = 'main' | 'attachments' | 'referrals'
 
@@ -90,7 +91,7 @@ export default function ApplicationDetailPage() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [hasPendingSave])
 
-  const updateMutation = useMutation({
+  const updateMutation = useTrackedMutation('application.update', {
     mutationFn: (_: { silent: boolean }) =>
       apiJson(`/applications/${id}`, {
         method: 'PUT',
@@ -108,10 +109,10 @@ export default function ApplicationDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['my-applications-full', user?.id] })
       if (!silent) toast.success('Brouillon sauvegardé !')
     },
-    onError: (err: any) => toast.error(err.message || 'Échec de la sauvegarde'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Échec de la sauvegarde')),
   })
 
-  const submitMutation = useMutation({
+  const submitMutation = useTrackedMutation('application.submit', {
     mutationFn: () =>
       apiJson(`/applications/${id}/submit`, { method: 'POST' }),
     onSuccess: () => {
@@ -119,7 +120,7 @@ export default function ApplicationDetailPage() {
       toast.success('Candidature envoyée !')
       router.push('/applications')
     },
-    onError: (err: any) => toast.error(err.message || 'Échec de la soumission'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Échec de la soumission')),
   })
 
   const isDraft = application?.stage === 'DRAFT'
@@ -143,18 +144,41 @@ export default function ApplicationDetailPage() {
     updateMutation.mutate({ silent: false })
   }
 
-  const handleSubmit = () => {
+  // Flush pending autosave then navigate — prevents data loss on sidebar/back clicks
+  const handleNavigate = async (path: string) => {
+    if (hasPendingSave && isDraft) {
+      if (autosaveTimer.current) {
+        clearTimeout(autosaveTimer.current)
+        autosaveTimer.current = null
+      }
+      try {
+        await updateMutation.mutateAsync({ silent: true })
+      } catch {
+        // Save failed — navigate anyway, beforeunload already warned the user
+      }
+    }
+    router.push(path)
+  }
+
+  const handleSubmit = async () => {
     if (!isDraft) return
     if (updateMutation.isPending) {
       toast.info('Sauvegarde en cours, veuillez patienter…')
       return
     }
-    // Cancel any pending autosave before entering the submit flow
+    // Flush unsaved keystrokes before showing the confirm modal
     if (autosaveTimer.current) {
       clearTimeout(autosaveTimer.current)
       autosaveTimer.current = null
     }
-    setHasPendingSave(false)
+    if (hasPendingSave) {
+      try {
+        await updateMutation.mutateAsync({ silent: true })
+      } catch {
+        toast.error('Impossible de sauvegarder avant soumission')
+        return
+      }
+    }
     setConfirmSubmit(true)
   }
 
@@ -185,8 +209,8 @@ export default function ApplicationDetailPage() {
       })
       queryClient.invalidateQueries({ queryKey: ['my-applications-full', user?.id] })
       toast.success('Fichier uploadé et sauvegardé !')
-    } catch (err: any) {
-      toast.error(err.message || "Erreur lors de l'upload")
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, "Erreur lors de l'upload"))
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -245,16 +269,20 @@ export default function ApplicationDetailPage() {
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <button
                 type="button"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => handleNavigate('/dashboard')}
                 className="hover:text-gray-700 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4 inline mr-1" />
                 Dashboard
               </button>
               <span className="text-gray-300">/</span>
-              <Link href="/applications" className="hover:text-gray-700 transition-colors">
+              <button
+                type="button"
+                onClick={() => handleNavigate('/applications')}
+                className="hover:text-gray-700 transition-colors"
+              >
                 Mes candidatures
-              </Link>
+              </button>
             </div>
 
             <div className="flex items-center gap-3">

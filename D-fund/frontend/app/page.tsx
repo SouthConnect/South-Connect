@@ -104,7 +104,7 @@ function LandingPage() {
           </h1>
 
           <p className="text-lg md:text-xl text-white/75 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Connectez-vous avec des investisseurs, trouvez des co-fondateurs, accédez aux talents et aux opportunités de financement — tout en un seul endroit pour l'écosystème startup africain.
+            Connectez-vous avec des investisseurs, trouvez des co-fondateurs, accédez aux talents et aux opportunités de financement, tout en un seul endroit pour l'écosystème startup africain.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -258,7 +258,7 @@ function LandingPage() {
         <div className="max-w-3xl mx-auto px-4 text-center">
           <h2 className="text-4xl font-black mb-4">Prêt à développer votre startup ?</h2>
           <p className="text-white/65 text-lg mb-10">
-            Rejoignez 2 400+ entrepreneurs africains qui construisent déjà sur D-Fund.
+            Rejoignez 2 400+ entrepreneurs africains qui construisent déjà sur SouthConnect.
           </p>
           <Link
             href="/register"
@@ -321,18 +321,18 @@ function AppFeed() {
     hasNextPage,
   } = useInfiniteQuery({
     queryKey: ['opportunities-feed', debouncedSearch, typeFilter, tab === 'trending' ? 'trending' : 'newest'],
-    queryFn: ({ pageParam = 0 }) => {
+    queryFn: ({ pageParam }: { pageParam: string | undefined }) => {
       const params = new URLSearchParams()
       params.set('take', String(PAGE_SIZE))
-      params.set('skip', String(pageParam))
+      if (pageParam) params.set('cursor', pageParam)
       if (debouncedSearch) params.set('search', debouncedSearch)
       if (typeFilter) params.set('type', typeFilter)
       if (tab === 'trending') params.set('sort', 'trending')
       return apiJson<OpportunityListResponse>(`/opportunities?${params}`)
     },
-    getNextPageParam: (lastPage, allPages) =>
-      lastPage.hasMore ? allPages.length * PAGE_SIZE : undefined,
-    initialPageParam: 0,
+    getNextPageParam: (lastPage): string | undefined =>
+      lastPage.nextCursor ?? undefined,
+    initialPageParam: undefined as string | undefined,
     enabled: tab !== 'favorites',
   })
 

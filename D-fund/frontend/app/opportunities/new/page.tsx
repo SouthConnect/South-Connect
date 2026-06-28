@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { apiJson, OpportunityType, uploadImage, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
@@ -10,6 +10,7 @@ import { ArrowLeft, Plus, Send, Info, MapPin, Globe, DollarSign, Image as ImageI
 import Link from 'next/link'
 import AuthGuard from '@/components/AuthGuard'
 import MultiSelect from '@/components/MultiSelect'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 const OPPORTUNITY_TYPES: { value: OpportunityType; label: string; description: string }[] = [
   { value: 'JOB_OPPORTUNITY', label: 'Offre d\'emploi', description: 'Publiez une offre d\'emploi pour votre startup ou entreprise.' },
@@ -51,7 +52,7 @@ export default function CreateOpportunityPage() {
   const coverInputRef = useRef<HTMLInputElement>(null)
   const logoInputRef = useRef<HTMLInputElement>(null)
   
-  const createMutation = useMutation({
+  const createMutation = useTrackedMutation('opportunity.create', {
     mutationFn: async (data: any) => {
       setErrorMessage(null)
 

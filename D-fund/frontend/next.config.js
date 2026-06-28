@@ -8,8 +8,8 @@ const securityHeaders = [
       // Next.js inline scripts need 'unsafe-inline'; dev mode also needs 'unsafe-eval' for webpack source maps
       `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}`,
       "style-src 'self' 'unsafe-inline'",
-      // Allow images from Supabase storage, Unsplash fallbacks and data URIs
-      "img-src 'self' data: https:",
+      // Allow images from Supabase storage, Google OAuth avatars and known CDNs only
+      "img-src 'self' data: blob: https://*.supabase.co https://storage.googleapis.com https://images.pexels.com https://images.unsplash.com https://res.cloudinary.com https://*.googleusercontent.com",
       // API and WebSocket — both point to the backend (cross-origin in dev, same proxy in prod).
       // Include both http:// and ws:// variants for socket.io (HTTP polling handshake + WS upgrade).
       (() => {
@@ -34,9 +34,10 @@ const securityHeaders = [
     key: 'X-Frame-Options',
     value: 'DENY',
   },
+  // HSTS — force HTTPS pendant 1 an, inclut les sous-domaines
   {
-    key: 'X-XSS-Protection',
-    value: '1; mode=block',
+    key: 'Strict-Transport-Security',
+    value: 'max-age=31536000; includeSubDomains; preload',
   },
   {
     key: 'Referrer-Policy',
@@ -55,10 +56,14 @@ const nextConfig = {
   output: 'standalone',
   images: {
     remotePatterns: [
-      // Supabase Storage — all project buckets (profile pics, logos, opportunity images)
+      // Supabase Storage — tous les buckets du projet
       { protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/**' },
-      // Allow any https source as fallback (covers future CDN migrations)
-      { protocol: 'https', hostname: '**' },
+      // Anciennes photos Glide (données migrées)
+      { protocol: 'https', hostname: 'storage.googleapis.com' },
+      // Images externes (Pexels, Unsplash, etc.)
+      { protocol: 'https', hostname: 'images.pexels.com' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'res.cloudinary.com' },
     ],
   },
   async headers() {

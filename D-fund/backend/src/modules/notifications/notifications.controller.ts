@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
+import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
@@ -32,21 +33,21 @@ import { UpdateNotificationPreferencesDto } from './dto/update-notification-pref
 @Controller('notifications')
 @UseGuards(JwtAuthGuard)
 @SkipEmailVerification()
+@Throttle({ default: {} })
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
-  /** Returns paginated notifications for the authenticated user, most recent first. */
+  /** Returns cursor-paginated notifications for the authenticated user, most recent first. */
   @Get()
   @ApiQuery({ name: 'take', required: false, type: Number })
-  @ApiQuery({ name: 'skip', required: false, type: Number })
+  @ApiQuery({ name: 'cursor', required: false, type: String })
   findAll(
     @CurrentUser() user: User,
     @Query('take') take?: string,
-    @Query('skip') skip?: string,
+    @Query('cursor') cursor?: string,
   ) {
     const parsedTake = Math.min(Math.max(parseInt(take ?? '50', 10) || 50, 1), 100);
-    const parsedSkip = Math.max(parseInt(skip ?? '0', 10) || 0, 0);
-    return this.notificationsService.findAll(user.id, parsedTake, parsedSkip);
+    return this.notificationsService.findAll(user.id, parsedTake, cursor);
   }
 
   /** Returns the count of unread notifications for the authenticated user. */

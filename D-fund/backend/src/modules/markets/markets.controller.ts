@@ -7,6 +7,7 @@ import { CreateMarketDto, UpdateMarketDto } from './dto/market.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Throttle } from '@nestjs/throttler';
 
 /**
  * Exposes geographic market reference data.
@@ -15,6 +16,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
  */
 @ApiTags('markets')
 @Controller('markets')
+@Throttle({ default: {} })
 export class MarketsController {
   constructor(private readonly marketsService: MarketsService) {}
 

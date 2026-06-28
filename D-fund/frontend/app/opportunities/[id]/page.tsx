@@ -1,8 +1,8 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useRef } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRef, useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson, ApiError, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { MapPin, Calendar, Clock, Tag, ArrowLeft, Send, MessageSquare, ThumbsUp, Bookmark, Share2 } from 'lucide-react'
@@ -11,6 +11,7 @@ import Image from 'next/image'
 import { toast } from 'sonner'
 import DOMPurify from 'dompurify'
 import type { Opportunity, Application, PublicDiscussion, PrivateDiscussion } from '@/app/lib/types'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 export default function OpportunityDetailPage() {
   const params = useParams()
@@ -29,6 +30,16 @@ export default function OpportunityDetailPage() {
   // viewsCount est incrémenté côté backend dans findOne() — pas de double comptage nécessaire ici.
   // sharedCount : on trackait déjà le clipboard, on envoie simplement l'événement share au backend.
   const sharedRef = useRef(false)
+
+  const [sanitizedDescription, setSanitizedDescription] = useState('')
+  const rawDescription = (opportunity as any)?.description
+  useEffect(() => {
+    if (!rawDescription) { setSanitizedDescription('Aucune description disponible.'); return }
+    setSanitizedDescription(DOMPurify.sanitize(rawDescription, {
+      ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'ul', 'ol', 'li', 'h2', 'h3', 'h4', 'blockquote'],
+      ALLOWED_ATTR: [],
+    }))
+  }, [rawDescription])
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href)
       .then(() => {
@@ -41,7 +52,7 @@ export default function OpportunityDetailPage() {
       .catch(() => toast.error('Impossible de copier le lien'))
   }
 
-  const toggleLikeMutation = useMutation({
+  const toggleLikeMutation = useTrackedMutation('opportunity.like', {
     mutationFn: async (currentlyLiked: boolean) => {
       await apiJson(`/social/like/${id}`, {
         method: currentlyLiked ? 'DELETE' : 'POST',
@@ -64,10 +75,9 @@ export default function OpportunityDetailPage() {
       if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
       toast.error(getErrorMessage(error, 'Impossible de mettre à jour le like'))
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
   })
 
-  const toggleSaveMutation = useMutation({
+  const toggleSaveMutation = useTrackedMutation('opportunity.save', {
     mutationFn: async (currentlySaved: boolean) => {
       await apiJson(`/social/save/${id}`, {
         method: currentlySaved ? 'DELETE' : 'POST',
@@ -90,10 +100,9 @@ export default function OpportunityDetailPage() {
       if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
       toast.error(getErrorMessage(error, "Impossible de mettre à jour l'enregistrement"))
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
   })
 
-  const startConversationMutation = useMutation({
+  const startConversationMutation = useTrackedMutation('conversation.start', {
     mutationFn: (ownerId: string) =>
       apiJson(`/messages/private/start/${ownerId}`, { method: 'POST' }),
     onSuccess: (discussion: Pick<PrivateDiscussion, 'id'>) => {
@@ -104,7 +113,7 @@ export default function OpportunityDetailPage() {
     },
   })
 
-  const applyMutation = useMutation({
+  const applyMutation = useTrackedMutation('opportunity.apply', {
     mutationFn: () =>
       apiJson('/applications', {
         method: 'POST',
@@ -146,7 +155,7 @@ export default function OpportunityDetailPage() {
   }
 
   if (isError || !opportunity) {
-    const is404 = (error instanceof ApiError && error.status === 404) || !opportunity
+    const is404 = error instanceof ApiError && error.status === 404
     return (
       <div className="container mx-auto px-4 py-12 text-center">
         <h1 className="text-2xl font-bold mb-2">
@@ -235,14 +244,7 @@ export default function OpportunityDetailPage() {
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Description</h3>
                 <div
                   className="whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={{
-                    __html: typeof window !== 'undefined'
-                      ? DOMPurify.sanitize(opportunity.description || 'Aucune description disponible.', {
-                          ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'em', 'strong', 'ul', 'ol', 'li', 'h2', 'h3', 'h4', 'blockquote'],
-                          ALLOWED_ATTR: [],
-                        })
-                      : (opportunity.description ?? 'Aucune description disponible.'),
-                  }}
+                  dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
                 />
               </div>
 
@@ -399,15 +401,15 @@ export default function OpportunityDetailPage() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Candidatures</span>
-                  <span className="font-bold text-gray-900">{opportunity.applicationsCount}</span>
+                  <span className="font-bold text-gray-900">{opportunity.applicationsCount ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Likes</span>
-                  <span className="font-bold text-gray-900">{opportunity.likesCount}</span>
+                  <span className="font-bold text-gray-900">{opportunity.likesCount ?? 0}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Enregistré par</span>
-                  <span className="font-bold text-gray-900">{opportunity.savedCount} utilisateurs</span>
+                  <span className="font-bold text-gray-900">{opportunity.savedCount ?? 0} utilisateurs</span>
                 </div>
               </div>
             </div>
@@ -426,7 +428,7 @@ function DiscussionSection({
   messagesCount: number
 }) {
   const { data: discussions, isLoading } = useQuery({
-    queryKey: ['public-discussions', 'OPPORTUNITY_RELATED'],
+    queryKey: ['public-discussions', 'OPPORTUNITY_RELATED', opportunityId],
     queryFn: () => apiJson('/messages/public?type=OPPORTUNITY_RELATED'),
   })
 

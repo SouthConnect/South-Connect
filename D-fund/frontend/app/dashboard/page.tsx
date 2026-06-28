@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/app/lib/AuthContext'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiJson } from '@/app/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { stageLabel, stageColor } from '@/app/lib/stage-labels'
 import {
   FileText,
@@ -16,6 +16,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import type { PrivateDiscussion, Task } from '@/app/lib/types'
+import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import AuthGuard from '@/components/AuthGuard'
 
 type DashboardTab = 'applications' | 'offers' | 'dm' | 'tasks'
 
@@ -63,6 +65,7 @@ export default function DashboardPage() {
   ).length ?? 0
 
   return (
+    <AuthGuard>
     <div className="container mx-auto px-6 py-8 max-w-5xl">
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -205,6 +208,7 @@ export default function DashboardPage() {
         {tab === 'tasks' && <TasksSection />}
       </section>
     </div>
+    </AuthGuard>
   )
 }
 
@@ -357,7 +361,7 @@ function OffersSection({
                 {op.name}
               </span>
               <span className="text-xs text-gray-500">
-                {op._count?.applications ?? op.applicationsCount ?? 0} applications •{' '}
+                {op.applicationsCount ?? 0} applications •{' '}
                 {op.likesCount ?? 0} likes
               </span>
             </div>
@@ -464,24 +468,27 @@ function TasksSection() {
     enabled: !!user?.id,
   })
 
-  const createMutation = useMutation({
+  const createMutation = useTrackedMutation('task.create', {
     mutationFn: (name: string) =>
       apiJson<Task>('/tasks', { method: 'POST', body: JSON.stringify({ name }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
-    onError: (err: Error) => toast.error(err.message || 'Impossible de créer la tâche.'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] })
+      toast.success('Tâche ajoutée !')
+    },
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de créer la tâche.')),
   })
 
-  const updateStatusMutation = useMutation({
+  const updateStatusMutation = useTrackedMutation('task.updateStatus', {
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       apiJson<Task>(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
-    onError: (err: Error) => toast.error(err.message || 'Impossible de mettre à jour la tâche.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de mettre à jour la tâche.')),
   })
 
-  const deleteMutation = useMutation({
+  const deleteMutation = useTrackedMutation('task.delete', {
     mutationFn: (id: string) => apiJson<{ success: boolean }>(`/tasks/${id}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
-    onError: (err: Error) => toast.error(err.message || 'Impossible de supprimer la tâche.'),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de supprimer la tâche.')),
   })
 
   const STATUS_LABELS: Record<string, string> = {
@@ -505,7 +512,7 @@ function TasksSection() {
         onSubmit={(e) => {
           e.preventDefault()
           const name = (new FormData(e.currentTarget).get('name') as string)?.trim()
-          if (!name) return
+          if (!name) { toast.error('Écris le nom de la tâche d\'abord.'); return }
           createMutation.mutate(name)
           e.currentTarget.reset()
         }}

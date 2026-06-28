@@ -215,19 +215,32 @@ export const uploadImage = async (
     formData.append('bucket', bucket)
   }
 
-  const response = await fetch(`${getApiUrl()}/storage/upload`, {
-    method: 'POST',
-    credentials: 'include',
-    body: formData,
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Upload failed' }))
-    throw new Error(error.error || error.message || `HTTP ${response.status}`)
+  try {
+    const response = await fetch(`${getApiUrl()}/storage/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Upload failed' }))
+      throw new Error(error.error || error.message || `HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+    return data.url
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Upload timed out')
+    }
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  const data = await response.json()
-  return data.url
 }
 
 /** Creates a new opportunity. */
