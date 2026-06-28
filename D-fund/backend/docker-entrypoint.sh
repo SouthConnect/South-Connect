@@ -8,4 +8,4 @@ if [ "$RUN_MIGRATIONS" = "true" ]; then
   npx prisma migrate deploy --schema=../prisma/schema.prisma
 fi
 
-exec node dist/main.js
+exec node dist/src/main.js
