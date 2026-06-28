@@ -37,6 +37,8 @@ COPY --from=builder /app/backend/dist ./dist
 COPY --from=builder /app/prisma ../prisma
 COPY --from=builder /app/backend/node_modules/.prisma ./node_modules/.prisma
 
+LABEL cache-bust="v3"
+
 COPY --chown=dfund:dfund D-fund/backend/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
@@ -48,8 +50,5 @@ ENV NODE_ENV=production
 ENV PORT=3001
 
 EXPOSE 3001
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:3001/api/v1/health/live || exit 1
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
