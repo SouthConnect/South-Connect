@@ -30,11 +30,12 @@ RUN groupadd -r dfund && useradd -r -g dfund dfund
 WORKDIR /app/backend
 
 COPY --from=builder /app/backend/package.json /app/backend/package-lock.json ./
+
+RUN npm ci --omit=dev
+
 COPY --from=builder /app/backend/dist ./dist
 COPY --from=builder /app/prisma ../prisma
 COPY --from=builder /app/backend/node_modules/.prisma ./node_modules/.prisma
-
-RUN npm ci --omit=dev
 
 COPY --chown=dfund:dfund D-fund/backend/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
