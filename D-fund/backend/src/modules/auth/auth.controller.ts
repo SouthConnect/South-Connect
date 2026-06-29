@@ -182,7 +182,7 @@ export class AuthController {
   @Throttle({ auth: {} })
   @UseGuards(AuthGuard('google'))
   googleCallback(@Req() req: any, @Res() res: Response) {
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000').split(',')[0].trim();
 
     // Strategy signals a conflict: an account with this email exists but uses
     // email/password auth. Redirect to login with an explicit error code so
