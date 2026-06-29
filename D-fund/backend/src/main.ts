@@ -3,8 +3,15 @@
 import { webcrypto } from 'node:crypto';
 if (!globalThis.crypto) (globalThis as any).crypto = webcrypto;
 
-// Sentry must be initialised before any other import
-import './instrument';
+// Sentry must be initialised before any other import.
+// Wrapped in try/catch: native addons (profiling, OpenTelemetry) can crash
+// on a fresh Docker build — app must start even without Sentry.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('./instrument');
+} catch (err) {
+  process.stderr.write(`[Sentry] init failed — monitoring disabled: ${err}\n`);
+}
 
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
