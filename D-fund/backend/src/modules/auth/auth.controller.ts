@@ -51,10 +51,12 @@ export class AuthController {
    */
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
     const isProd = this.config.get<string>('NODE_ENV') === 'production';
+    const cookieDomain = this.config.get<string>('COOKIE_DOMAIN');
     const base = {
       httpOnly: true,
       secure: isProd,
       sameSite: (isProd ? 'strict' : 'lax') as 'strict' | 'lax',
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
     };
 
     res.cookie('access_token', accessToken, {
@@ -72,10 +74,12 @@ export class AuthController {
   /** Clears both auth cookies (used on logout). */
   private clearAuthCookies(res: Response) {
     const isProd = this.config.get<string>('NODE_ENV') === 'production';
+    const cookieDomain = this.config.get<string>('COOKIE_DOMAIN');
     const base = {
       httpOnly: true,
       secure: isProd,
       sameSite: (isProd ? 'strict' : 'lax') as 'strict' | 'lax',
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
     };
     res.clearCookie('access_token', base);
     res.clearCookie('refresh_token', { ...base, path: '/api/v1/auth/refresh' });
