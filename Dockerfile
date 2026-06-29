@@ -1,6 +1,6 @@
 FROM node:22-slim AS builder
 
-LABEL cache-bust="v3"
+LABEL cache-bust="v4"
 
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
@@ -39,7 +39,7 @@ COPY --from=builder /app/backend/dist ./dist
 COPY --from=builder /app/prisma ../prisma
 COPY --from=builder /app/backend/node_modules/.prisma ./node_modules/.prisma
 
-LABEL cache-bust="v3"
+LABEL cache-bust="v4"
 
 COPY --chown=dfund:dfund D-fund/backend/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
