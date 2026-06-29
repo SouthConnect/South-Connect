@@ -6,15 +6,23 @@
  *  - NestJS context (controller, guard, pipe) in breadcrumbs
  */
 import * as Sentry from '@sentry/nestjs';
-import { nodeProfilingIntegration } from '@sentry/profiling-node';
+
+let _profilingIntegration: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { nodeProfilingIntegration } = require('@sentry/profiling-node');
+  _profilingIntegration = nodeProfilingIntegration();
+} catch {
+  // Native addon unavailable on this platform — profiling disabled, Sentry still works
+}
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
 
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
-  profilesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0.0,
+  profilesSampleRate: _profilingIntegration ? (process.env.NODE_ENV === 'production' ? 0.1 : 0.0) : 0,
 
-  integrations: [nodeProfilingIntegration()],
+  integrations: _profilingIntegration ? [_profilingIntegration] : [],
 
   environment: process.env.NODE_ENV ?? 'development',
 
