@@ -99,7 +99,7 @@ async function bootstrap() {
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      sameSite: 'lax',
       maxAge: 10 * 60 * 1000, // 10 min — long enough for the OAuth dance
     },
   }));
