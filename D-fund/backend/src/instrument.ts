@@ -7,22 +7,17 @@
  */
 import * as Sentry from '@sentry/nestjs';
 
-let _profilingIntegration: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { nodeProfilingIntegration } = require('@sentry/profiling-node');
-  _profilingIntegration = nodeProfilingIntegration();
-} catch {
-  // Native addon unavailable on this platform — profiling disabled, Sentry still works
-}
+// @sentry/profiling-node is intentionally NOT installed — its C++ native addon
+// caused silent segfaults on fresh Docker builds, killing the process before
+// any Node.js output and making Railway healthchecks fail. Sentry error tracking
+// works fully without it; only CPU profiling is absent.
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
 
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
-  profilesSampleRate: _profilingIntegration ? (process.env.NODE_ENV === 'production' ? 0.1 : 0.0) : 0,
 
-  integrations: _profilingIntegration ? [_profilingIntegration] : [],
+  integrations: [],
 
   environment: process.env.NODE_ENV ?? 'development',
 
