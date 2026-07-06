@@ -60,6 +60,8 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/**' },
       // Anciennes photos Glide (données migrées)
       { protocol: 'https', hostname: 'storage.googleapis.com' },
+      // Photos de profil Google OAuth (lh3.googleusercontent.com, etc.)
+      { protocol: 'https', hostname: '*.googleusercontent.com' },
       // Images externes (Pexels, Unsplash, etc.)
       { protocol: 'https', hostname: 'images.pexels.com' },
       { protocol: 'https', hostname: 'images.unsplash.com' },

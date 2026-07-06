@@ -236,7 +236,7 @@ export default function Sidebar() {
                 <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center overflow-hidden shrink-0">
                   {user.profilePic
                     // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={user.profilePic} alt="" className="w-full h-full rounded-full object-cover" />
+                    ? <img src={user.profilePic} alt="" className="w-full h-full rounded-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
                     : <span className="text-sm font-bold">{user.name?.[0] || 'U'}</span>
                   }
                 </div>

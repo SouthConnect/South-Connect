@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
@@ -16,6 +17,8 @@ export default function PublicProfilePage() {
   const router = useRouter()
   const userId = params?.userId as string
   const { user } = useAuth()
+  const [profilePicError, setProfilePicError] = useState(false)
+  const [logoError, setLogoError] = useState(false)
   const queryClient = useQueryClient()
 
   const { data: profile, isLoading, error } = useQuery({
@@ -107,8 +110,8 @@ export default function PublicProfilePage() {
           <div className="flex items-end justify-between -mt-10 mb-4">
             <div className="w-20 h-20 rounded-2xl bg-white p-1 shadow-md shrink-0">
               <div className="w-full h-full rounded-xl bg-gray-100 flex items-center justify-center text-2xl font-bold text-[#3b49df] overflow-hidden relative">
-                {profile.profilePic ? (
-                  <Image src={profile.profilePic} alt="" fill className="object-cover rounded-xl" sizes="(max-width: 768px) 100vw, 400px" />
+                {profile.profilePic && !profilePicError ? (
+                  <Image src={profile.profilePic} alt="" fill className="object-cover rounded-xl" sizes="(max-width: 768px) 100vw, 400px" onError={() => setProfilePicError(true)} />
                 ) : (
                   (profile.name?.[0] || 'U')
                 )}
@@ -249,9 +252,9 @@ export default function PublicProfilePage() {
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h2 className="text-sm font-semibold text-gray-900 mb-3">Profil entreprise</h2>
               <div className="flex items-start gap-4 mb-4">
-                {profile.btoBProfile.logo && (
+                {profile.btoBProfile.logo && !logoError && (
                   <div className="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden shrink-0 relative">
-                    <Image src={profile.btoBProfile.logo} alt="" fill className="object-cover" sizes="64px" />
+                    <Image src={profile.btoBProfile.logo} alt="" fill className="object-cover" sizes="64px" onError={() => setLogoError(true)} />
                   </div>
                 )}
                 <div>

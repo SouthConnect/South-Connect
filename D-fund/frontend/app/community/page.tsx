@@ -49,10 +49,12 @@ type Tab = 'members' | 'talents' | 'companies'
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
 function Avatar({ src, name, square }: { src?: string | null; name?: string | null; square?: boolean }) {
+  const [error, setError] = useState(false)
+  const showImg = !!src && !error
   return (
     <div className={`w-10 h-10 shrink-0 ${square ? 'rounded-lg' : 'rounded-full'} bg-gray-100 overflow-hidden flex items-center justify-center font-bold text-sm text-[#3b49df] relative`}>
-      {src
-        ? <Image src={src} alt="" fill className="object-cover" sizes="40px" />
+      {showImg
+        ? <Image src={src!} alt="" fill className="object-cover" sizes="40px" onError={() => setError(true)} />
         : (name?.[0]?.toUpperCase() || '?')}
     </div>
   )
