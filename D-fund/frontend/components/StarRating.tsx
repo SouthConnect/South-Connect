@@ -56,9 +56,9 @@ export default function StarRating({ itemId, interactive = false, size = 'md' }:
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['rating-stats', itemId] })
       queryClient.invalidateQueries({ queryKey: ['my-rating', itemId] })
-      toast.success('Rating saved')
+      toast.success('Note enregistrée')
     },
-    onError: (e: any) => toast.error(e.message || 'Failed to save rating'),
+    onError: (e: any) => toast.error(e.message || 'Impossible d\'enregistrer la note'),
   })
 
   const currentRating = hovered || myRating?.rating || 0
@@ -107,7 +107,7 @@ export default function StarRating({ itemId, interactive = false, size = 'md' }:
 
       {/* My rating indicator */}
       {interactive && user && myRating?.rating && (
-        <span className="text-[10px] text-amber-600 font-medium">Your rating: {myRating.rating}</span>
+        <span className="text-[10px] text-amber-600 font-medium">Votre note : {myRating.rating}</span>
       )}
     </div>
   )

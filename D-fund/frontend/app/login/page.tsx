@@ -84,7 +84,7 @@ function LoginPageContent() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-sm border border-gray-100">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 bg-[#3b49df] rounded-lg flex items-center justify-center text-white text-2xl font-bold mb-4">
-            D
+            S
           </div>
           <h2 className="text-3xl font-extrabold text-gray-900">
             Connexion

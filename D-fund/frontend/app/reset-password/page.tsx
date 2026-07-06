@@ -67,7 +67,7 @@ function ResetPasswordContent() {
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-sm border border-gray-100">
         <div className="text-center mb-6">
           <div className="mx-auto h-12 w-12 bg-[#3b49df] rounded-lg flex items-center justify-center text-white text-2xl font-bold mb-4">
-            D
+            S
           </div>
           <h1 className="text-2xl font-extrabold text-gray-900">Nouveau mot de passe</h1>
           <p className="mt-1 text-sm text-gray-500">Choisis un mot de passe sécurisé (8 caractères min).</p>

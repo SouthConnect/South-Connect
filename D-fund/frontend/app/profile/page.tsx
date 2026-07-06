@@ -181,7 +181,7 @@ function ProfilePageContent() {
       {isOnboarding && (
         <div className="mb-8 rounded-2xl bg-gradient-to-br from-[#3b49df] to-[#2d3aba] px-6 py-6 text-white">
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-lg shrink-0">D</div>
+            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-lg shrink-0">S</div>
             <div className="flex-1">
               <p className="text-base font-bold mb-1">Bienvenue sur SouthConnect, {authUser?.firstName || authUser?.name} !</p>
               <p className="text-sm text-white/80 mb-4">

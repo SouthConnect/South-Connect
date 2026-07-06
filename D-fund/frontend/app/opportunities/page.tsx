@@ -10,6 +10,35 @@ import { Search, Filter, Loader2 } from 'lucide-react'
 // DRAFT intentionally excluded — drafts are never shown in the public feed
 const STATUS_OPTIONS = ['ACTIVE', 'PENDING', 'CLOSED', 'ARCHIVED'] as const
 
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE: 'Active',
+  PENDING: 'En attente',
+  CLOSED: 'Fermée',
+  ARCHIVED: 'Archivée',
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  JOB_OPPORTUNITY: 'Emploi',
+  TALENT_PROFILE: 'Talent',
+  CO_FOUNDER_OPPORTUNITY: 'Co-Fondateur',
+  CO_FOUNDER_PROFILE: 'Profil Co-Fondateur',
+  BUSINESS_IDEA: 'Idée de Business',
+  SUPPORT_OFFER: 'Offre de Support',
+  SERVICE_LISTING: 'Service',
+  SERVICE_REQUEST: 'Demande de Service',
+  DEAL_FLOW: 'Deal Flow',
+  INVESTOR_THESIS: 'Thèse Investisseur',
+  INVESTOR_PROFILE: 'Investisseur',
+  FUNDING_OPPORTUNITY: 'Financement',
+  EVENT: 'Événement',
+  CALL_FOR_STARTUPS: 'Appel à Startups',
+  MENTORSHIP_BA_OFFER: 'Mentorat',
+  PROJECT_SEEKING_SUPPORT: 'Projet en Recherche',
+  VENTURE_PROGRAM: 'Programme Venture',
+  CHILL_WORK_SPOT: 'Espace de Travail',
+  MARKET_ADVISOR: 'Conseiller Marché',
+}
+
 const TYPE_OPTIONS = [
   'JOB_OPPORTUNITY',
   'TALENT_PROFILE',
@@ -111,7 +140,7 @@ export default function OpportunitiesPage() {
                   <option value="">Tous les types</option>
                   {TYPE_OPTIONS.map((value) => (
                     <option key={value} value={value}>
-                      {value.replace(/_/g, ' ')}
+                      {TYPE_LABELS[value] ?? value.replace(/_/g, ' ')}
                     </option>
                   ))}
                 </select>
@@ -125,7 +154,7 @@ export default function OpportunitiesPage() {
                 <option value="">Tous les statuts</option>
                 {STATUS_OPTIONS.map((value) => (
                   <option key={value} value={value}>
-                    {value}
+                    {STATUS_LABELS[value] ?? value}
                   </option>
                 ))}
               </select>

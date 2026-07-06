@@ -21,6 +21,14 @@ import AuthGuard from '@/components/AuthGuard'
 
 type DashboardTab = 'applications' | 'offers' | 'dm' | 'tasks'
 
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE: 'Active',
+  DRAFT: 'Brouillon',
+  PENDING: 'En attente',
+  CLOSED: 'Fermée',
+  ARCHIVED: 'Archivée',
+}
+
 export default function DashboardPage() {
   const { user } = useAuth()
   const [tab, setTab] = useState<DashboardTab>('applications')
@@ -355,7 +363,7 @@ function OffersSection({
           >
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-gray-400 uppercase mb-1">
-                {op.status}
+                {STATUS_LABELS[op.status] ?? op.status}
               </span>
               <span className="text-sm font-semibold text-gray-900">
                 {op.name}

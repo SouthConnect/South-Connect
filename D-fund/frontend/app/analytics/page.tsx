@@ -79,7 +79,7 @@ export default function AnalyticsPage() {
   const recentApps: Application[] = myApps?.slice(0, 5) ?? []
 
   return (
-    <AuthGuard message="Please sign in to view your analytics.">
+    <AuthGuard message="Connectez-vous pour voir vos analytiques.">
       <div className="container mx-auto px-6 py-8 max-w-5xl">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-1">

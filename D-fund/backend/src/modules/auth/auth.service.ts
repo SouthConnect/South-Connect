@@ -120,7 +120,7 @@ export class AuthService implements OnModuleDestroy {
     });
     const tokens = this.generateTokens(created.id, created.email, created.role);
 
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const verificationLink = `${frontendUrl}/verify-email?token=${rawVerificationToken}`;
 
     // Fire-and-forget: does not block the registration response
@@ -186,7 +186,7 @@ export class AuthService implements OnModuleDestroy {
       },
     });
 
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const verificationLink = `${frontendUrl}/verify-email?token=${rawToken}`;
 
     // Fire-and-forget: une erreur Resend ne doit pas faire échouer la requête —
@@ -557,7 +557,7 @@ export class AuthService implements OnModuleDestroy {
       data: { passwordResetToken: this.hashToken(rawToken), passwordResetExpiry: expiry },
     });
 
-    const frontendUrl = this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000').split(',')[0].trim();
     const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
 
     try {
