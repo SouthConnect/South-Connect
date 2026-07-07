@@ -55,7 +55,10 @@ export class AuthController {
     const base = {
       httpOnly: true,
       secure: isProd,
-      sameSite: (isProd ? 'strict' : 'lax') as 'strict' | 'lax',
+      // lax (not strict) required for OAuth: after the Google→backend→frontend redirect chain,
+      // the browser must send the cookie on the /auth/me fetch from southconnect.io to api.southconnect.io.
+      // strict blocks this because browsers see it as a cross-site navigation despite same eTLD+1.
+      sameSite: 'lax' as const,
       ...(cookieDomain ? { domain: cookieDomain } : {}),
     };
 
@@ -78,7 +81,7 @@ export class AuthController {
     const base = {
       httpOnly: true,
       secure: isProd,
-      sameSite: (isProd ? 'strict' : 'lax') as 'strict' | 'lax',
+      sameSite: 'lax' as const,
       ...(cookieDomain ? { domain: cookieDomain } : {}),
     };
     res.clearCookie('access_token', base);

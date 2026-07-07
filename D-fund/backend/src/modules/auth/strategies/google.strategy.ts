@@ -58,9 +58,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       // email would silently take over the existing account.
       // Instead, signal the conflict so the controller can redirect to a clear error page.
       if (!user.googleId) {
-        // Use a generic code — never confirm that an email/password account exists
-        // for this email, which would allow harvesting of registered addresses.
-        return done(null, { oauthError: 'OAUTH_AUTH_REQUIRED' } as any);
+        return done(null, { oauthError: 'EMAIL_EXISTS_DIFFERENT_METHOD' } as any);
       }
     } else {
       try {

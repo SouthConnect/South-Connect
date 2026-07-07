@@ -33,6 +33,7 @@ const PUBLIC_PREFIXES = [
   '/reset-password',
   '/verify-email',
   '/unsubscribe',
+  '/auth',
   '/opportunities',
   '/profiles',
   '/explore',

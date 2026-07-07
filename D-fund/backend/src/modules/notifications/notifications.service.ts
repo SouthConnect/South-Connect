@@ -215,10 +215,10 @@ export class NotificationsService {
       return;
     }
 
-    const subject = 'Confirmez votre adresse email D-Fund';
+    const subject = 'Confirmez votre adresse email SouthConnect';
     const html = `
       <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
-      <p>Merci de vous être inscrit sur D-Fund. Cliquez sur le lien ci-dessous pour confirmer votre adresse email :</p>
+      <p>Merci de vous être inscrit sur SouthConnect. Cliquez sur le lien ci-dessous pour confirmer votre adresse email :</p>
       <p>
         <a href="${verificationLink}"
            style="display:inline-block;padding:10px 20px;background:#3b49df;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
@@ -262,10 +262,10 @@ export class NotificationsService {
       return;
     }
 
-    const subject = 'Bienvenue sur D-Fund';
+    const subject = 'Bienvenue sur SouthConnect';
     const html = `
       <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
-      <p>Bienvenue sur D-Fund. Vous pouvez dès maintenant compléter votre profil et explorer les opportunités.</p>
+      <p>Bienvenue sur SouthConnect. Vous pouvez dès maintenant compléter votre profil et explorer les opportunités.</p>
     `;
 
     this.sendEmailAsync(user.email, subject, html);
@@ -290,7 +290,7 @@ export class NotificationsService {
     const html = `
       <p>Bonjour ${NotificationsService.esc(owner.firstName || '')},</p>
       <p>Vous avez reçu une nouvelle candidature pour l'opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong>.</p>
-      <p>Connectez-vous à D-Fund pour la consulter et y répondre.</p>
+      <p>Connectez-vous à SouthConnect pour la consulter et y répondre.</p>
     `;
 
     this.sendEmailAsync(owner.email, subject, html);
@@ -315,7 +315,7 @@ export class NotificationsService {
     const html = `
       <p>Bonjour ${NotificationsService.esc(candidate.firstName || '')},</p>
       <p>Votre candidature pour l'opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong> a été revue.</p>
-      <p>${NotificationsService.esc(application.reviewFeedback || 'Connectez-vous à D-Fund pour lire les détails du feedback.')}</p>
+      <p>${NotificationsService.esc(application.reviewFeedback || 'Connectez-vous à SouthConnect pour lire les détails du feedback.')}</p>
     `;
 
     this.sendEmailAsync(candidate.email, subject, html);
@@ -366,7 +366,7 @@ export class NotificationsService {
     const subject = `Votre opportunité "${NotificationsService.esc(opportunity.name)}" a été approuvée`;
     const html = `
       <p>Bonjour ${NotificationsService.esc(owner.firstName || '')},</p>
-      <p>Votre opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong> vient d'être approuvée par l'équipe D-Fund.</p>
+      <p>Votre opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong> vient d'être approuvée par l'équipe SouthConnect.</p>
       <p>Elle est maintenant visible par l'ensemble de la communauté.</p>
       <p><a href="${frontendUrl}/opportunities/${opportunity.id}">Voir mon opportunité</a></p>
     `;
@@ -391,12 +391,12 @@ export class NotificationsService {
     if (!await this.isEmailPrefEnabled(recipient.id, 'emailNewMessage')) return;
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || '';
-    const subject = `Nouveau message de ${NotificationsService.esc(senderName)} sur D-Fund`;
+    const subject = `Nouveau message de ${NotificationsService.esc(senderName)} sur SouthConnect`;
     const html = `
       <p>Bonjour ${NotificationsService.esc(recipient.firstName || '')},</p>
       <p><strong>${NotificationsService.esc(senderName)}</strong> vous a envoyé un message :</p>
       <blockquote style="border-left:3px solid #3b49df;padding-left:12px;color:#555">${NotificationsService.esc(preview)}</blockquote>
-      <p><a href="${frontendUrl}/chat/private/${discussionId}">Répondre sur D-Fund</a></p>
+      <p><a href="${frontendUrl}/chat/private/${discussionId}">Répondre sur SouthConnect</a></p>
     `;
 
     this.sendEmailAsync(recipient.email, subject, html);
@@ -414,10 +414,10 @@ export class NotificationsService {
     if (!await this.isEmailPrefEnabled(followee.id, 'emailNewFollower')) return;
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || '';
-    const subject = `${NotificationsService.esc(follower.name ?? 'Quelqu\'un')} vous suit maintenant sur D-Fund`;
+    const subject = `${NotificationsService.esc(follower.name ?? 'Quelqu\'un')} vous suit maintenant sur SouthConnect`;
     const html = `
       <p>Bonjour ${NotificationsService.esc(followee.firstName || '')},</p>
-      <p><strong>${NotificationsService.esc(follower.name ?? 'Un utilisateur')}</strong> vient de commencer à vous suivre sur D-Fund.</p>
+      <p><strong>${NotificationsService.esc(follower.name ?? 'Un utilisateur')}</strong> vient de commencer à vous suivre sur SouthConnect.</p>
       <p>
         <a href="${frontendUrl}/profiles/${follower.id}"
            style="display:inline-block;padding:10px 20px;background:#3b49df;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
@@ -439,7 +439,7 @@ export class NotificationsService {
       return;
     }
 
-    const subject = 'Votre mot de passe D-Fund a été modifié';
+    const subject = 'Votre mot de passe SouthConnect a été modifié';
     const html = `
       <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
       <p>Votre mot de passe a bien été réinitialisé. Toutes vos sessions actives ont été révoquées.</p>
@@ -459,7 +459,7 @@ export class NotificationsService {
       return;
     }
 
-    const subject = 'Réinitialisation de votre mot de passe D-Fund';
+    const subject = 'Réinitialisation de votre mot de passe SouthConnect';
     const html = `
       <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
       <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
@@ -508,7 +508,7 @@ export class NotificationsService {
         finalHtml += `
           <hr style="margin:40px 0;border:none;border-top:1px solid #eee">
           <p style="color:#888;font-size:12px;text-align:center">
-            Vous recevez cet email car vous êtes inscrit sur D-Fund.<br>
+            Vous recevez cet email car vous êtes inscrit sur SouthConnect.<br>
             <a href="${frontendUrl}/unsubscribe?token=${user.emailUnsubscribeToken}"
                style="color:#aaa;text-decoration:underline">
               Se désabonner des emails
