@@ -76,9 +76,15 @@ export async function middleware(request: NextRequest) {
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
 
   const tokenCookie = request.cookies.get('access_token');
+  // session_hint is a non-HttpOnly 7-day cookie set alongside refresh_token.
+  // When access_token expires (15 min) the browser deletes it, but session_hint
+  // persists — signalling that a valid refresh_token may still exist so we should
+  // let the request through instead of hard-redirecting to /login.
+  const sessionHint = request.cookies.get('session_hint');
+  const hasSession = !!tokenCookie?.value || !!sessionHint?.value;
 
-  // No cookie at all → definitely logged out → redirect immediately
-  if (!tokenCookie?.value) {
+  // No session at all → definitely logged out → redirect immediately
+  if (!hasSession) {
     if (!isProtected) return NextResponse.next();
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
@@ -88,7 +94,7 @@ export async function middleware(request: NextRequest) {
   // Cookie exists but may be expired → decode without hard-redirecting.
   // If expired, the client will silently refresh via /auth/refresh.
   // AppShell handles the redirect to /login if the refresh also fails.
-  const payload = decodeToken(tokenCookie.value);
+  const payload = tokenCookie?.value ? decodeToken(tokenCookie.value) : null;
 
   // Admin routes: always require a valid, non-expired ADMIN token
   if (pathname.startsWith('/admin')) {

@@ -134,6 +134,12 @@ export default function Sidebar() {
       case '/notifications':
         queryClient.prefetchQuery({ queryKey: ['notifications'], queryFn: () => apiJson('/notifications?take=20'), staleTime: 30_000 })
         break
+      case '/dashboard':
+        if (user?.id) {
+          queryClient.prefetchQuery({ queryKey: ['my-applications', user.id],            queryFn: () => apiJson(`/applications/user/${user.id}`),          ...opts })
+          queryClient.prefetchQuery({ queryKey: ['my-opportunities-dashboard', user.id], queryFn: () => apiJson(`/opportunities/user/${user.id}?take=10`), ...opts })
+        }
+        break
     }
   }
 

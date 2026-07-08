@@ -5,8 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import Link from 'next/link'
 import { Search, Briefcase, Users, Lightbulb, DollarSign, Calendar, Rocket, ArrowRight, MapPin } from 'lucide-react'
-import Image from 'next/image'
 import OpportunityCard from '@/components/OpportunityCard'
+import { Avatar } from '@/components/Avatar'
 import type { Opportunity } from '@/app/lib/types'
 
 const CATEGORY_GROUPS = [
@@ -59,12 +59,14 @@ export default function ExplorePage() {
     queryKey: ['explore', typeFilter],
     queryFn: () =>
       apiJson(`/opportunities?status=ACTIVE&take=12${typeFilter ? `&types=${encodeURIComponent(typeFilter)}` : ''}`),
+    staleTime: 3 * 60 * 1000,
   })
 
   const { data: profiles } = useQuery<any[]>({
     queryKey: ['explore-profiles'],
     queryFn: () => apiJson('/profiles/lists/members?take=6'),
     enabled: activeGroup === null,
+    staleTime: 3 * 60 * 1000,
   })
 
   const opportunities: Opportunity[] = data?.data ?? []
@@ -169,11 +171,7 @@ export default function ExplorePage() {
                   href={`/profiles/${p.id}`}
                   className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col items-center gap-2 hover:shadow-sm transition-shadow text-center"
                 >
-                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center text-sm font-bold text-[#3b49df] relative">
-                    {p.profilePic
-                      ? <Image src={p.profilePic} alt="" fill className="object-cover" sizes="64px" />
-                      : (p.name?.[0] || 'U')}
-                  </div>
+                  <Avatar src={p.profilePic} name={p.name} sizeClass="w-12 h-12" sizes="64px" />
                   <div>
                     <p className="text-xs font-semibold text-gray-900 truncate w-full max-w-[80px]">{p.name}</p>
                     {(p.city || p.country) && (

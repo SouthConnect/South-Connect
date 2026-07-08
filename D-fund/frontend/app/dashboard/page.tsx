@@ -13,7 +13,7 @@ import {
   MessageCircle,
 } from 'lucide-react'
 import Link from 'next/link'
-import Image from 'next/image'
+import { Avatar } from '@/components/Avatar'
 import { toast } from 'sonner'
 import type { PrivateDiscussion, Task } from '@/app/lib/types'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
@@ -415,13 +415,7 @@ function DMSection({
                 href={`/chat/private/${d.id}`}
                 className="bg-white rounded-xl border border-gray-100 px-5 py-4 flex items-center gap-4 hover:shadow-sm transition-shadow"
               >
-                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-[#3b49df] overflow-hidden flex-shrink-0 relative">
-                  {other?.profilePic ? (
-                    <Image src={other.profilePic} alt="" fill className="object-cover" sizes="64px" />
-                  ) : (
-                    other?.name?.[0] || 'U'
-                  )}
-                </div>
+                <Avatar src={other?.profilePic} name={other?.name} sizes="64px" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className={`text-sm font-semibold ${hasUnread ? 'text-gray-900' : 'text-gray-700'}`}>

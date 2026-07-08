@@ -72,6 +72,17 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/api/v1/auth/refresh',      // scoped — not sent to other endpoints
     });
+
+    // Non-sensitive flag cookie readable by the Next.js Edge middleware (not HttpOnly).
+    // Survives the 15-min access_token window so the middleware knows a valid refresh_token
+    // may still exist and passes the request through instead of hard-redirecting to /login.
+    res.cookie('session_hint', '1', {
+      httpOnly: false,
+      secure: isProd,
+      sameSite: 'lax' as const,
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days — matches refresh_token TTL
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
+    });
   }
 
   /** Clears both auth cookies (used on logout). */
@@ -86,6 +97,7 @@ export class AuthController {
     };
     res.clearCookie('access_token', base);
     res.clearCookie('refresh_token', { ...base, path: '/api/v1/auth/refresh' });
+    res.clearCookie('session_hint', { ...base, httpOnly: false });
   }
 
   // ─── Registration & Login ────────────────────────────────────────────────────

@@ -77,6 +77,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const [localLikeCount, setLocalLikeCount] = useState<number | null>(null)
   const [localSaved, setLocalSaved] = useState<boolean | null>(null)
   const [localSaveCount, setLocalSaveCount] = useState<number | null>(null)
+  const [imgError, setImgError] = useState(false)
 
   const displayIsLiked  = localLiked     ?? serverIsLiked
   const displayLikeCount = localLikeCount ?? (opportunity.likesCount ?? 0)
@@ -161,8 +162,8 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
         <div className="flex gap-3 items-start">
           {/* Thumbnail */}
           <div className="w-14 h-14 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden mt-0.5">
-            {opportunity.image ? (
-              <img src={opportunity.image} alt="" className="w-full h-full object-cover" />
+            {opportunity.image && !imgError ? (
+              <img src={opportunity.image} alt="" className="w-full h-full object-cover" onError={() => setImgError(true)} />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#3b49df]/10 to-[#3b49df]/20">
                 <span className="text-lg font-bold text-[#3b49df]/40">

@@ -277,6 +277,7 @@ function OpportunityPreview() {
   const { data, isLoading } = useQuery({
     queryKey: ['opportunities-preview'],
     queryFn: () => apiJson<OpportunityListResponse>('/opportunities?take=3&skip=0'),
+    staleTime: 5 * 60 * 1000,
   })
 
   if (isLoading) {
@@ -334,12 +335,14 @@ function AppFeed() {
       lastPage.nextCursor ?? undefined,
     initialPageParam: undefined as string | undefined,
     enabled: tab !== 'favorites',
+    staleTime: 3 * 60 * 1000,
   })
 
   const { data: saved, isLoading: isLoadingSaved } = useQuery({
     queryKey: ['saved-opportunities'],
     queryFn: () => apiJson('/social/saved'),
     enabled: !!user && tab === 'favorites',
+    staleTime: 3 * 60 * 1000,
   })
 
   useEffect(() => {
