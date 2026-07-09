@@ -137,6 +137,9 @@ export class OpportunitiesService {
 
     // Offset-based path (first page, admin, my-opportunities): keep total + hasMore
     const skip = Math.max(rawSkip, 0);
+    // Skip COUNT for public feeds — the frontend uses hasMore (computed from take+1 trick)
+    // and never renders a total. Only owner/admin views need the exact count.
+    const isPublicFeed = !ownerId;
     const [items, total] = await Promise.all([
       this.prisma.opportunity.findMany({
         take: take + 1,
@@ -147,14 +150,15 @@ export class OpportunitiesService {
           owner: { select: { id: true, name: true, profilePic: true } },
         },
       }),
-      this.prisma.opportunity.count({ where }),
+      isPublicFeed ? Promise.resolve(0) : this.prisma.opportunity.count({ where }),
     ]);
 
     const hasNext = items.length > take;
     const pageItems = hasNext ? items.slice(0, take) : items;
     const nextCursor = hasNext ? pageItems[pageItems.length - 1].id : null;
+    const hasMore = isPublicFeed ? hasNext : skip + take < total;
 
-    const result = { data: pageItems, total, hasMore: skip + take < total, nextCursor };
+    const result = { data: pageItems, total: isPublicFeed ? undefined : total, hasMore, nextCursor };
     if (isCacheable && feedCacheKey) {
       this.redis!.setex(feedCacheKey, FEED_CACHE_TTL_SECONDS, JSON.stringify(result)).catch(() => undefined);
     }
