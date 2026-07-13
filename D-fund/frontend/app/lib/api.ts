@@ -44,20 +44,23 @@ const API_TIMEOUT_MS = 15000
  *   true  → refresh succeeded, callers may retry their original request
  *   false → refresh failed, callers should dispatch session-expired
  */
-let _refreshPromise: Promise<boolean> | null = null
+// 'ok' = refresh succeeded | 'expired' = token definitively invalid | 'server-error' = Redis/network blip
+type RefreshResult = 'ok' | 'expired' | 'server-error'
+let _refreshPromise: Promise<RefreshResult> | null = null
 
-const attemptTokenRefresh = (apiUrl: string): Promise<boolean> => {
+const attemptTokenRefresh = (apiUrl: string): Promise<RefreshResult> => {
   if (_refreshPromise) return _refreshPromise
 
   _refreshPromise = fetch(`${apiUrl}/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
   })
-    .then((r) => {
-      if (r.status === 429) return false // rate-limited: ne pas retenter
-      return r.ok
+    .then((r): RefreshResult => {
+      if (r.ok) return 'ok'
+      if (r.status >= 500) return 'server-error' // Redis blip — ne pas déconnecter
+      return 'expired' // 401/403/429 → token définitivement invalide
     })
-    .catch(() => false)
+    .catch((): RefreshResult => 'server-error') // erreur réseau — ne pas déconnecter
     .finally(() => {
       _refreshPromise = null
     })
@@ -109,13 +112,17 @@ export const apiCall = async (
     // All concurrent 401s share the same refresh promise via the mutex —
     // only one actual POST /auth/refresh is sent regardless of how many callers hit 401 at once.
     if (response.status === 401 && !_retry) {
-      const refreshed = await attemptTokenRefresh(apiUrl)
+      const result = await attemptTokenRefresh(apiUrl)
 
-      if (refreshed) {
+      if (result === 'ok') {
         return apiCall(endpoint, options, true)
       }
 
-      // Refresh failed definitively → session is expired.
+      // Redis blip ou erreur réseau — on ne déconnecte pas l'utilisateur.
+      // La prochaine requête relancera le refresh naturellement.
+      if (result === 'server-error') return response
+
+      // Token définitivement invalide → session expirée.
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('auth:session-expired'))
       }

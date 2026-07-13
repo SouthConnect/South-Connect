@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { Plus, Users, Pencil, Eye, CheckCircle, Clock, Archive, Send, Info } from 'lucide-react'
-import Image from 'next/image'
+import { Avatar } from '@/components/Avatar'
 import { toast } from 'sonner'
 import ConfirmModal from '@/components/ConfirmModal'
 import AuthGuard from '@/components/AuthGuard'
@@ -187,13 +187,7 @@ export default function MyOpportunitiesPage() {
               className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center gap-4"
             >
               {/* Cover thumbnail */}
-              <div className="w-12 h-12 rounded-xl bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center text-gray-400 text-xs font-bold relative">
-                {opp.image ? (
-                  <Image src={opp.image} alt="" fill className="object-cover" sizes="64px" />
-                ) : (
-                  opp.type?.slice(0, 2)
-                )}
-              </div>
+              <Avatar src={opp.image} name={opp.name} square sizeClass="w-12 h-12" sizes="48px" />
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">

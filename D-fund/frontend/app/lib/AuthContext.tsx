@@ -41,6 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(await response.json() as AuthUser)
         lastRefreshAt.current = Date.now()
         localStorage.setItem('sc_has_session', '1')
+        // Signale aux autres onglets qu'un refresh silencieux a réussi
+        // (le token a peut-être été rotaté — ils doivent re-fetch /auth/me
+        //  pour obtenir le nouvel access_token sans déclencher une déconnexion).
+        channel.current?.postMessage('login')
       } else if (response.status === 401) {
         setUser(null)
         localStorage.removeItem('sc_has_session')

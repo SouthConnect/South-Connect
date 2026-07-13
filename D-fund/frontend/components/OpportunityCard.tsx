@@ -156,8 +156,16 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
     toggleSaveMutation.mutate(displayIsSaved)
   }
 
+  const handlePrefetch = () => {
+    queryClient.prefetchQuery({
+      queryKey: ['opportunity', opportunity.id],
+      queryFn: () => apiJson(`/opportunities/${opportunity.id}`),
+      staleTime: 2 * 60 * 1000,
+    })
+  }
+
   return (
-    <Link href={`/opportunities/${opportunity.id}`}>
+    <Link href={`/opportunities/${opportunity.id}`} onMouseEnter={handlePrefetch}>
       <div className="bg-white rounded-xl border border-gray-100 px-4 py-3 hover:shadow-md hover:border-gray-200 transition-all group">
         <div className="flex gap-3 items-start">
           {/* Thumbnail */}

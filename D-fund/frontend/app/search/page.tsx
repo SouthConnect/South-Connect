@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { apiJson } from '@/app/lib/api'
 import Link from 'next/link'
 import { Search, Briefcase, UserCircle, MessageCircle, MapPin } from 'lucide-react'
-import Image from 'next/image'
+import { Avatar } from '@/components/Avatar'
 
 function SearchContent() {
   const searchParams = useSearchParams()
@@ -117,13 +117,7 @@ function SearchContent() {
                         href={`/opportunities/${opp.id}`}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                       >
-                        <div className="w-9 h-9 rounded-lg bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center text-xs font-bold text-gray-400 relative">
-                          {opp.image ? (
-                            <Image src={opp.image} alt="" fill className="object-cover" sizes="64px" />
-                          ) : (
-                            opp.type?.slice(0, 2)
-                          )}
-                        </div>
+                        <Avatar src={opp.image} name={opp.name} square sizeClass="w-9 h-9" sizes="36px" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-semibold text-gray-900 truncate">{opp.name}</div>
                           <div className="text-xs text-gray-400">
@@ -153,13 +147,7 @@ function SearchContent() {
                         href={`/profiles/${p.id}`}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                       >
-                        <div className="w-9 h-9 rounded-full bg-gray-100 overflow-hidden shrink-0 flex items-center justify-center text-sm font-bold text-[#3b49df] relative">
-                          {p.profilePic ? (
-                            <Image src={p.profilePic} alt="" fill className="object-cover" sizes="64px" />
-                          ) : (
-                            p.name?.[0] || 'U'
-                          )}
-                        </div>
+                        <Avatar src={p.profilePic} name={p.name || 'U'} sizeClass="w-9 h-9" sizes="36px" />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-semibold text-gray-900">{p.name || 'Unknown'}</div>
                           <div className="flex items-center gap-1 text-xs text-gray-400">

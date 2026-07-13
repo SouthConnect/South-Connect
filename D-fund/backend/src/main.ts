@@ -190,6 +190,18 @@ async function bootstrap() {
     });
   }
 
+  // COOKIE_DOMAIN est requis en production pour que les cookies auth soient
+  // lisibles par le middleware Next.js sur le domaine frontend (Vercel).
+  // Sans ça, session_hint et access_token restent bound à api.southconnect.io
+  // et le middleware ne peut jamais valider la session.
+  if (process.env.NODE_ENV === 'production' && !process.env.COOKIE_DOMAIN) {
+    logger.warn(
+      'COOKIE_DOMAIN is not set — auth cookies will be host-only to the API domain. ' +
+      'The Next.js Edge middleware cannot read them, which will cause session loss on page refresh. ' +
+      'Set COOKIE_DOMAIN=.southconnect.io in Railway.',
+    );
+  }
+
   const port = process.env.PORT || 3001;
   const server = await app.listen(port);
   logger.log(`Application listening on port ${port}`);

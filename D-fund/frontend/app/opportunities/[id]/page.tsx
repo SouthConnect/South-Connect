@@ -24,6 +24,7 @@ export default function OpportunityDetailPage() {
     queryKey: ['opportunity', id],
     queryFn: () => apiJson(`/opportunities/${id}`),
     enabled: !!id,
+    staleTime: 5 * 60 * 1000,
     retry: (failureCount, err) => !(err instanceof ApiError && err.status === 404) && failureCount < 2,
   })
 
