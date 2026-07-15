@@ -6,6 +6,7 @@ import AppShell from '@/components/AppShell'
 import Providers from './Providers'
 import { Toaster } from 'sonner'
 import NextTopLoader from 'nextjs-toploader'
+import { Analytics } from '@vercel/analytics/next'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -64,6 +65,7 @@ export default function RootLayout({
             <Toaster position="bottom-right" richColors closeButton />
           </AuthProvider>
         </Providers>
+        <Analytics />
       </body>
     </html>
   )

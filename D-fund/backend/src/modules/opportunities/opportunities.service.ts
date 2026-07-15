@@ -415,10 +415,16 @@ export class OpportunitiesService {
           opportunity.ownerId,
           'OPPORTUNITY_REJECTED',
           `Votre opportunité "${opportunity.name}" n'a pas été approuvée`,
-          "Contactez l'équipe D-Fund pour plus d'informations.",
+          "Contactez l'équipe SouthConnect pour plus d'informations.",
           `/my-opportunities`,
         )
         .catch((err) => this.logger.warn(`Failed to send rejection in-app notification: ${err.message}`));
+
+      if (opportunity.owner?.email) {
+        this.notifications
+          .sendOpportunityRejectedEmail(opportunity.owner, opportunity)
+          .catch((err) => this.logger.warn(`Failed to send rejection email: ${err.message}`));
+      }
     }
 
     await Promise.all([this.invalidateStatsCache(), this.invalidateFeedCache()]);

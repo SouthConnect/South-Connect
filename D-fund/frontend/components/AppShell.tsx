@@ -9,7 +9,7 @@ import { useAuth } from '@/app/lib/AuthContext'
 import { apiJson } from '@/app/lib/api'
 import { toast } from 'sonner'
 
-const AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/unsubscribe', '/auth']
+const AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/unsubscribe', '/auth', '/onboarding']
 
 const PROTECTED_PREFIXES = [
   '/dashboard', '/my-opportunities', '/applications', '/notifications',

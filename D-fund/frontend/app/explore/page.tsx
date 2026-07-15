@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect, useRef } from 'react'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import Link from 'next/link'
 import { Search, Briefcase, Users, Lightbulb, DollarSign, Calendar, Rocket, ArrowRight, MapPin } from 'lucide-react'
@@ -50,17 +50,40 @@ const CATEGORY_GROUPS = [
 
 export default function ExplorePage() {
   const [activeGroup, setActiveGroup] = useState<number | null>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
 
   const typeFilter = activeGroup !== null
     ? CATEGORY_GROUPS[activeGroup].types.join(',')
     : ''
 
-  const { data, isLoading } = useQuery<{ data: Opportunity[] }>({
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteQuery<{ data: Opportunity[]; nextCursor: string | null; hasMore: boolean }>({
     queryKey: ['explore', typeFilter],
-    queryFn: () =>
-      apiJson(`/opportunities?status=ACTIVE&take=12${typeFilter ? `&types=${encodeURIComponent(typeFilter)}` : ''}`),
+    queryFn: ({ pageParam }) =>
+      apiJson(
+        `/opportunities?status=ACTIVE&take=12${typeFilter ? `&types=${encodeURIComponent(typeFilter)}` : ''}${pageParam ? `&cursor=${pageParam}` : ''}`,
+      ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 3 * 60 * 1000,
   })
+
+  // IntersectionObserver: charge la page suivante quand la sentinelle est visible
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage() },
+      { rootMargin: '200px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const { data: profiles } = useQuery<any[]>({
     queryKey: ['explore-profiles'],
@@ -69,7 +92,7 @@ export default function ExplorePage() {
     staleTime: 3 * 60 * 1000,
   })
 
-  const opportunities: Opportunity[] = data?.data ?? []
+  const opportunities: Opportunity[] = data?.pages.flatMap((p) => p.data) ?? []
 
   return (
     <div className="bg-gray-50 min-h-screen pb-16">
@@ -147,11 +170,22 @@ export default function ExplorePage() {
               Aucune opportunité dans cette catégorie pour l'instant.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {opportunities.map((opp) => (
-                <OpportunityCard key={opp.id} opportunity={opp} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {opportunities.map((opp) => (
+                  <OpportunityCard key={opp.id} opportunity={opp} />
+                ))}
+              </div>
+              {/* Sentinelle invisible — déclencheur IntersectionObserver */}
+              <div ref={sentinelRef} className="h-1" />
+              {isFetchingNextPage && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-48 bg-white rounded-2xl animate-pulse border border-gray-100" />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
 

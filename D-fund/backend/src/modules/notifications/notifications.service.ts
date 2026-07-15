@@ -65,6 +65,49 @@ export class NotificationsService {
       .replace(/"/g, '&quot;');
   }
 
+  /**
+   * Wraps email body content in a branded SouthConnect HTML envelope.
+   * Table-based layout for maximum email client compatibility.
+   */
+  private static emailLayout(content: string): string {
+    return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="min-height:100vh">
+    <tr>
+      <td align="center" style="padding:32px 16px">
+        <table width="100%" style="max-width:560px" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="background:#3b49df;padding:22px 32px;border-radius:12px 12px 0 0;text-align:center">
+              <span style="color:#fff;font-size:20px;font-weight:700;letter-spacing:-0.3px">SouthConnect</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#ffffff;padding:32px 32px 28px;border-radius:0 0 12px 12px;color:#1a1a1a;font-size:15px;line-height:1.6">
+              ${content}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 0 0;text-align:center">
+              <span style="color:#9ca3af;font-size:11px">© 2025 SouthConnect · La plateforme pour la diaspora africaine</span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  }
+
+  private static btn(href: string, label: string): string {
+    return `<a href="${href}" style="display:inline-block;margin-top:12px;padding:11px 24px;background:#3b49df;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">${label}</a>`;
+  }
+
   /** Maps notification type strings to their NotificationPreferences field. */
   private static readonly IN_APP_PREF: Record<string, string> = {
     APPLICATION_SUBMITTED: 'inAppApplicationSubmitted',
@@ -216,17 +259,12 @@ export class NotificationsService {
     }
 
     const subject = 'Confirmez votre adresse email SouthConnect';
-    const html = `
-      <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
-      <p>Merci de vous être inscrit sur SouthConnect. Cliquez sur le lien ci-dessous pour confirmer votre adresse email :</p>
-      <p>
-        <a href="${verificationLink}"
-           style="display:inline-block;padding:10px 20px;background:#3b49df;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
-          Confirmer mon email
-        </a>
-      </p>
-      <p style="color:#888;font-size:12px">Ce lien expire dans 24 heures. Si vous n'avez pas créé de compte, ignorez cet email.</p>
-    `;
+    const html = NotificationsService.emailLayout(`
+      <p>Bonjour <strong>${NotificationsService.esc(user.firstName || '')}</strong>,</p>
+      <p>Merci de vous être inscrit sur SouthConnect. Cliquez sur le bouton ci-dessous pour confirmer votre adresse email :</p>
+      <p>${NotificationsService.btn(verificationLink, 'Confirmer mon email')}</p>
+      <p style="color:#6b7280;font-size:13px;margin-top:20px">Ce lien expire dans 24 heures. Si vous n'avez pas créé de compte, ignorez cet email.</p>
+    `);
 
     await this.sendEmail(user.email, subject, html, true); // critical: always deliver
   }
@@ -262,11 +300,13 @@ export class NotificationsService {
       return;
     }
 
-    const subject = 'Bienvenue sur SouthConnect';
-    const html = `
-      <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
-      <p>Bienvenue sur SouthConnect. Vous pouvez dès maintenant compléter votre profil et explorer les opportunités.</p>
-    `;
+    const subject = 'Bienvenue sur SouthConnect 🎉';
+    const html = NotificationsService.emailLayout(`
+      <p>Bonjour <strong>${NotificationsService.esc(user.firstName || '')}</strong>,</p>
+      <p>Bienvenue sur <strong>SouthConnect</strong> ! Votre compte est prêt. Explorez dès maintenant les opportunités disponibles pour la diaspora africaine.</p>
+      <p>${NotificationsService.btn('https://southconnect.io/explore', 'Explorer les opportunités')}</p>
+      <p style="color:#6b7280;font-size:13px;margin-top:20px">Des questions ? Répondez directement à cet email, notre équipe est là pour vous aider.</p>
+    `);
 
     this.sendEmailAsync(user.email, subject, html);
   }
@@ -286,12 +326,13 @@ export class NotificationsService {
     }
     if (!await this.isEmailPrefEnabled(owner.id, 'emailApplicationSubmitted')) return;
 
-    const subject = `Nouvelle candidature sur votre opportunité "${NotificationsService.esc(opportunity.name)}"`;
-    const html = `
-      <p>Bonjour ${NotificationsService.esc(owner.firstName || '')},</p>
-      <p>Vous avez reçu une nouvelle candidature pour l'opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong>.</p>
-      <p>Connectez-vous à SouthConnect pour la consulter et y répondre.</p>
-    `;
+    const subject = `Nouvelle candidature — ${NotificationsService.esc(opportunity.name)}`;
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
+    const html = NotificationsService.emailLayout(`
+      <p>Bonjour <strong>${NotificationsService.esc(owner.firstName || '')}</strong>,</p>
+      <p>Vous avez reçu une nouvelle candidature pour votre opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong>.</p>
+      <p>${NotificationsService.btn(`${frontendUrl}/my-opportunities`, 'Voir la candidature')}</p>
+    `);
 
     this.sendEmailAsync(owner.email, subject, html);
   }
@@ -311,12 +352,17 @@ export class NotificationsService {
     }
     if (!await this.isEmailPrefEnabled(candidate.id, 'emailApplicationReviewed')) return;
 
-    const subject = `Votre candidature pour "${NotificationsService.esc(opportunity.name)}" a été revue`;
-    const html = `
-      <p>Bonjour ${NotificationsService.esc(candidate.firstName || '')},</p>
-      <p>Votre candidature pour l'opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong> a été revue.</p>
-      <p>${NotificationsService.esc(application.reviewFeedback || 'Connectez-vous à SouthConnect pour lire les détails du feedback.')}</p>
-    `;
+    const subject = `Votre candidature a été revue — ${NotificationsService.esc(opportunity.name)}`;
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
+    const feedback = application.reviewFeedback
+      ? `<blockquote style="border-left:3px solid #3b49df;margin:16px 0;padding:10px 16px;background:#f8f9ff;border-radius:0 6px 6px 0;color:#374151">${NotificationsService.esc(application.reviewFeedback)}</blockquote>`
+      : '';
+    const html = NotificationsService.emailLayout(`
+      <p>Bonjour <strong>${NotificationsService.esc(candidate.firstName || '')}</strong>,</p>
+      <p>Votre candidature pour <strong>${NotificationsService.esc(opportunity.name)}</strong> a été revue par le créateur de l'opportunité.</p>
+      ${feedback}
+      <p>${NotificationsService.btn(`${frontendUrl}/explore`, 'Voir mes candidatures')}</p>
+    `);
 
     this.sendEmailAsync(candidate.email, subject, html);
   }
@@ -336,12 +382,14 @@ export class NotificationsService {
     }
     if (!await this.isEmailPrefEnabled(candidate.id, 'emailApplicationAccepted')) return;
 
-    const subject = `Bonne nouvelle pour votre candidature "${NotificationsService.esc(opportunity.name)}"`;
-    const html = `
-      <p>Bonjour ${NotificationsService.esc(candidate.firstName || '')},</p>
-      <p>Votre candidature pour l'opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong> a été acceptée.</p>
-      <p>Nous vous invitons à prendre contact avec le créateur de l'opportunité.</p>
-    `;
+    const subject = `Félicitations ! Votre candidature a été acceptée — ${NotificationsService.esc(opportunity.name)}`;
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
+    const html = NotificationsService.emailLayout(`
+      <p>Bonjour <strong>${NotificationsService.esc(candidate.firstName || '')}</strong>,</p>
+      <p>Excellente nouvelle ! Votre candidature pour <strong>${NotificationsService.esc(opportunity.name)}</strong> a été <strong style="color:#16a34a">acceptée</strong>.</p>
+      <p>Le créateur de l'opportunité va prendre contact avec vous prochainement.</p>
+      <p>${NotificationsService.btn(`${frontendUrl}/opportunities/${opportunity.id}`, 'Voir l\'opportunité')}</p>
+    `);
 
     this.sendEmailAsync(candidate.email, subject, html);
   }
@@ -362,16 +410,43 @@ export class NotificationsService {
     }
     if (!await this.isEmailPrefEnabled(owner.id, 'emailOpportunityApproved')) return;
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || '';
-    const subject = `Votre opportunité "${NotificationsService.esc(opportunity.name)}" a été approuvée`;
-    const html = `
-      <p>Bonjour ${NotificationsService.esc(owner.firstName || '')},</p>
-      <p>Votre opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong> vient d'être approuvée par l'équipe SouthConnect.</p>
-      <p>Elle est maintenant visible par l'ensemble de la communauté.</p>
-      <p><a href="${frontendUrl}/opportunities/${opportunity.id}">Voir mon opportunité</a></p>
-    `;
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
+    const subject = `Votre opportunité est en ligne — ${NotificationsService.esc(opportunity.name)}`;
+    const html = NotificationsService.emailLayout(`
+      <p>Bonjour <strong>${NotificationsService.esc(owner.firstName || '')}</strong>,</p>
+      <p>Votre opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong> vient d'être <strong style="color:#16a34a">approuvée</strong> par l'équipe SouthConnect.</p>
+      <p>Elle est maintenant visible par toute la communauté.</p>
+      <p>${NotificationsService.btn(`${frontendUrl}/opportunities/${opportunity.id}`, 'Voir mon opportunité')}</p>
+    `);
 
     this.sendEmailAsync(owner.email, subject, html);
+  }
+
+  /**
+   * Notifies an opportunity owner that their opportunity was not approved.
+   */
+  async sendOpportunityRejectedEmail(
+    owner: Pick<User, 'id' | 'email' | 'firstName' | 'name'>,
+    opportunity: Opportunity,
+  ) {
+    if (!this.hasEmailClient()) {
+      this.logger.warn(
+        `[mock] Email service not configured — skipping opportunity rejected email to ${owner.email}`,
+      );
+      return;
+    }
+    if (!await this.isEmailPrefEnabled(owner.id, 'emailOpportunityRejected')) return;
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
+    const subject = `Votre opportunité "${NotificationsService.esc(opportunity.name)}" n'a pas été approuvée`;
+    const html = NotificationsService.emailLayout(`
+      <p>Bonjour <strong>${NotificationsService.esc(owner.firstName || '')}</strong>,</p>
+      <p>Votre opportunité <strong>${NotificationsService.esc(opportunity.name)}</strong> n'a pas été approuvée par l'équipe SouthConnect.</p>
+      <p>Vous pouvez la modifier et la soumettre à nouveau, ou contacter notre équipe pour plus d'informations.</p>
+      <p>${NotificationsService.btn(`${frontendUrl}/my-opportunities`, 'Gérer mes opportunités')}</p>
+    `);
+
+    this.sendEmailAsync(owner.email, subject, html, false, 'opportunity-rejected');
   }
 
   /**
@@ -390,14 +465,14 @@ export class NotificationsService {
     }
     if (!await this.isEmailPrefEnabled(recipient.id, 'emailNewMessage')) return;
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || '';
-    const subject = `Nouveau message de ${NotificationsService.esc(senderName)} sur SouthConnect`;
-    const html = `
-      <p>Bonjour ${NotificationsService.esc(recipient.firstName || '')},</p>
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
+    const subject = `Nouveau message de ${NotificationsService.esc(senderName)}`;
+    const html = NotificationsService.emailLayout(`
+      <p>Bonjour <strong>${NotificationsService.esc(recipient.firstName || '')}</strong>,</p>
       <p><strong>${NotificationsService.esc(senderName)}</strong> vous a envoyé un message :</p>
-      <blockquote style="border-left:3px solid #3b49df;padding-left:12px;color:#555">${NotificationsService.esc(preview)}</blockquote>
-      <p><a href="${frontendUrl}/chat/private/${discussionId}">Répondre sur SouthConnect</a></p>
-    `;
+      <blockquote style="border-left:3px solid #3b49df;margin:16px 0;padding:10px 16px;background:#f8f9ff;border-radius:0 6px 6px 0;color:#374151;font-style:italic">${NotificationsService.esc(preview)}</blockquote>
+      <p>${NotificationsService.btn(`${frontendUrl}/chat/private/${discussionId}`, 'Répondre')}</p>
+    `);
 
     this.sendEmailAsync(recipient.email, subject, html);
   }
@@ -413,18 +488,13 @@ export class NotificationsService {
     }
     if (!await this.isEmailPrefEnabled(followee.id, 'emailNewFollower')) return;
 
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || '';
-    const subject = `${NotificationsService.esc(follower.name ?? 'Quelqu\'un')} vous suit maintenant sur SouthConnect`;
-    const html = `
-      <p>Bonjour ${NotificationsService.esc(followee.firstName || '')},</p>
-      <p><strong>${NotificationsService.esc(follower.name ?? 'Un utilisateur')}</strong> vient de commencer à vous suivre sur SouthConnect.</p>
-      <p>
-        <a href="${frontendUrl}/profiles/${follower.id}"
-           style="display:inline-block;padding:10px 20px;background:#3b49df;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">
-          Voir son profil
-        </a>
-      </p>
-    `;
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
+    const subject = `${NotificationsService.esc(follower.name ?? 'Quelqu\'un')} vous suit sur SouthConnect`;
+    const html = NotificationsService.emailLayout(`
+      <p>Bonjour <strong>${NotificationsService.esc(followee.firstName || '')}</strong>,</p>
+      <p><strong>${NotificationsService.esc(follower.name ?? 'Un utilisateur')}</strong> vient de commencer à vous suivre.</p>
+      <p>${NotificationsService.btn(`${frontendUrl}/profiles/${follower.id}`, 'Voir son profil')}</p>
+    `);
 
     this.sendEmailAsync(followee.email, subject, html);
   }
@@ -440,11 +510,11 @@ export class NotificationsService {
     }
 
     const subject = 'Votre mot de passe SouthConnect a été modifié';
-    const html = `
-      <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
-      <p>Votre mot de passe a bien été réinitialisé. Toutes vos sessions actives ont été révoquées.</p>
-      <p>Si vous n'êtes pas à l'origine de cette action, contactez-nous immédiatement en répondant à cet email.</p>
-    `;
+    const html = NotificationsService.emailLayout(`
+      <p>Bonjour <strong>${NotificationsService.esc(user.firstName || '')}</strong>,</p>
+      <p>Votre mot de passe a bien été modifié. Toutes vos sessions actives ont été révoquées par mesure de sécurité.</p>
+      <p style="padding:12px 16px;background:#fef2f2;border-radius:8px;color:#b91c1c;font-size:13px">⚠️ Si vous n'êtes pas à l'origine de cette action, contactez-nous immédiatement en répondant à cet email.</p>
+    `);
 
     await this.sendEmail(user.email, subject, html, true); // critical: always deliver
   }
@@ -460,12 +530,12 @@ export class NotificationsService {
     }
 
     const subject = 'Réinitialisation de votre mot de passe SouthConnect';
-    const html = `
-      <p>Bonjour ${NotificationsService.esc(user.firstName || '')},</p>
-      <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
-      <p><a href="${resetLink}">Cliquez ici pour choisir un nouveau mot de passe</a></p>
-      <p>Ce lien expire dans 1 heure. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
-    `;
+    const html = NotificationsService.emailLayout(`
+      <p>Bonjour <strong>${NotificationsService.esc(user.firstName || '')}</strong>,</p>
+      <p>Vous avez demandé la réinitialisation de votre mot de passe SouthConnect.</p>
+      <p>${NotificationsService.btn(resetLink, 'Choisir un nouveau mot de passe')}</p>
+      <p style="color:#6b7280;font-size:13px;margin-top:20px">Ce lien expire dans 1 heure. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
+    `);
 
     await this.sendEmail(user.email, subject, html, true); // critical: always deliver
   }

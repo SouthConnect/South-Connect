@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
+import { useDebounce } from '@/app/hooks/useDebounce'
 import { useAuth } from '@/app/lib/AuthContext'
 import AuthGuard from '@/components/AuthGuard'
 import Link from 'next/link'
@@ -25,6 +26,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'opportunities' | 'users' | 'industries' | 'markets' | 'features'>('opportunities')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('PENDING')
+  const debouncedSearch = useDebounce(search, 350)
 
   const isAdmin = user?.role === 'ADMIN'
   const [confirmPending, setConfirmPending] = useState<{ type: string; id: string } | null>(null)
@@ -36,9 +38,9 @@ export default function AdminPage() {
   })
 
   const { data: opportunities, isLoading } = useQuery({
-    queryKey: ['admin-opportunities', statusFilter, search],
+    queryKey: ['admin-opportunities', statusFilter, debouncedSearch],
     queryFn: () =>
-      apiJson(`/opportunities/admin/all?status=${statusFilter}&search=${encodeURIComponent(search)}`),
+      apiJson(`/opportunities/admin/all?status=${statusFilter}&search=${encodeURIComponent(debouncedSearch)}`),
     enabled: isAdmin,
   })
 
@@ -55,9 +57,10 @@ export default function AdminPage() {
 
   // ── Users tab ──
   const [userSearch, setUserSearch] = useState('')
+  const debouncedUserSearch = useDebounce(userSearch, 350)
   const { data: usersData, isLoading: isLoadingUsers } = useQuery({
-    queryKey: ['admin-users', userSearch],
-    queryFn: () => apiJson(`/users/admin/list?search=${encodeURIComponent(userSearch)}&take=50`),
+    queryKey: ['admin-users', debouncedUserSearch],
+    queryFn: () => apiJson(`/users/admin/list?search=${encodeURIComponent(debouncedUserSearch)}&take=50`),
     enabled: isAdmin && activeTab === 'users',
   })
 

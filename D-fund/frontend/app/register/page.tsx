@@ -52,7 +52,7 @@ export default function RegisterPage() {
       })
 
       login(data.user)
-      router.push('/profile?onboarding=true')
+      router.push('/onboarding')
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Une erreur est survenue. Veuillez réessayer.',

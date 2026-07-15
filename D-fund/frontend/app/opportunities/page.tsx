@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useInfiniteQuery, keepPreviousData } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
+import { useDebounce } from '@/app/hooks/useDebounce'
 import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
 import { Search, Filter, Loader2 } from 'lucide-react'
@@ -68,6 +69,7 @@ export default function OpportunitiesPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<StatusFilter>('')
   const [type, setType] = useState<TypeFilter>('')
+  const debouncedSearch = useDebounce(search, 350)
 
   const {
     data,
@@ -78,12 +80,12 @@ export default function OpportunitiesPage() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['opportunities', { search, status, type }],
+    queryKey: ['opportunities', { search: debouncedSearch, status, type }],
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams()
       params.set('take', '20')
       if (pageParam) params.set('cursor', pageParam as string)
-      if (search) params.set('search', search)
+      if (debouncedSearch) params.set('search', debouncedSearch)
       if (status) params.set('status', status)
       if (type) params.set('type', type)
       return apiJson(`/opportunities?${params.toString()}`)
