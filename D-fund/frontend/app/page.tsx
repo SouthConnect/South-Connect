@@ -317,6 +317,8 @@ function AppFeed() {
   const {
     data: pages,
     isLoading,
+    isError,
+    refetch,
     isFetchingNextPage,
     fetchNextPage,
     hasNextPage,
@@ -325,6 +327,7 @@ function AppFeed() {
     queryFn: ({ pageParam }: { pageParam: string | undefined }) => {
       const params = new URLSearchParams()
       params.set('take', String(PAGE_SIZE))
+      params.set('status', 'ACTIVE')
       if (pageParam) params.set('cursor', pageParam)
       if (debouncedSearch) params.set('search', debouncedSearch)
       if (typeFilter) params.set('type', typeFilter)
@@ -334,6 +337,7 @@ function AppFeed() {
     getNextPageParam: (lastPage): string | undefined =>
       lastPage.nextCursor ?? undefined,
     initialPageParam: undefined as string | undefined,
+    retry: 2,
     enabled: tab !== 'favorites',
     staleTime: 3 * 60 * 1000,
   })
@@ -517,6 +521,16 @@ function AppFeed() {
             Array.from({ length: viewMode === 'gallery' ? 6 : 5 }).map((_, i) => (
               <div key={i} className={`bg-gray-100 animate-pulse rounded-xl ${viewMode === 'gallery' ? 'h-48' : 'h-28'}`} />
             ))
+          ) : isError && tab !== 'favorites' ? (
+            <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-dashed border-red-200">
+              <p className="text-sm text-gray-500 mb-3">Impossible de charger les opportunités.</p>
+              <button
+                onClick={() => refetch()}
+                className="px-4 py-2 bg-[#3b49df] text-white text-xs font-semibold rounded-lg hover:bg-[#2d3aba]"
+              >
+                Réessayer
+              </button>
+            </div>
           ) : allItems.length > 0 ? (
             allItems.map((op) =>
               viewMode === 'gallery' ? (
