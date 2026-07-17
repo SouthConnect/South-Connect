@@ -71,6 +71,22 @@ export class CronService {
 
   // ─── Jobs ─────────────────────────────────────────────────────────────────
 
+  /**
+   * Keeps the Prisma connection pool and Redis connection alive.
+   * Supabase closes idle connections after ~5 min of inactivity, causing
+   * the next real request to wait 10-20 s for reconnection.
+   * A lightweight SELECT 1 every 5 minutes prevents that timeout.
+   */
+  @Cron('*/5 * * * *')
+  async keepAlive() {
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+      if (this.redis) await this.redis.ping();
+    } catch (err) {
+      this.logger.warn(`Keep-alive ping failed: ${err.message}`);
+    }
+  }
+
   /** Archives opportunities whose expiration date has passed. Runs at 02:00 UTC. */
   @Cron(CronExpression.EVERY_DAY_AT_2AM)
   async archiveExpiredOpportunities() {
