@@ -145,12 +145,8 @@ export default function OpportunityDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-12 max-w-4xl">
-        <div className="animate-pulse space-y-8">
-          <div className="h-64 bg-gray-200 rounded-2xl" />
-          <div className="h-8 w-1/2 bg-gray-200 rounded" />
-          <div className="h-32 bg-gray-200 rounded" />
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-[#3b49df] border-t-transparent animate-spin" />
       </div>
     )
   }
