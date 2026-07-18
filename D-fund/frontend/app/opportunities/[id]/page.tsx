@@ -76,6 +76,7 @@ export default function OpportunityDetailPage() {
       if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
       toast.error(getErrorMessage(error, 'Impossible de mettre à jour le like'))
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
   })
 
   const toggleSaveMutation = useTrackedMutation('opportunity.save', {

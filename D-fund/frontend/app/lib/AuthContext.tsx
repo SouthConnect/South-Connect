@@ -41,10 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(await response.json() as AuthUser)
         lastRefreshAt.current = Date.now()
         localStorage.setItem('sc_has_session', '1')
-        // Signale aux autres onglets qu'un refresh silencieux a réussi
-        // (le token a peut-être été rotaté — ils doivent re-fetch /auth/me
-        //  pour obtenir le nouvel access_token sans déclencher une déconnexion).
-        channel.current?.postMessage('login')
+        // Pas de postMessage('login') ici : les cookies sont partagés entre onglets,
+        // la rotation du token ne nécessite pas de notifier les autres onglets.
+        // Broadcaster depuis refreshUser() créerait une boucle infinie entre onglets.
       } else if (response.status === 401) {
         setUser(null)
         localStorage.removeItem('sc_has_session')
@@ -71,7 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null)
           setLoading(false)
         } else if (e.data === 'login') {
-          refreshUser()
+          // Un autre onglet vient de connecter un (potentiellement différent) utilisateur.
+          // On vide le cache avant de re-fetch /auth/me pour éviter d'afficher des
+          // données de l'ancien utilisateur à l'utilisateur nouvellement connecté.
+          queryClient.clear()
+          refreshUser(true) // force=true : bypass la stale-window de 60s
         }
       }
     }
@@ -105,10 +108,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback((userData: AuthUser) => {
+    // Vider le cache avant de définir le nouvel utilisateur : évite qu'un
+    // compte A voie brièvement les données (opportunités likées, profil, social)
+    // d'un compte B qui était connecté avant dans le même navigateur.
+    queryClient.clear()
     setUser(userData)
     localStorage.setItem('sc_has_session', '1')
     channel.current?.postMessage('login')
-  }, [])
+  }, [queryClient])
 
   const logout = useCallback(async () => {
     try {

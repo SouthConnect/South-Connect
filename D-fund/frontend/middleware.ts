@@ -24,6 +24,7 @@ const PROTECTED_PREFIXES = [
   '/resources',
   '/settings',
   '/tasks',
+  '/onboarding',
 ];
 
 const PUBLIC_PREFIXES = [

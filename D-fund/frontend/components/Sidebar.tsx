@@ -252,7 +252,7 @@ export default function Sidebar() {
                 </div>
               </Link>
               <button
-                onClick={logout}
+                onClick={async () => { await logout(); router.push('/') }}
                 className="flex items-center gap-3 w-full px-3 py-2 text-sm text-white/60 hover:text-white hover:bg-white/10 transition-colors rounded-lg"
               >
                 <LogOut className="w-4 h-4" />

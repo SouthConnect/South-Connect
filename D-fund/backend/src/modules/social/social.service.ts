@@ -182,24 +182,23 @@ export class SocialService {
 
   /**
    * Removes a like from an opportunity and decrements its like counter atomically.
-   *
-   * @throws NotFoundException when the like record does not exist.
+   * Idempotent: if the like does not exist, returns silently (no 404).
+   * Uses deleteMany inside the transaction to eliminate the TOCTOU window
+   * between a pre-check and the actual delete (fixes P2025 on concurrent unlike).
    */
   async unlikeOpportunity(userId: string, opportunityId: string) {
-    const liked = await this.prisma.likedOpportunity.findUnique({
-      where: { userId_opportunityId: { userId, opportunityId } },
-    });
-    if (!liked) throw new NotFoundException('Like not found');
+    await this.prisma.$transaction(async (tx) => {
+      const deleted = await tx.likedOpportunity.deleteMany({
+        where: { userId, opportunityId },
+      });
+      if (deleted.count === 0) return; // already unliked — idempotent, nothing to decrement
 
-    await this.prisma.$transaction([
-      this.prisma.likedOpportunity.delete({
-        where: { userId_opportunityId: { userId, opportunityId } },
-      }),
-      this.prisma.opportunity.update({
-        where: { id: opportunityId },
+      // Guard against counter going negative due to historical data drift
+      await tx.opportunity.updateMany({
+        where: { id: opportunityId, likesCount: { gt: 0 } },
         data: { likesCount: { decrement: 1 } },
-      }),
-    ]);
+      });
+    });
 
     return { message: 'Opportunity unliked successfully' };
   }
@@ -234,24 +233,22 @@ export class SocialService {
 
   /**
    * Removes an opportunity bookmark and decrements its save counter atomically.
-   *
-   * @throws NotFoundException when the bookmark does not exist.
+   * Idempotent: if the bookmark does not exist, returns silently (no 404).
+   * Uses deleteMany inside the transaction to eliminate the TOCTOU window
+   * between a pre-check and the actual delete (fixes P2025 on concurrent unsave).
    */
   async unsaveOpportunity(userId: string, opportunityId: string) {
-    const saved = await this.prisma.savedOpportunity.findUnique({
-      where: { userId_opportunityId: { userId, opportunityId } },
-    });
-    if (!saved) throw new NotFoundException('Saved opportunity not found');
+    await this.prisma.$transaction(async (tx) => {
+      const deleted = await tx.savedOpportunity.deleteMany({
+        where: { userId, opportunityId },
+      });
+      if (deleted.count === 0) return; // already unsaved — idempotent
 
-    await this.prisma.$transaction([
-      this.prisma.savedOpportunity.delete({
-        where: { userId_opportunityId: { userId, opportunityId } },
-      }),
-      this.prisma.opportunity.update({
-        where: { id: opportunityId },
+      await tx.opportunity.updateMany({
+        where: { id: opportunityId, savedCount: { gt: 0 } },
         data: { savedCount: { decrement: 1 } },
-      }),
-    ]);
+      });
+    });
 
     return { message: 'Opportunity unsaved successfully' };
   }
@@ -285,20 +282,21 @@ export class SocialService {
 
   /**
    * Removes the authenticated user's like from a public discussion.
-   *
-   * @throws NotFoundException when the like does not exist.
+   * Idempotent: if the like does not exist, returns silently (no 404).
    */
   async unlikeDiscussion(userId: string, discussionId: string) {
     const ratingKey = `discussion:${discussionId}`;
-    const existing = await this.prisma.rating.findUnique({
-      where: { itemId_userId: { itemId: ratingKey, userId } },
-    });
-    if (!existing) throw new NotFoundException('Like not found');
+    await this.prisma.$transaction(async (tx) => {
+      const deleted = await tx.rating.deleteMany({
+        where: { itemId: ratingKey, userId },
+      });
+      if (deleted.count === 0) return;
 
-    await this.prisma.$transaction([
-      this.prisma.rating.delete({ where: { itemId_userId: { itemId: ratingKey, userId } } }),
-      this.prisma.publicDiscussion.update({ where: { id: discussionId }, data: { likesCount: { decrement: 1 } } }),
-    ]);
+      await tx.publicDiscussion.updateMany({
+        where: { id: discussionId, likesCount: { gt: 0 } },
+        data: { likesCount: { decrement: 1 } },
+      });
+    });
     return { message: 'Discussion unliked' };
   }
 

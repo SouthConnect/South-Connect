@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
-import { apiJson, uploadImage } from '@/app/lib/api'
+import { apiJson, uploadImage, getErrorMessage } from '@/app/lib/api'
 import { useRouter } from 'next/navigation'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
 import { User, Mail, Phone, MapPin, Linkedin, Globe, Shield, UserCircle, Building2, Save, Lock, Trash2, Download, AlertTriangle } from 'lucide-react'
@@ -12,6 +12,7 @@ import Image from 'next/image'
 import AuthGuard from '@/components/AuthGuard'
 import MultiSelect from '@/components/MultiSelect'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { toast } from 'sonner'
 
 // Cette page lit les search params et des données utilisateur côté client,
 // on force un rendu dynamique pour éviter les erreurs de pré-rendu.
@@ -100,6 +101,9 @@ function ProfilePageContent() {
       if (savedBtoCTimer.current) clearTimeout(savedBtoCTimer.current)
       savedBtoCTimer.current = setTimeout(() => setSavedBtoC(false), 3000)
     },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, 'Impossible de sauvegarder le profil professionnel'))
+    },
   })
 
   const updateBtoBMutation = useTrackedMutation('profile.updateBtoB', {
@@ -113,6 +117,9 @@ function ProfilePageContent() {
       setSavedBtoB(true)
       if (savedBtoBTimer.current) clearTimeout(savedBtoBTimer.current)
       savedBtoBTimer.current = setTimeout(() => setSavedBtoB(false), 3000)
+    },
+    onError: (err: unknown) => {
+      toast.error(getErrorMessage(err, 'Impossible de sauvegarder le profil entreprise'))
     },
   })
 

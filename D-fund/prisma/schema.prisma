@@ -60,7 +60,6 @@ model User {
   savedOpportunities           SavedOpportunity[]
   tasks                        Task[]
 
-  @@index([email])
   @@map("users")
 }
 
@@ -184,6 +183,7 @@ model Opportunity {
   @@index([createdAt])
   @@index([trendingScore(sort: Desc)])
   @@index([expirationDate])
+  @@index([status, expirationDate])
   @@index([boostedUntil])
   @@index([name])
   @@map("opportunities")
@@ -243,7 +243,7 @@ model Message {
   createdAt           DateTime           @default(now())
   privateDiscussion   PrivateDiscussion? @relation(fields: [privateDiscussionId], references: [id], onDelete: Cascade)
   publicDiscussion    PublicDiscussion?  @relation(fields: [publicDiscussionId], references: [id], onDelete: Cascade)
-  receiver            User?              @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiver            User?              @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: SetNull)
   sender              User               @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([senderId])
@@ -379,6 +379,7 @@ model Task {
 
   @@index([userId])
   @@index([status])
+  @@index([userId, status])
   @@map("tasks")
 }
 
@@ -391,7 +392,7 @@ model ReferralCode {
   status          ReferralStatus @default(PENDING)
   amount          Decimal?       @db.Decimal(12, 2)
   usesCount       Int            @default(0)
-  potentialAmount Decimal?       @db.Decimal(12, 2) @default(0)
+  potentialAmount Decimal?       @default(0) @db.Decimal(12, 2)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   opportunity     Opportunity?   @relation(fields: [opportunityId], references: [id], onDelete: SetNull)

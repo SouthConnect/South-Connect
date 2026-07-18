@@ -7,7 +7,7 @@ import {
   LayoutGrid, List, ChevronDown, X,
   ArrowRight, Zap, Users, DollarSign, Briefcase,
 } from 'lucide-react'
-import { apiJson } from '@/app/lib/api'
+import { apiJson, ApiError } from '@/app/lib/api'
 import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -337,7 +337,13 @@ function AppFeed() {
     getNextPageParam: (lastPage): string | undefined =>
       lastPage.nextCursor ?? undefined,
     initialPageParam: undefined as string | undefined,
-    retry: 2,
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError) {
+        if (error.status >= 400 && error.status < 500 && error.status !== 429) return false
+        if (error.status === 429) return failureCount < 3
+      }
+      return failureCount < 2
+    },
     enabled: tab !== 'favorites',
     staleTime: 3 * 60 * 1000,
   })
