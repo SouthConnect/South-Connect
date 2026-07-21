@@ -4,10 +4,13 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { MailWarning, X, Menu } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/app/lib/AuthContext'
 import { apiJson } from '@/app/lib/api'
 import { toast } from 'sonner'
+
+const RealtimeSync = dynamic(() => import('@/components/RealtimeSync'), { ssr: false })
 
 const AUTH_PATHS = ['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/unsubscribe', '/auth', '/onboarding']
 
@@ -255,6 +258,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Connecté — sidebar classique
   return (
     <div className="flex min-h-screen bg-gray-50">
+      <RealtimeSync />
       <Sidebar />
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
         {user && user.isEmailVerified === false && <EmailVerificationBanner />}

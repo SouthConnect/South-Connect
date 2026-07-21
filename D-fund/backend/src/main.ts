@@ -19,6 +19,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
+import * as compression from 'compression';
 import * as cookieParser from 'cookie-parser';
 import * as session from 'express-session';
 import { JsonLoggerService } from './common/logger/json-logger.service';
@@ -95,6 +96,7 @@ async function bootstrap() {
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
   // Cookie parser — required for HttpOnly JWT cookie extraction
+  app.use(compression());
   app.use(cookieParser());
 
   // Session middleware — required only for the Google OAuth state parameter (CSRF protection).

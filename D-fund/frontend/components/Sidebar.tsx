@@ -23,8 +23,6 @@ import { useAuth } from '@/app/lib/AuthContext'
 import { apiJson } from '@/app/lib/api'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
-import { toast } from 'sonner'
-import { useSocket } from '@/app/hooks/useSocket'
 import type { PrivateDiscussion } from '@/app/lib/types'
 
 // ── Navigation items ────────────────────────────────────────────────────────
@@ -53,7 +51,6 @@ export default function Sidebar() {
   const { user, logout } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
   const queryClient = useQueryClient()
-  const socket = useSocket()
 
   // Badge de non-lus sur le lien Chat
   const { data: privateDiscussions } = useQuery({
@@ -79,43 +76,6 @@ export default function Sidebar() {
   const unreadNotifCount = (notifCountData as { count: number } | undefined)?.count ?? 0
 
   // Toasts WebSocket pour les notifications temps réel
-  useEffect(() => {
-    if (!socket || !user) return
-
-    const handleNotification = (notif: { title: string; body?: string; link?: string }) => {
-      toast(notif.title, {
-        description: notif.body,
-        action: notif.link
-          ? { label: 'Voir', onClick: () => router.push(notif.link!) }
-          : undefined,
-      })
-      queryClient.invalidateQueries({ queryKey: ['notifications-count', user.id] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      queryClient.invalidateQueries({ queryKey: ['private-discussions', user.id] })
-    }
-
-    // Badge chat mis à jour indépendamment des préférences de notification in-app :
-    // si l'utilisateur a désactivé inAppNewMessage, le badge reste quand même fiable.
-    const handleChatBadge = () => {
-      queryClient.invalidateQueries({ queryKey: ['private-discussions', user.id] })
-    }
-
-    const handleReconnect = () => {
-      queryClient.invalidateQueries({ queryKey: ['private-discussions'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications-count'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-    }
-
-    socket.on('notification', handleNotification)
-    socket.on('chatBadgeUpdate', handleChatBadge)
-    socket.on('reconnect', handleReconnect)
-    return () => {
-      socket.off('notification', handleNotification)
-      socket.off('chatBadgeUpdate', handleChatBadge)
-      socket.off('reconnect', handleReconnect)
-    }
-  }, [socket, user, router, queryClient])
-
   // Fermeture auto sur changement de route (mobile)
   useEffect(() => { setMobileOpen(false) }, [pathname])
 
