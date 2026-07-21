@@ -45,6 +45,15 @@ export class SentryExceptionFilter implements ExceptionFilter {
           message: 'Referenced record not found',
         });
       }
+      // P2023 — malformed ID / inconsistent column data: map to 400
+      if (exception.code === 'P2023') {
+        return response.status(HttpStatus.BAD_REQUEST).json({
+          statusCode: HttpStatus.BAD_REQUEST,
+          timestamp: new Date().toISOString(),
+          path: request.url,
+          message: 'Invalid identifier format',
+        });
+      }
       // P2025 — record not found for update/delete: map to 404
       if (exception.code === 'P2025') {
         return response.status(HttpStatus.NOT_FOUND).json({

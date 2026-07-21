@@ -104,8 +104,12 @@ export class NotificationsService {
 </html>`;
   }
 
+  private static escapeAttr(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   private static btn(href: string, label: string): string {
-    return `<a href="${href}" style="display:inline-block;margin-top:12px;padding:11px 24px;background:#3b49df;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">${label}</a>`;
+    return `<a href="${NotificationsService.escapeAttr(href)}" style="display:inline-block;margin-top:12px;padding:11px 24px;background:#3b49df;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">${label}</a>`;
   }
 
   /** Maps notification type strings to their NotificationPreferences field. */
@@ -161,6 +165,7 @@ export class NotificationsService {
       this.chatGateway?.sendToUser(userId, 'notification', notification);
     } catch (err) {
       this.logger.error(`Failed to create in-app notification: ${err.message}`);
+      Sentry.captureException(err);
     }
   }
 

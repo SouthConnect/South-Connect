@@ -24,7 +24,7 @@ const logger = new Logger('RedisModule');
           retryStrategy: (times: number) => Math.min(times * 200, 5000),
           connectTimeout: 3000,
           // P1 — timeout par commande : évite qu'un Redis dégradé bloque chaque requête HTTP
-          commandTimeout: 5000,
+          commandTimeout: 2000,
         });
         client.on('error', (err: Error) => {
           logger.error(`Redis connection error: ${err.message}`);

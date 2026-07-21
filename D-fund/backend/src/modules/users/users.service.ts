@@ -242,15 +242,36 @@ export class UsersService {
   }
 
   /**
-   * Soft-deletes a user account by setting deletedAt. The row is retained so
-   * that foreign-key references (applications, messages) remain intact.
+   * GDPR art. 17 — admin-initiated erasure.
+   * Anonymises all PII (same as deleteMe) so that GDPR obligations are met
+   * whether the deletion is self-initiated or admin-initiated.
    *
    * @throws NotFoundException when the user does not exist.
    */
   async adminDelete(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
-    await this.prisma.user.update({ where: { id }, data: { deletedAt: new Date() } });
+
+    const anon = `deleted_${id}`;
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        email: `${anon}@deleted.invalid`,
+        name: 'Compte supprimé',
+        firstName: '',
+        lastName: '',
+        bio: null,
+        phone: null,
+        profilePic: null,
+        city: null,
+        country: null,
+        linkedinUrl: null,
+        website: null,
+        googleId: null,
+        password: null,
+        deletedAt: new Date(),
+      },
+    });
     return { success: true };
   }
 }

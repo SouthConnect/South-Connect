@@ -50,11 +50,12 @@ export default function MyOpportunitiesPage() {
   const [confirmArchive, setConfirmArchive] = useState<string | null>(null)
   const [pendingActionId, setPendingActionId] = useState<string | null>(null)
 
-  const { data: opportunities, isLoading, isError, error } = useQuery({
+  const { data: oppResponse, isLoading, isError, error } = useQuery({
     queryKey: ['my-opportunities', user?.id],
-    queryFn: () => apiJson(`/opportunities/user/${user?.id}?take=50`),
+    queryFn: () => apiJson<{ data: Opportunity[]; total: number; hasMore: boolean }>(`/opportunities/user/${user?.id}?take=100`),
     enabled: !!user?.id,
   })
+  const opportunities = oppResponse?.data
 
   const publishMutation = useTrackedMutation('opportunity.publish', {
     mutationFn: (id: string) =>
@@ -113,7 +114,7 @@ export default function MyOpportunitiesPage() {
     onSettled: () => setPendingActionId(null),
   })
 
-  const filtered: Opportunity[] = (opportunities as Opportunity[] ?? []).filter((op) =>
+  const filtered: Opportunity[] = (opportunities ?? []).filter((op) =>
     statusFilter === 'ALL' ? true : op.status === statusFilter
   )
 

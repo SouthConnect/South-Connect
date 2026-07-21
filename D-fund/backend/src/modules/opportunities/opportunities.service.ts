@@ -191,7 +191,7 @@ export class OpportunitiesService {
    * @param params      - Optional filters and pagination.
    * @param requesterId - ID of the requesting user (used for draft visibility check).
    */
-  findByOwner(ownerId: string, params?: ListOpportunitiesDto, requesterId?: string) {
+  async findByOwner(ownerId: string, params?: ListOpportunitiesDto, requesterId?: string) {
     const { take: rawTake = 20, skip: rawSkip = 0, status, type, search } = params || {};
     const take = Math.min(Math.max(rawTake, 1), 100);
     const skip = Math.max(rawSkip, 0);
@@ -217,15 +217,21 @@ export class OpportunitiesService {
       ];
     }
 
-    return this.prisma.opportunity.findMany({
-      take,
-      skip,
-      orderBy: { createdAt: 'desc' },
-      where,
-      include: {
-        owner: { select: { id: true, name: true, profilePic: true } },
-      },
-    });
+    const [data, total] = await Promise.all([
+      this.prisma.opportunity.findMany({
+        take,
+        skip,
+        orderBy: { createdAt: 'desc' },
+        where,
+        include: {
+          owner: { select: { id: true, name: true, profilePic: true } },
+          _count: { select: { applications: true } },
+        },
+      }),
+      this.prisma.opportunity.count({ where }),
+    ]);
+
+    return { data, total, hasMore: skip + take < total };
   }
 
   /**

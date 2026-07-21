@@ -44,14 +44,15 @@ export default function DashboardPage() {
   })
 
   const {
-    data: myOpportunities,
+    data: myOppResponse,
     isLoading: isLoadingOpportunities,
   } = useQuery({
     queryKey: ['my-opportunities-dashboard', user?.id],
-    queryFn: () => apiJson(`/opportunities/user/${user?.id}?take=10`),
+    queryFn: () => apiJson<{ data: any[]; total: number; hasMore: boolean }>(`/opportunities/user/${user?.id}?take=10`),
     enabled: !!user?.id && tab === 'offers',
     staleTime: 60_000,
   })
+  const myOpportunities = myOppResponse?.data
 
   const {
     data: privateDiscussions,
@@ -485,21 +486,22 @@ function TasksSection() {
     enabled: !!user?.id,
   })
 
-  // Fetch user's opportunities to allow linking tasks to them
-  const { data: myOpps } = useQuery({
+  // Same query key as the dashboard → React Query déduplique la requête réseau
+  const { data: myOppsResponse } = useQuery({
     queryKey: ['my-opportunities-dashboard', user?.id],
-    queryFn: () => apiJson(`/opportunities/user/${user?.id}?take=50`),
+    queryFn: () => apiJson<{ data: any[]; total: number; hasMore: boolean }>(`/opportunities/user/${user?.id}?take=50`),
     enabled: !!user?.id,
     staleTime: 60_000,
   })
+  const myOpps = myOppsResponse?.data ?? []
 
-  const activeOpps = (myOpps as any[] | undefined)?.filter((o: any) =>
+  const activeOpps = myOpps.filter((o: any) =>
     ['ACTIVE', 'DRAFT'].includes(o.status)
-  ) ?? []
+  )
 
   // Build a lookup map for resolving relatedItemId → opportunity name in task rows
   const oppMap = Object.fromEntries(
-    (myOpps as any[] | undefined)?.map((o: any) => [o.id, o.name]) ?? []
+    myOpps.map((o: any) => [o.id, o.name])
   )
 
   const createMutation = useTrackedMutation('task.create', {
