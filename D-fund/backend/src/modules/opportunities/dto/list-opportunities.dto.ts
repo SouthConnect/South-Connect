@@ -1,5 +1,5 @@
-import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsEnum, IsInt, IsISO8601, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { OpportunityStatusEnum, OpportunityTypeEnum } from './create-opportunity.dto';
 
 export enum SortEnum {
@@ -53,4 +53,25 @@ export class ListOpportunitiesDto {
   @IsString()
   @MaxLength(36)
   cursor?: string;
+
+  /** Filter by country (exact match, case-insensitive). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  country?: string;
+
+  /** Filter to remote-only (true) or on-site-only (false) opportunities. */
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return undefined;
+  })
+  @IsBoolean()
+  remote?: boolean;
+
+  /** Return only opportunities created on or after this ISO 8601 date. */
+  @IsOptional()
+  @IsISO8601()
+  createdAfter?: string;
 }

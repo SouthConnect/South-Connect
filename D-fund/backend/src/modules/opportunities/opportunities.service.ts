@@ -69,7 +69,7 @@ export class OpportunitiesService {
   }
 
   async findAll(params?: ListOpportunitiesDto, requesterId?: string) {
-    const { take: rawTake = 20, skip: rawSkip = 0, status, type, types, ownerId, search, sort, cursor } = params || {};
+    const { take: rawTake = 20, skip: rawSkip = 0, status, type, types, ownerId, search, sort, cursor, country, remote, createdAfter } = params || {};
     const take = Math.min(Math.max(rawTake, 1), 100);
     const where: Prisma.OpportunityWhereInput = {};
 
@@ -93,6 +93,9 @@ export class OpportunitiesService {
       where.type = type;
     }
     if (ownerId) where.ownerId = ownerId;
+    if (country) where.country = { equals: country, mode: 'insensitive' };
+    if (remote !== undefined) where.remote = remote;
+    if (createdAfter) where.createdAt = { gte: new Date(createdAfter) };
 
     if (search) {
       where.OR = [
@@ -113,7 +116,7 @@ export class OpportunitiesService {
     const isCacheable = !cursor && !ownerId && this.redis;
     let feedCacheKey: string | null = null;
     if (isCacheable) {
-      feedCacheKey = `${FEED_CACHE_PREFIX}:${JSON.stringify({ take, status: status ?? 'no-draft', type: type ?? '', types: types ?? '', search: search ?? '', sort: sort ?? '' })}`;
+      feedCacheKey = `${FEED_CACHE_PREFIX}:${JSON.stringify({ take, status: status ?? 'no-draft', type: type ?? '', types: types ?? '', search: search ?? '', sort: sort ?? '', country: country ?? '', remote: remote ?? '', createdAfter: createdAfter ?? '' })}`;
       const cached = await this.redis!.get(feedCacheKey).catch(() => null);
       if (cached) {
         const base = JSON.parse(cached);
