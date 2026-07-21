@@ -168,22 +168,12 @@ export default function CreateOpportunityPage() {
     if (logoInputRef.current) logoInputRef.current.value = ''
   }
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!selectedType || !fieldName.trim() || !fieldDescription.trim()) return
-    
-    const formData = new FormData(e.currentTarget)
-    const raw = Object.fromEntries(formData.entries())
+  const formRef = useRef<HTMLFormElement>(null)
 
-    const toArray = (value: FormDataEntryValue | undefined) =>
-      typeof value === 'string'
-        ? value
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean)
-        : []
-
-    const data = {
+  const buildData = (status: 'ACTIVE' | 'DRAFT') => {
+    if (!formRef.current) return null
+    const raw = Object.fromEntries(new FormData(formRef.current).entries())
+    return {
       ...raw,
       type: selectedType,
       name: fieldName,
@@ -194,9 +184,21 @@ export default function CreateOpportunityPage() {
       industries: selectedIndustries,
       markets: selectedMarkets,
       price: raw.price ? parseFloat(raw.price as string) : undefined,
+      status,
     }
-    
-    createMutation.mutate(data)
+  }
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!selectedType || !fieldName.trim() || !fieldDescription.trim()) return
+    const data = buildData('ACTIVE')
+    if (data) createMutation.mutate(data)
+  }
+
+  const handleSaveDraft = () => {
+    if (!selectedType || !fieldName.trim() || !fieldDescription.trim()) return
+    const data = buildData('DRAFT')
+    if (data) createMutation.mutate(data)
   }
 
   const handleGenerate = async () => {
@@ -308,7 +310,7 @@ export default function CreateOpportunityPage() {
             {errorMessage}
           </div>
         )}
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <form ref={formRef} onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             {/* Type Selection */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
@@ -480,15 +482,19 @@ export default function CreateOpportunityPage() {
                 {isUploading
                   ? 'Upload en cours…'
                   : createMutation.isPending
-                  ? 'Envoi en cours…'
-                  : 'Soumettre pour révision'}
+                  ? 'Publication…'
+                  : 'Publier maintenant'}
               </button>
 
-              {/* Moderation info */}
-              <div className="flex items-start gap-2.5 p-3 bg-yellow-50 border border-yellow-100 rounded-xl text-xs text-yellow-700">
-                <Clock className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                <p>Votre opportunité sera examinée par notre équipe avant d'être visible par la communauté (généralement sous 24h).</p>
-              </div>
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={!selectedType || !fieldName.trim() || !fieldDescription.trim() || createMutation.isPending || isUploading}
+                className="flex items-center justify-center gap-2 w-full py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-40"
+              >
+                <Clock className="w-4 h-4" />
+                Sauvegarder en brouillon
+              </button>
 
               <div className="space-y-4 pt-4 border-t border-gray-100">
                 <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Informations supplémentaires</h4>

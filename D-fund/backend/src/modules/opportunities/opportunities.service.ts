@@ -311,7 +311,7 @@ export class OpportunitiesService {
     return { success: true };
   }
 
-  /** Creates a new opportunity owned by the given user. Defaults to DRAFT status. */
+  /** Creates a new opportunity owned by the given user. Defaults to ACTIVE (publishes immediately like LinkedIn). */
   async create(ownerId: string, dto: CreateOpportunityDto, role?: string) {
     if (dto.startDate && dto.endDate && new Date(dto.startDate) >= new Date(dto.endDate)) {
       throw new BadRequestException('startDate must be earlier than endDate');
@@ -322,6 +322,12 @@ export class OpportunitiesService {
       dto.boostedUntil = undefined;
       dto.qualified = false;
     }
+    // Non-admins can only create as DRAFT or ACTIVE. Defaults to ACTIVE (publish immediately).
+    const allowedStatuses = ['DRAFT', 'ACTIVE'];
+    const initialStatus = isAdmin
+      ? (dto.status ?? 'ACTIVE')
+      : allowedStatuses.includes(dto.status ?? '') ? dto.status! : 'ACTIVE';
+
     const result = await this.prisma.opportunity.create({
       data: {
         ownerId,
@@ -329,7 +335,7 @@ export class OpportunitiesService {
         punchline: dto.punchline,
         description: dto.description,
         type: dto.type,
-        status: 'DRAFT',
+        status: initialStatus,
         featureId: dto.featureId,
         city: dto.city,
         country: dto.country,
@@ -557,9 +563,10 @@ export class OpportunitiesService {
       delete dto.qualified;
     }
 
-    // Owners may only move to DRAFT or PENDING — ACTIVE/ARCHIVED/CLOSED are admin-only
-    const adminOnlyStatuses: string[] = ['ACTIVE', 'ARCHIVED', 'CLOSED'];
-    if (dto.status && adminOnlyStatuses.includes(dto.status)) {
+    // Owners can freely move between DRAFT, ACTIVE, ARCHIVED.
+    // PENDING (legacy validation queue) and CLOSED (admin-only lifecycle) stay restricted.
+    const adminOnlyStatuses: string[] = ['PENDING', 'CLOSED'];
+    if (!isAdmin && dto.status && adminOnlyStatuses.includes(dto.status)) {
       throw new ForbiddenException('Only an admin can set this status');
     }
 

@@ -60,15 +60,18 @@ export default function MyOpportunitiesPage() {
     mutationFn: (id: string) =>
       apiJson(`/opportunities/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ status: 'PENDING' }),
+        body: JSON.stringify({ status: 'ACTIVE' }),
       }),
     onMutate: (id) => setPendingActionId(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
       queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
-      toast.success('Soumise ! Votre opportunité sera visible après approbation (généralement sous 24h).')
+      queryClient.invalidateQueries({ queryKey: ['opportunities-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['explore'] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      toast.success('Publiée ! Votre opportunité est maintenant visible par la communauté.')
     },
-    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de soumettre l\'opportunité.')),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de publier l\'opportunité.')),
     onSettled: () => setPendingActionId(null),
   })
 
@@ -95,15 +98,18 @@ export default function MyOpportunitiesPage() {
     mutationFn: (id: string) =>
       apiJson(`/opportunities/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ status: 'PENDING' }),
+        body: JSON.stringify({ status: 'ACTIVE' }),
       }),
     onMutate: (id) => setPendingActionId(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
       queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
-      toast.success('Soumise de nouveau pour révision !')
+      queryClient.invalidateQueries({ queryKey: ['opportunities-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['explore'] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      toast.success('Publiée ! Votre opportunité est maintenant visible par la communauté.')
     },
-    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de resoumettre l\'opportunité.')),
+    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de publier l\'opportunité.')),
     onSettled: () => setPendingActionId(null),
   })
 
@@ -150,22 +156,12 @@ export default function MyOpportunitiesPage() {
         ))}
       </div>
 
-      {/* Moderation banner — visible quand il y a des opportunités en attente */}
-      {opportunities?.some((o: Opportunity) => o.status === 'PENDING') && (
-        <div className="mb-4 flex items-start gap-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-          <Clock className="w-4 h-4 mt-0.5 shrink-0 text-yellow-500" />
-          <div>
-            <span className="font-semibold">En cours de révision</span> — Une ou plusieurs de vos opportunités attendent l'approbation de notre équipe de modération. Elles seront visibles une fois approuvées (généralement sous 24h).
-          </div>
-        </div>
-      )}
-
       {/* Draft banner */}
-      {opportunities?.some((o: Opportunity) => o.status === 'DRAFT') && !opportunities?.some((o: Opportunity) => o.status === 'PENDING') && (
+      {opportunities?.some((o: Opportunity) => o.status === 'DRAFT') && (
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
           <Info className="w-4 h-4 mt-0.5 shrink-0" />
           <div>
-            Vous avez des <span className="font-semibold">opportunités en brouillon</span>. Cliquez sur <Send className="inline w-3.5 h-3.5 mx-0.5" /> pour les soumettre à la révision et les rendre visibles à la communauté.
+            Vous avez des <span className="font-semibold">brouillons</span>. Cliquez sur <Send className="inline w-3.5 h-3.5 mx-0.5" /> pour les publier — elles seront visibles immédiatement par la communauté.
           </div>
         </div>
       )}
@@ -257,16 +253,20 @@ export default function MyOpportunitiesPage() {
                   </button>
                 )}
                 {opp.status === 'PENDING' && (
-                  <span className="flex items-center gap-1 text-xs text-yellow-600">
-                    <Clock className="w-3.5 h-3.5" />
-                    En attente
-                  </span>
+                  <button
+                    onClick={() => publishMutation.mutate(opp.id)}
+                    disabled={publishMutation.isPending || pendingActionId === opp.id}
+                    title="Publier maintenant"
+                    className="p-1.5 rounded-lg text-green-500 hover:text-green-700 hover:bg-green-50 disabled:opacity-50"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
                 )}
                 {opp.status === 'ARCHIVED' && (
                   <button
                     onClick={() => resubmitMutation.mutate(opp.id)}
                     disabled={resubmitMutation.isPending || pendingActionId === opp.id}
-                    title="Resoumettre pour révision"
+                    title="Republier"
                     className="p-1.5 rounded-lg text-green-500 hover:text-green-700 hover:bg-green-50 disabled:opacity-50"
                   >
                     <CheckCircle className="w-4 h-4" />
