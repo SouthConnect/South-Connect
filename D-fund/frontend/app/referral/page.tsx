@@ -5,10 +5,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import AuthGuard from '@/components/AuthGuard'
-import { Search, Copy, CheckCheck, Plus } from 'lucide-react'
+import { Search, Copy, CheckCheck, Plus, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+
+// Mettre à jour avec l'URL Notion / docs quand elle est disponible
+const DOCS_URL = 'https://southconnect.notion.site'
 
 export default function ReferralPage() {
   const { user } = useAuth()
@@ -58,9 +61,18 @@ export default function ReferralPage() {
             <h1 className="text-2xl font-bold text-white mb-2">
               Suivez vos gains et votre progression
             </h1>
-            <p className="text-white/60 text-sm max-w-xl">
+            <p className="text-white/60 text-sm max-w-xl mb-4">
               Partagez vos codes de parrainage avec votre réseau et gagnez des récompenses lorsqu&apos;ils rejoignent SouthConnect.
             </p>
+            <a
+              href={DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white/15 hover:bg-white/25 text-white text-sm font-semibold rounded-lg transition-colors border border-white/20"
+            >
+              <BookOpen className="w-4 h-4" />
+              Comment ça marche ?
+            </a>
           </div>
           <div className="absolute right-8 top-1/2 -translate-y-1/2 opacity-10 text-[120px] font-black text-white select-none">
             %
