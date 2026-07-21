@@ -460,9 +460,24 @@ function DMSection({
   )
 }
 
+const TASK_STATUS_LABELS: Record<string, string> = {
+  TODO: 'À faire',
+  WORKING_ON_IT: 'En cours',
+  IDEA: 'Idée',
+  DONE: 'Terminé',
+}
+
+const TASK_STATUS_COLORS: Record<string, string> = {
+  TODO: 'bg-gray-100 text-gray-600',
+  WORKING_ON_IT: 'bg-blue-50 text-blue-600',
+  IDEA: 'bg-yellow-50 text-yellow-600',
+  DONE: 'bg-green-50 text-green-600',
+}
+
 function TasksSection() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const [selectedOppId, setSelectedOppId] = useState('')
 
   const { data: tasks, isLoading } = useQuery({
     queryKey: ['tasks', user?.id],
@@ -470,11 +485,29 @@ function TasksSection() {
     enabled: !!user?.id,
   })
 
+  // Fetch user's opportunities to allow linking tasks to them
+  const { data: myOpps } = useQuery({
+    queryKey: ['my-opportunities-dashboard', user?.id],
+    queryFn: () => apiJson(`/opportunities/user/${user?.id}?take=50`),
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  })
+
+  const activeOpps = (myOpps as any[] | undefined)?.filter((o: any) =>
+    ['ACTIVE', 'DRAFT'].includes(o.status)
+  ) ?? []
+
+  // Build a lookup map for resolving relatedItemId → opportunity name in task rows
+  const oppMap = Object.fromEntries(
+    (myOpps as any[] | undefined)?.map((o: any) => [o.id, o.name]) ?? []
+  )
+
   const createMutation = useTrackedMutation('task.create', {
-    mutationFn: (name: string) =>
-      apiJson<Task>('/tasks', { method: 'POST', body: JSON.stringify({ name }) }),
+    mutationFn: (payload: { name: string; relatedItemId?: string; relatedItemType?: string }) =>
+      apiJson<Task>('/tasks', { method: 'POST', body: JSON.stringify(payload) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] })
+      setSelectedOppId('')
       toast.success('Tâche ajoutée !')
     },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de créer la tâche.')),
@@ -493,20 +526,6 @@ function TasksSection() {
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de supprimer la tâche.')),
   })
 
-  const STATUS_LABELS: Record<string, string> = {
-    TODO: 'À faire',
-    WORKING_ON_IT: 'En cours',
-    IDEA: 'Idée',
-    DONE: 'Terminé',
-  }
-
-  const STATUS_COLORS: Record<string, string> = {
-    TODO: 'bg-gray-100 text-gray-600',
-    WORKING_ON_IT: 'bg-blue-50 text-blue-600',
-    IDEA: 'bg-yellow-50 text-yellow-600',
-    DONE: 'bg-green-50 text-green-600',
-  }
-
   return (
     <div className="space-y-3">
       {/* Quick add */}
@@ -515,23 +534,40 @@ function TasksSection() {
           e.preventDefault()
           const name = (new FormData(e.currentTarget).get('name') as string)?.trim()
           if (!name) { toast.error('Écris le nom de la tâche d\'abord.'); return }
-          createMutation.mutate(name)
+          createMutation.mutate({
+            name,
+            ...(selectedOppId ? { relatedItemId: selectedOppId, relatedItemType: 'opportunity' } : {}),
+          })
           e.currentTarget.reset()
         }}
-        className="flex gap-2"
+        className="space-y-2"
       >
-        <input
-          name="name"
-          placeholder="Ajouter une tâche…"
-          className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b49df] focus:border-[#3b49df] outline-none"
-        />
-        <button
-          type="submit"
-          disabled={createMutation.isPending}
-          className="px-4 py-2 bg-[#3b49df] text-white rounded-lg text-xs font-semibold hover:bg-[#2d3aba] disabled:opacity-50"
-        >
-          Ajouter
-        </button>
+        <div className="flex gap-2">
+          <input
+            name="name"
+            placeholder="Ajouter une tâche…"
+            className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#3b49df] focus:border-[#3b49df] outline-none"
+          />
+          <button
+            type="submit"
+            disabled={createMutation.isPending}
+            className="px-4 py-2 bg-[#3b49df] text-white rounded-lg text-xs font-semibold hover:bg-[#2d3aba] disabled:opacity-50"
+          >
+            Ajouter
+          </button>
+        </div>
+        {activeOpps.length > 0 && (
+          <select
+            value={selectedOppId}
+            onChange={(e) => setSelectedOppId(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 focus:ring-2 focus:ring-[#3b49df] focus:border-[#3b49df] outline-none"
+          >
+            <option value="">Lier à une opportunité (optionnel)</option>
+            {activeOpps.map((o: any) => (
+              <option key={o.id} value={o.id}>{o.name}</option>
+            ))}
+          </select>
+        )}
       </form>
 
       {isLoading ? (
@@ -556,17 +592,27 @@ function TasksSection() {
                 }
                 className="rounded border-gray-300 text-[#3b49df] focus:ring-[#3b49df]"
               />
-              <span className={`text-sm font-medium flex-1 truncate ${task.status === 'DONE' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                {task.name}
-              </span>
+              <div className="flex-1 min-w-0">
+                <span className={`text-sm font-medium block truncate ${task.status === 'DONE' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                  {task.name}
+                </span>
+                {task.relatedItemId && task.relatedItemType === 'opportunity' && oppMap[task.relatedItemId] && (
+                  <Link
+                    href={`/opportunities/${task.relatedItemId}`}
+                    className="text-[10px] text-[#3b49df] hover:underline truncate block"
+                  >
+                    {oppMap[task.relatedItemId]}
+                  </Link>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <select
                 value={task.status}
                 onChange={(e) => updateStatusMutation.mutate({ id: task.id, status: e.target.value })}
-                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border-none focus:ring-1 focus:ring-[#3b49df] ${STATUS_COLORS[task.status] || 'bg-gray-100 text-gray-600'}`}
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border-none focus:ring-1 focus:ring-[#3b49df] ${TASK_STATUS_COLORS[task.status] || 'bg-gray-100 text-gray-600'}`}
               >
-                {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                {Object.entries(TASK_STATUS_LABELS).map(([val, label]) => (
                   <option key={val} value={val}>{label}</option>
                 ))}
               </select>
