@@ -36,12 +36,18 @@ function LoginPageContent() {
       setSuccess('Inscription réussie. Veuillez vous connecter pour continuer.')
     }
     const oauthError = searchParams?.get('error')
-    if (oauthError === 'google_failed') {
+    if (oauthError === 'google_failed' || oauthError === 'OAUTH_FAILED') {
       setError('La connexion via Google a échoué. Réessaie ou connecte-toi avec ton email.')
     } else if (oauthError === 'EMAIL_EXISTS_DIFFERENT_METHOD') {
       setError(
         'Un compte existe déjà avec cette adresse email. Connecte-toi avec ton email et mot de passe, puis lie ton compte Google depuis les paramètres de profil.',
       )
+    } else if (oauthError === 'account_suspended') {
+      setError('Ton compte a été suspendu. Contacte le support pour plus d\'informations.')
+    } else if (oauthError === 'account_deleted') {
+      setError('Ce compte a été supprimé.')
+    } else if (oauthError) {
+      setError('Une erreur est survenue lors de la connexion. Réessaie.')
     }
   }, [searchParams])
 

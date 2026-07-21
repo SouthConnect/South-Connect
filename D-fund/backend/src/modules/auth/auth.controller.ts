@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
+import { GoogleCallbackGuard } from './guards/google-callback.guard';
 import { Throttle } from '@nestjs/throttler';
 import { User } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
@@ -199,7 +200,7 @@ export class AuthController {
    */
   @Get('google/callback')
   @Throttle({ auth: {} })
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleCallbackGuard)
   googleCallback(@Req() req: any, @Res() res: Response) {
     const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000').split(',')[0].trim();
 
