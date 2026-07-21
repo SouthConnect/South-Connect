@@ -350,8 +350,12 @@ function DiscussionList({
                 <div className="text-sm font-semibold text-gray-900 truncate">
                   {d.title}
                 </div>
-                <div className="text-xs text-gray-500">
-                  {members > 0 ? `${members} membres` : 'Discussion publique'}
+                <div className="text-xs text-gray-500 truncate">
+                  {d.description
+                    ? d.description
+                    : members > 0
+                      ? `${members} membres`
+                      : 'Discussion publique'}
                   {d.opportunity?.name ? ` • ${d.opportunity.name}` : ''}
                 </div>
               </div>

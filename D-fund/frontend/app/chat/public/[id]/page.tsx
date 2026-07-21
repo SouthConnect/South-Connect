@@ -174,9 +174,11 @@ export default function PublicDiscussionPage() {
 
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-gray-900 truncate">{title}</p>
-          <p className="text-xs text-gray-400 flex items-center gap-1">
+          <p className="text-xs text-gray-400 flex items-center gap-1 truncate">
             {typingNames.length > 0 ? (
               `${typingNames.join(', ')} est en train d'écrire…`
+            ) : discussion?.description ? (
+              <span className="truncate">{discussion.description}</span>
             ) : (
               <>
                 <Users className="w-3 h-3" />
