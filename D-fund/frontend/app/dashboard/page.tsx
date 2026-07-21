@@ -486,10 +486,10 @@ function TasksSection() {
     enabled: !!user?.id,
   })
 
-  // Same query key as the dashboard → React Query déduplique la requête réseau
+  // Clé distincte pour ne pas entrer en conflit avec le take=10 du dashboard
   const { data: myOppsResponse } = useQuery({
-    queryKey: ['my-opportunities-dashboard', user?.id],
-    queryFn: () => apiJson<{ data: any[]; total: number; hasMore: boolean }>(`/opportunities/user/${user?.id}?take=50`),
+    queryKey: ['my-opportunities-tasks', user?.id],
+    queryFn: () => apiJson<{ data: any[]; total: number; hasMore: boolean }>(`/opportunities/user/${user?.id}?take=100`),
     enabled: !!user?.id,
     staleTime: 60_000,
   })
