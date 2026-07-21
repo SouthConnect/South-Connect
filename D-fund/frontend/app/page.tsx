@@ -276,7 +276,7 @@ function LandingPage() {
 function OpportunityPreview() {
   const { data, isLoading } = useQuery({
     queryKey: ['opportunities-preview'],
-    queryFn: () => apiJson<OpportunityListResponse>('/opportunities?take=3&skip=0'),
+    queryFn: () => apiJson<OpportunityListResponse>('/opportunities?take=3&skip=0&status=ACTIVE'),
     staleTime: 5 * 60 * 1000,
   })
 

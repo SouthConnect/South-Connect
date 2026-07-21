@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationBootstrap, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { OpportunityStatus, ReferralStatus } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
@@ -16,7 +16,7 @@ import { REDIS_CLIENT } from '../redis/redis.module';
  * bypassed and a single instance is assumed (dev/test).
  */
 @Injectable()
-export class CronService {
+export class CronService implements OnApplicationBootstrap {
   private readonly logger = new Logger(CronService.name);
 
   constructor(
@@ -67,6 +67,13 @@ export class CronService {
     } finally {
       await this.releaseLock(jobName);
     }
+  }
+
+  // ─── Lifecycle ────────────────────────────────────────────────────────────
+
+  /** Warms up DB + Redis immediately at boot instead of waiting up to 5 min for the first cron tick. */
+  async onApplicationBootstrap() {
+    void this.keepAlive();
   }
 
   // ─── Jobs ─────────────────────────────────────────────────────────────────

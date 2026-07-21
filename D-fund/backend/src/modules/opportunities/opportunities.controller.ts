@@ -95,7 +95,7 @@ export class OpportunitiesController {
   @Get('user/:userId')
   @UseGuards(JwtOptionalGuard)
   findByOwner(
-    @Param('userId') userId: string,
+    @Param('userId', ParseIdPipe) userId: string,
     @Query() query: ListOpportunitiesDto,
     @CurrentUser() requester?: User,
   ) {

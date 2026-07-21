@@ -82,6 +82,9 @@ export default function MyOpportunitiesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
       queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['explore'] })
+      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
       toast.success('Opportunité archivée.')
     },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible d\'archiver l\'opportunité.')),

@@ -26,7 +26,9 @@ const logger = new Logger('RedisModule');
           // P1 — timeout par commande : évite qu'un Redis dégradé bloque chaque requête HTTP
           commandTimeout: 5000,
         });
-        client.on('error', () => {});
+        client.on('error', (err: Error) => {
+          logger.error(`Redis connection error: ${err.message}`);
+        });
         try {
           await client.connect();
           logger.log('Redis connected');

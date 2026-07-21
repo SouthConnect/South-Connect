@@ -24,7 +24,7 @@ function SavedSkeleton() {
 export default function SavedPage() {
   const { user } = useAuth()
 
-  const { data: savedOpportunities, isLoading } = useQuery({
+  const { data: savedOpportunities, isLoading, isError } = useQuery({
     queryKey: ['saved-opportunities'],
     queryFn: () => apiJson('/social/saved'),
     enabled: !!user?.id,
@@ -51,6 +51,12 @@ export default function SavedPage() {
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="h-32 bg-gray-100 animate-pulse rounded-xl" />
             ))}
+          </div>
+        ) : isError ? (
+          <div className="bg-red-50 rounded-xl border border-red-100 p-12 text-center">
+            <Bookmark className="w-12 h-12 mx-auto mb-4 text-red-200" />
+            <p className="text-red-600 font-medium mb-2">Impossible de charger vos opportunités</p>
+            <p className="text-red-500 text-sm">Vérifiez votre connexion et réessayez.</p>
           </div>
         ) : savedOpportunities?.length > 0 ? (
           <div className="space-y-4">

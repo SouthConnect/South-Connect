@@ -33,8 +33,18 @@ export class OpportunitiesService {
 
   private async invalidateFeedCache() {
     if (!this.redis) return;
-    const keys = await this.redis.keys(`${FEED_CACHE_PREFIX}:*`).catch(() => [] as string[]);
-    if (keys.length) await this.redis.del(...keys).catch(() => undefined);
+    try {
+      const keys: string[] = [];
+      const stream = this.redis.scanStream({ match: `${FEED_CACHE_PREFIX}:*`, count: 100 });
+      await new Promise<void>((resolve, reject) => {
+        stream.on('data', (batch: string[]) => { keys.push(...batch); });
+        stream.on('end', resolve);
+        stream.on('error', reject);
+      });
+      if (keys.length) await this.redis.del(...keys).catch(() => undefined);
+    } catch {
+      // Redis indisponible — le cache expirera naturellement (TTL 45s)
+    }
   }
 
   /**
@@ -63,11 +73,12 @@ export class OpportunitiesService {
     const take = Math.min(Math.max(rawTake, 1), 100);
     const where: Prisma.OpportunityWhereInput = {};
 
-    // Public feed never exposes DRAFT opportunities regardless of explicit status filter
+    // Public feed defaults to ACTIVE only. PENDING/ARCHIVED are excluded unless explicitly requested.
+    // DRAFT is never exposed (owner-only drafts go through findByOwner).
     if (status && status !== OpportunityStatus.DRAFT) {
       where.status = status;
     } else {
-      where.status = { not: OpportunityStatus.DRAFT };
+      where.status = OpportunityStatus.ACTIVE;
     }
 
     if (types) {

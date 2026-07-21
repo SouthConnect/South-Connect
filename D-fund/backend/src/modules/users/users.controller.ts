@@ -4,6 +4,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  NotFoundException,
   Param,
   Post,
   Put,
@@ -57,11 +58,13 @@ export class UsersController {
   @ApiOperation({ summary: "Return a user's public profile (self or admin only)" })
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  findOne(@Param('id', ParseIdPipe) id: string, @CurrentUser() requester: User) {
+  async findOne(@Param('id', ParseIdPipe) id: string, @CurrentUser() requester: User) {
     if (requester.id !== id && requester.role !== UserRole.ADMIN) {
       throw new ForbiddenException('Access denied');
     }
-    return this.usersService.findOne(id);
+    const user = await this.usersService.findOne(id);
+    if (!user) throw new NotFoundException('User not found');
+    return user;
   }
 
   /** Updates the authenticated user's editable profile fields. */

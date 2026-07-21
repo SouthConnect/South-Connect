@@ -30,6 +30,8 @@ function patchOpportunityInAllCaches(
   queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: ['opportunities'] }, updater)
   // home page feed (infinite)
   queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: ['opportunities-feed'] }, updater)
+  // explore page (infinite)
+  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: ['explore'] }, updater)
   // home page preview (regular query, flat shape)
   queryClient.setQueriesData<{ data: Opportunity[] }>(
     { queryKey: ['opportunities-preview'] },
@@ -134,6 +136,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
       if (!ctx) return
       const patch = { isSaved: ctx.nextSaved, savedCount: ctx.nextSaveCount }
       patchOpportunityInAllCaches(queryClient, opportunity.id, patch)
+      queryClient.invalidateQueries({ queryKey: ['saved-opportunities'] })
     },
     onError: () => {
       setLocalSaved(null)

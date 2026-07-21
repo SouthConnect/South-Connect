@@ -105,6 +105,8 @@ export default function CreateOpportunityPage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      queryClient.invalidateQueries({ queryKey: ['my-opportunities'] })
+      queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard'] })
       router.push(`/opportunities/${data.id}`)
     },
     onError: (error: unknown) => {
