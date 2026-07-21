@@ -13,6 +13,55 @@ import DOMPurify from 'dompurify'
 import type { Opportunity, Application, PublicDiscussion, PrivateDiscussion } from '@/app/lib/types'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
+const TYPE_GRADIENTS: Record<string, string> = {
+  JOB_OPPORTUNITY:          'from-[#1e3a5f] via-[#2d5fa0] to-[#3b49df]',
+  TALENT_PROFILE:           'from-[#4c1d95] via-[#6d28d9] to-[#8b5cf6]',
+  CO_FOUNDER_OPPORTUNITY:   'from-[#134e4a] via-[#0f766e] to-[#14b8a6]',
+  CO_FOUNDER_PROFILE:       'from-[#134e4a] via-[#0f766e] to-[#14b8a6]',
+  BUSINESS_IDEA:            'from-[#78350f] via-[#b45309] to-[#f59e0b]',
+  SUPPORT_OFFER:            'from-[#14532d] via-[#15803d] to-[#22c55e]',
+  SERVICE_LISTING:          'from-[#1e3a5f] via-[#1d4ed8] to-[#60a5fa]',
+  SERVICE_REQUEST:          'from-[#0c4a6e] via-[#0369a1] to-[#38bdf8]',
+  DEAL_FLOW:                'from-[#064e3b] via-[#059669] to-[#34d399]',
+  INVESTOR_THESIS:          'from-[#0f172a] via-[#1e3a5f] to-[#3b49df]',
+  INVESTOR_PROFILE:         'from-[#0f172a] via-[#1e3a5f] to-[#3b49df]',
+  FUNDING_OPPORTUNITY:      'from-[#14532d] via-[#166534] to-[#16a34a]',
+  EVENT:                    'from-[#831843] via-[#be185d] to-[#f472b6]',
+  CALL_FOR_STARTUPS:        'from-[#7f1d1d] via-[#b91c1c] to-[#f97316]',
+  MENTORSHIP_BA_OFFER:      'from-[#312e81] via-[#4338ca] to-[#818cf8]',
+  PROJECT_SEEKING_SUPPORT:  'from-[#713f12] via-[#a16207] to-[#fbbf24]',
+  VENTURE_PROGRAM:          'from-[#7f1d1d] via-[#9f1239] to-[#e11d48]',
+  CHILL_WORK_SPOT:          'from-[#0c4a6e] via-[#0e7490] to-[#22d3ee]',
+  MARKET_ADVISOR:           'from-[#1e293b] via-[#334155] to-[#64748b]',
+}
+
+function OpportunityCover({ type, backgroundImage }: { type: string; backgroundImage?: string | null }) {
+  const gradient = TYPE_GRADIENTS[type] || 'from-[#1e3a5f] via-[#2d5fa0] to-[#3b49df]'
+  const label = type.replace(/_/g, ' ')
+
+  if (backgroundImage) {
+    return (
+      <>
+        <Image src={backgroundImage} alt="" fill className="object-cover" sizes="100vw" priority />
+        <div className="absolute inset-0 bg-black/20" />
+      </>
+    )
+  }
+
+  return (
+    <div className={`absolute inset-0 bg-gradient-to-br ${gradient}`}>
+      {/* Decorative circles */}
+      <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-white/5" />
+      <div className="absolute -right-8 -bottom-20 w-80 h-80 rounded-full bg-white/5" />
+      <div className="absolute left-1/3 top-1/2 -translate-y-1/2 w-48 h-48 rounded-full bg-white/5" />
+      {/* Type label watermark */}
+      <div className="absolute bottom-6 right-8 text-white/20 text-xs font-bold uppercase tracking-widest select-none">
+        {label}
+      </div>
+    </div>
+  )
+}
+
 export default function OpportunityDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -183,16 +232,9 @@ export default function OpportunityDetailPage() {
 
   return (
     <div className="bg-gray-50 min-h-screen pb-12">
-      {/* Cover Image */}
+      {/* Cover */}
       <div className="relative h-64 md:h-80 w-full overflow-hidden">
-        <Image
-          src={opportunity.backgroundImage || "https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80"}
-          alt=""
-          fill
-          className="object-cover"
-          sizes="100vw"
-        />
-        <div className="absolute inset-0 bg-black/20" />
+        <OpportunityCover type={opportunity.type} backgroundImage={opportunity.backgroundImage} />
         <div className="absolute top-8 left-8">
           <button
             onClick={() => router.push('/')}
