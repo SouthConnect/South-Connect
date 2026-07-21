@@ -344,6 +344,7 @@ function AppFeed() {
       }
       return failureCount < 2
     },
+    retryDelay: 2000,
     enabled: tab !== 'favorites',
     staleTime: 3 * 60 * 1000,
   })
@@ -529,7 +530,8 @@ function AppFeed() {
             ))
           ) : isError && tab !== 'favorites' ? (
             <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-dashed border-red-200">
-              <p className="text-sm text-gray-500 mb-3">Impossible de charger les opportunités.</p>
+              <p className="text-sm text-red-500 font-medium mb-1">Impossible de charger les opportunités.</p>
+              <p className="text-xs text-gray-400 mb-4">Le serveur est peut-être en cours de démarrage. Réessaie dans quelques secondes.</p>
               <button
                 onClick={() => refetch()}
                 className="px-4 py-2 bg-[#3b49df] text-white text-xs font-semibold rounded-lg hover:bg-[#2d3aba]"
