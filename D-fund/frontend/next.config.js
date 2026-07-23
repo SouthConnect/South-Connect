@@ -85,10 +85,8 @@ module.exports = withSentryConfig(nextConfig, {
   silent: true,
   widenClientFileUpload: true,
   hideSourceMaps: true,
-  webpack: {
-    autoInstrumentServerFunctions: true,
-    treeshake: {
-      removeDebugLogging: true,
-    },
-  },
+  autoInstrumentServerFunctions: true,
+  // Edge middleware runs in V8 isolates — __dirname is not defined there.
+  // Sentry's middleware wrapper injects Node.js-only globals which crash the Edge runtime.
+  autoInstrumentMiddleware: false,
 });
