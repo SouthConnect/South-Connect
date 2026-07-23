@@ -167,6 +167,7 @@ model Opportunity {
   referralAmount       Decimal?            @db.Decimal(12, 2)
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
+  deletedAt            DateTime?
   trendingScore        Float               @default(0)
   applications         Application[]
   likedBy              LikedOpportunity[]
@@ -187,6 +188,7 @@ model Opportunity {
   @@index([trendingScore(sort: Desc)])
   @@index([expirationDate])
   @@index([status, expirationDate])
+  @@index([deletedAt])
   @@index([boostedUntil])
   @@index([name])
   @@map("opportunities")

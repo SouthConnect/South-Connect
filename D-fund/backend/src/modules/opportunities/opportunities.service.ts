@@ -71,7 +71,7 @@ export class OpportunitiesService {
   async findAll(params?: ListOpportunitiesDto, requesterId?: string) {
     const { take: rawTake = 20, skip: rawSkip = 0, status, type, types, ownerId, search, sort, cursor, country, remote, createdAfter } = params || {};
     const take = Math.min(Math.max(rawTake, 1), 100);
-    const where: Prisma.OpportunityWhereInput = {};
+    const where: Prisma.OpportunityWhereInput = { deletedAt: null };
 
     // Public feed defaults to ACTIVE only. PENDING/ARCHIVED are excluded unless explicitly requested.
     // DRAFT is never exposed (owner-only drafts go through findByOwner).
@@ -195,7 +195,7 @@ export class OpportunitiesService {
     const { take: rawTake = 20, skip: rawSkip = 0, status, type, search } = params || {};
     const take = Math.min(Math.max(rawTake, 1), 100);
     const skip = Math.max(rawSkip, 0);
-    const where: Prisma.OpportunityWhereInput = { ownerId };
+    const where: Prisma.OpportunityWhereInput = { ownerId, deletedAt: null };
 
     if (requesterId !== ownerId) {
       // Non-owners can never see DRAFT opportunities, regardless of explicit status filter
@@ -244,8 +244,8 @@ export class OpportunitiesService {
    *         accessed by a non-owner.
    */
   async findOne(id: string, requesterId?: string, viewerKey?: string) {
-    const opportunity = await this.prisma.opportunity.findUnique({
-      where: { id },
+    const opportunity = await this.prisma.opportunity.findFirst({
+      where: { id, deletedAt: null },
       include: {
         owner: { select: { id: true, name: true, profilePic: true } },
       },
@@ -396,8 +396,8 @@ export class OpportunitiesService {
    * @throws NotFoundException when the opportunity does not exist.
    */
   async adminUpdateStatus(id: string, status: OpportunityStatus) {
-    const opportunity = await this.prisma.opportunity.findUnique({
-      where: { id },
+    const opportunity = await this.prisma.opportunity.findFirst({
+      where: { id, deletedAt: null },
       include: { owner: { select: { id: true, name: true, email: true, firstName: true } } },
     });
     if (!opportunity) throw new NotFoundException('Opportunity not found');
@@ -529,7 +529,7 @@ export class OpportunitiesService {
     const { take: rawTake = 50, skip: rawSkip = 0, status, search } = params || {};
     const take = Math.min(Math.max(rawTake, 1), 100);
     const skip = Math.max(rawSkip, 0);
-    const where: Prisma.OpportunityWhereInput = {};
+    const where: Prisma.OpportunityWhereInput = { deletedAt: null };
 
     if (status) where.status = status;
     if (search) {
@@ -557,7 +557,7 @@ export class OpportunitiesService {
    * @throws ForbiddenException when the requester is not the owner.
    */
   async update(id: string, ownerId: string, dto: UpdateOpportunityDto, role?: string) {
-    const opportunity = await this.prisma.opportunity.findUnique({ where: { id } });
+    const opportunity = await this.prisma.opportunity.findFirst({ where: { id, deletedAt: null } });
 
     if (!opportunity) throw new NotFoundException('Opportunity not found');
     if (opportunity.ownerId !== ownerId) throw new ForbiddenException('You cannot update this opportunity');
@@ -630,12 +630,15 @@ export class OpportunitiesService {
    * @throws ForbiddenException when the requester is not the owner.
    */
   async remove(id: string, ownerId: string) {
-    const opportunity = await this.prisma.opportunity.findUnique({ where: { id } });
+    const opportunity = await this.prisma.opportunity.findFirst({ where: { id, deletedAt: null } });
 
     if (!opportunity) throw new NotFoundException('Opportunity not found');
     if (opportunity.ownerId !== ownerId) throw new ForbiddenException('You cannot delete this opportunity');
 
-    const result = await this.prisma.opportunity.delete({ where: { id } });
+    await this.prisma.opportunity.updateMany({
+      where: { id, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
 
     // Maintain denormalized counters
     const wasActive = opportunity.status === OpportunityStatus.ACTIVE;
@@ -650,6 +653,6 @@ export class OpportunitiesService {
       .catch((err) => this.logger.warn(`Counter decrement failed (btoBProfile): ${err.message}`));
 
     await Promise.all([this.invalidateStatsCache(), this.invalidateFeedCache()]);
-    return result;
+    return { id };
   }
 }
