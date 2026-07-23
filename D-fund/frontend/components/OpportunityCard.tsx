@@ -6,6 +6,7 @@ import { useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { useState } from 'react'
 import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
+import { qk } from '@/app/lib/queryKeys'
 import type { Opportunity } from '@/app/lib/types'
 import { ThumbsUp, MessageSquare, Bookmark, Users } from 'lucide-react'
 import { toast } from 'sonner'
@@ -26,19 +27,14 @@ function patchOpportunityInAllCaches(
     if (!old?.pages) return old
     return { ...old, pages: old.pages.map(p => ({ ...p, data: p.data.map(o => o.id === opportunityId ? { ...o, ...patch } : o) })) }
   }
-  // /opportunities page
-  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: ['opportunities'] }, updater)
-  // home page feed (infinite)
-  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: ['opportunities-feed'] }, updater)
-  // explore page (infinite)
-  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: ['explore'] }, updater)
-  // home page preview (regular query, flat shape)
+  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: qk._root.opportunities }, updater)
+  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: qk._root.opportunitiesFeed }, updater)
+  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: qk._root.explore }, updater)
   queryClient.setQueriesData<{ data: Opportunity[] }>(
-    { queryKey: ['opportunities-preview'] },
+    { queryKey: qk.opportunitiesPreview() },
     (old) => old?.data ? { ...old, data: old.data.map(o => o.id === opportunityId ? { ...o, ...patch } : o) } : old,
   )
-  // detail page cache
-  queryClient.setQueryData<Opportunity>(['opportunity', opportunityId], (old) =>
+  queryClient.setQueryData<Opportunity>(qk.opportunity(opportunityId), (old) =>
     old ? { ...old, ...patch } : old,
   )
 }
@@ -136,7 +132,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
       if (!ctx) return
       const patch = { isSaved: ctx.nextSaved, savedCount: ctx.nextSaveCount }
       patchOpportunityInAllCaches(queryClient, opportunity.id, patch)
-      queryClient.invalidateQueries({ queryKey: ['saved-opportunities'] })
+      queryClient.invalidateQueries({ queryKey: qk.savedOpportunities(user?.id ?? '') })
     },
     onError: () => {
       setLocalSaved(null)
@@ -161,7 +157,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
 
   const handlePrefetch = () => {
     queryClient.prefetchQuery({
-      queryKey: ['opportunity', opportunity.id],
+      queryKey: qk.opportunity(opportunity.id),
       queryFn: () => apiJson(`/opportunities/${opportunity.id}`),
       staleTime: 2 * 60 * 1000,
     })

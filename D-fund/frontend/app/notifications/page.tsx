@@ -3,6 +3,7 @@
 import { useAuth } from '@/app/lib/AuthContext'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
+import { qk } from '@/app/lib/queryKeys'
 import AuthGuard from '@/components/AuthGuard'
 import type { Notification, NotificationPage } from '@/app/lib/types'
 import { Bell, BellOff, ExternalLink, Loader2 } from 'lucide-react'
@@ -39,7 +40,7 @@ export default function NotificationsPage() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['notifications', user?.id],
+    queryKey: qk.notifications(user?.id ?? ''),
     queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
       apiJson<NotificationPage>(`/notifications?take=${PAGE_SIZE}${pageParam ? `&cursor=${pageParam}` : ''}`),
     initialPageParam: undefined as string | undefined,
@@ -70,8 +71,8 @@ export default function NotificationsPage() {
   const readAllMutation = useTrackedMutation('notifications.readAll', {
     mutationFn: () => apiJson('/notifications/read-all', { method: 'POST' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] })
-      queryClient.invalidateQueries({ queryKey: ['notifications-count', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.notifications(user?.id ?? '') })
+      queryClient.invalidateQueries({ queryKey: qk.notificationsCount(user?.id ?? '') })
     },
     onError: (error: unknown) => toast.error(getErrorMessage(error, 'Impossible de tout marquer comme lu.')),
   })
@@ -80,8 +81,8 @@ export default function NotificationsPage() {
     mutationFn: (id: string) => apiJson(`/notifications/${id}/read`, { method: 'POST' }),
     onSuccess: () => {
       setPendingReadId(null)
-      queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] })
-      queryClient.invalidateQueries({ queryKey: ['notifications-count', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.notifications(user?.id ?? '') })
+      queryClient.invalidateQueries({ queryKey: qk.notificationsCount(user?.id ?? '') })
     },
     onError: (error: unknown) => {
       setPendingReadId(null)

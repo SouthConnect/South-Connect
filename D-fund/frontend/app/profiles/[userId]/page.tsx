@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import Link from 'next/link'
@@ -22,13 +23,13 @@ export default function PublicProfilePage() {
   const queryClient = useQueryClient()
 
   const { data: profile, isLoading, error } = useQuery({
-    queryKey: ['public-profile', userId],
+    queryKey: qk.publicProfile(userId),
     queryFn: () => apiJson(`/profiles/${userId}`),
     enabled: !!userId,
   })
 
   const { data: followData } = useQuery({
-    queryKey: ['is-following', userId, user?.id],
+    queryKey: qk.isFollowing(userId, user?.id ?? ''),
     queryFn: () => apiJson(`/social/is-following/${userId}`),
     enabled: !!user?.id && !!userId && user?.id !== userId,
   })
@@ -41,8 +42,9 @@ export default function PublicProfilePage() {
         method: isFollowing ? 'DELETE' : 'POST',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['is-following', userId] })
-      queryClient.invalidateQueries({ queryKey: ['public-profile', userId] })
+      queryClient.invalidateQueries({ queryKey: qk.publicProfile(userId) })
+      queryClient.invalidateQueries({ queryKey: qk.isFollowing(userId, user?.id ?? '') })
+      queryClient.invalidateQueries({ queryKey: qk.publicProfile(userId) })
     },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de modifier le suivi')),
   })

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useSocket } from '@/app/hooks/useSocket'
@@ -44,7 +45,7 @@ export default function PrivateDiscussionPage() {
 
   // ── fetch discussion metadata ──────────────────────────────────────────────
   const { data: privateDiscussions } = useQuery({
-    queryKey: ['private-discussions', user?.id],
+    queryKey: qk.privateDiscussions(user?.id ?? ''),
     queryFn: () => apiJson('/messages/private'),
     enabled: !!user?.id,
   })
@@ -53,7 +54,7 @@ export default function PrivateDiscussionPage() {
 
   // ── fetch messages ─────────────────────────────────────────────────────────
   const { data: messages, isLoading, isError } = useQuery({
-    queryKey: ['private-discussion-messages', id],
+    queryKey: qk.privateDiscussionMessages(id),
     queryFn: () => apiJson<Message[]>(`/messages/private/${id}`),
     enabled: !!id && !!user?.id,
     // Pas de refetchInterval : le socket gère le temps réel
@@ -68,7 +69,7 @@ export default function PrivateDiscussionPage() {
         body: JSON.stringify({ content: text, clientMessageId }),
       }),
     onMutate: async ({ text, clientMessageId }) => {
-      await queryClient.cancelQueries({ queryKey: ['private-discussion-messages', id] })
+      await queryClient.cancelQueries({ queryKey: qk.privateDiscussionMessages(id) })
       const prev = queryClient.getQueryData(['private-discussion-messages', id])
       const optimistic: Message = {
         id: clientMessageId,
@@ -85,7 +86,7 @@ export default function PrivateDiscussionPage() {
     },
     onSuccess: (_, __, ctx) => {
       // Socket will deliver the confirmed message and replace the optimistic one via clientMessageId
-      queryClient.invalidateQueries({ queryKey: ['private-discussions', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.privateDiscussions(user?.id ?? '') })
     },
     onError: (err: unknown, __, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(['private-discussion-messages', id], ctx.prev)

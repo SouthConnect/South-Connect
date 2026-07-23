@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson } from '@/app/lib/api'
 import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
@@ -29,7 +30,7 @@ export default function ResourcePageTemplate({ title, description, type, icon: I
   const debouncedSearch = useDebounce(search, 400)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['resource-page', type, debouncedSearch],
+    queryKey: qk.resourcePage(type, debouncedSearch),
     queryFn: () => {
       const params = new URLSearchParams({ type, take: '50' })
       if (debouncedSearch.trim().length >= 2) params.set('search', debouncedSearch.trim())

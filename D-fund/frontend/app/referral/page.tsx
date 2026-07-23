@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import AuthGuard from '@/components/AuthGuard'
@@ -20,14 +21,14 @@ export default function ReferralPage() {
   const [copied, setCopied] = useState<string | null>(null)
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['referral', user?.id],
+    queryKey: qk.referral(user?.id ?? ''),
     queryFn: () => apiJson('/referral'),
     enabled: !!user?.id,
   })
 
   const createMutation = useTrackedMutation('referral.create', {
     mutationFn: () => apiJson('/referral', { method: 'POST', body: JSON.stringify({}) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['referral', user?.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.referral(user?.id ?? '') }),
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de créer le code de parrainage.')),
   })
 

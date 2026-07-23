@@ -22,6 +22,7 @@ import {
 import { useAuth } from '@/app/lib/AuthContext'
 import { apiJson } from '@/app/lib/api'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { useState, useEffect } from 'react'
 import type { PrivateDiscussion } from '@/app/lib/types'
 
@@ -54,7 +55,7 @@ export default function Sidebar() {
 
   // Badge de non-lus sur le lien Chat
   const { data: privateDiscussions } = useQuery({
-    queryKey: ['private-discussions', user?.id],
+    queryKey: qk.privateDiscussions(user?.id ?? ''),
     queryFn: () => apiJson('/messages/private'),
     enabled: !!user?.id,
     staleTime: 60_000,
@@ -67,7 +68,7 @@ export default function Sidebar() {
 
   // Badge de non-lus sur le lien Notifications (mis à jour en temps réel via WebSocket)
   const { data: notifCountData } = useQuery({
-    queryKey: ['notifications-count', user?.id],
+    queryKey: qk.notificationsCount(user?.id ?? ''),
     queryFn: () => apiJson('/notifications/unread-count'),
     enabled: !!user?.id,
     staleTime: 60_000,
@@ -83,21 +84,23 @@ export default function Sidebar() {
     const opts = { staleTime: 3 * 60 * 1000 }
     switch (href) {
       case '/community':
-        queryClient.prefetchQuery({ queryKey: ['community-members'],   queryFn: () => apiJson('/profiles/lists/members?take=60'),   ...opts })
-        queryClient.prefetchQuery({ queryKey: ['community-talents'],   queryFn: () => apiJson('/profiles/lists/talents?take=60'),   ...opts })
-        queryClient.prefetchQuery({ queryKey: ['community-companies'], queryFn: () => apiJson('/profiles/lists/companies?take=60'), ...opts })
+        queryClient.prefetchQuery({ queryKey: qk.communityMembers(),   queryFn: () => apiJson('/profiles/lists/members?take=60'),   ...opts })
+        queryClient.prefetchQuery({ queryKey: qk.communityTalents(),   queryFn: () => apiJson('/profiles/lists/talents?take=60'),   ...opts })
+        queryClient.prefetchQuery({ queryKey: qk.communityCompanies(), queryFn: () => apiJson('/profiles/lists/companies?take=60'), ...opts })
         break
       case '/explore':
-        queryClient.prefetchQuery({ queryKey: ['explore', ''],    queryFn: () => apiJson('/opportunities?status=ACTIVE&take=12'), ...opts })
-        queryClient.prefetchQuery({ queryKey: ['explore-profiles'], queryFn: () => apiJson('/profiles/lists/members?take=6'),      ...opts })
+        queryClient.prefetchQuery({ queryKey: qk.explore('', '', 0, false), queryFn: () => apiJson('/opportunities?status=ACTIVE&take=12'), ...opts })
+        queryClient.prefetchQuery({ queryKey: qk.exploreProfiles(),          queryFn: () => apiJson('/profiles/lists/members?take=6'),      ...opts })
         break
       case '/notifications':
-        queryClient.prefetchQuery({ queryKey: ['notifications'], queryFn: () => apiJson('/notifications?take=20'), staleTime: 30_000 })
+        if (user?.id) {
+          queryClient.prefetchQuery({ queryKey: qk.notifications(user.id), queryFn: () => apiJson('/notifications?take=20'), staleTime: 30_000 })
+        }
         break
       case '/dashboard':
         if (user?.id) {
-          queryClient.prefetchQuery({ queryKey: ['my-applications', user.id],            queryFn: () => apiJson(`/applications/user/${user.id}`),          ...opts })
-          queryClient.prefetchQuery({ queryKey: ['my-opportunities-dashboard', user.id], queryFn: () => apiJson(`/opportunities/user/${user.id}?take=10`), ...opts })
+          queryClient.prefetchQuery({ queryKey: qk.myApplications(user.id),          queryFn: () => apiJson(`/applications/user/${user.id}`),          ...opts })
+          queryClient.prefetchQuery({ queryKey: qk.myOpportunitiesDashboard(user.id), queryFn: () => apiJson(`/opportunities/user/${user.id}?take=10`), ...opts })
         }
         break
     }

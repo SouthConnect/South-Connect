@@ -1,6 +1,7 @@
 'use client'
 
 import { type ElementType } from 'react'
+import { qk } from '@/app/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
@@ -49,13 +50,13 @@ export default function AnalyticsPage() {
   const { user } = useAuth()
 
   const { data: myApps } = useQuery<Application[]>({
-    queryKey: ['analytics-my-apps', user?.id],
+    queryKey: qk.analyticsMyApps(user?.id ?? ''),
     queryFn: () => apiJson<Application[]>(`/applications/user/${user?.id}`),
     enabled: !!user?.id,
   })
 
   const { data: myOpps } = useQuery<Opportunity[]>({
-    queryKey: ['analytics-my-opps', user?.id],
+    queryKey: qk.analyticsMyOpps(user?.id ?? ''),
     queryFn: () =>
       apiJson<{ data: Opportunity[]; total: number; hasMore: boolean }>(
         `/opportunities/user/${user?.id}?take=100`,
@@ -64,7 +65,7 @@ export default function AnalyticsPage() {
   })
 
   const { data: savedOpps } = useQuery<Opportunity[]>({
-    queryKey: ['analytics-saved', user?.id],
+    queryKey: qk.analyticsSaved(user?.id ?? ''),
     queryFn: () => apiJson<Opportunity[]>('/social/saved'),
     enabled: !!user?.id,
   })

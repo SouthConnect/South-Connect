@@ -10,6 +10,7 @@ import { useAuth } from '@/app/lib/AuthContext'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { qk } from '@/app/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ function RowActions({ userId, isFollowing }: { userId: string; isFollowing: bool
     mutationFn: () =>
       apiJson(`/social/follow/${userId}`, { method: isFollowing ? 'DELETE' : 'POST' }),
     onMutate: async () => {
-      const key = ['social-following', user?.id]
+      const key = qk.socialFollowing(user?.id ?? '')
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<any[]>(key)
       queryClient.setQueryData<any[]>(key, (old = []) =>
@@ -81,19 +82,19 @@ function RowActions({ userId, isFollowing }: { userId: string; isFollowing: bool
     },
     onError: (_err: unknown, _vars: unknown, ctx: any) => {
       if (ctx?.previous !== undefined) {
-        queryClient.setQueryData(['social-following', user?.id], ctx.previous)
+        queryClient.setQueryData(qk.socialFollowing(user?.id ?? ''), ctx.previous)
       }
       toast.error('Impossible de modifier le suivi')
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['social-following', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.socialFollowing(user?.id ?? '') })
     },
   })
 
   const startConversation = useTrackedMutation('conversation.start', {
     mutationFn: () => apiJson(`/messages/private/start/${userId}`, { method: 'POST' }),
     onSuccess: (discussion: any) => {
-      queryClient.invalidateQueries({ queryKey: ['private-discussions', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.privateDiscussions(user?.id ?? '') })
       if (discussion?.id) router.push(`/chat/private/${discussion.id}`)
     },
     onError: () => toast.error("Impossible d'ouvrir la conversation"),
@@ -233,28 +234,28 @@ export default function CommunityPage() {
   const { user } = useAuth()
 
   const { data: members = [], isLoading: loadingM } = useQuery<Member[]>({
-    queryKey: ['community-members'],
+    queryKey: qk.communityMembers(),
     queryFn: () => apiJson('/profiles/lists/members?take=60'),
     enabled: tab === 'members',
     staleTime: 60_000,
   })
 
   const { data: talents = [], isLoading: loadingT } = useQuery<Talent[]>({
-    queryKey: ['community-talents'],
+    queryKey: qk.communityTalents(),
     queryFn: () => apiJson('/profiles/lists/talents?take=60'),
     enabled: tab === 'talents',
     staleTime: 60_000,
   })
 
   const { data: companies = [], isLoading: loadingC } = useQuery<Company[]>({
-    queryKey: ['community-companies'],
+    queryKey: qk.communityCompanies(),
     queryFn: () => apiJson('/profiles/lists/companies?take=60'),
     enabled: tab === 'companies',
     staleTime: 60_000,
   })
 
   const { data: following } = useQuery({
-    queryKey: ['social-following', user?.id],
+    queryKey: qk.socialFollowing(user?.id ?? ''),
     queryFn: () => apiJson(`/social/following/${user?.id}`),
     enabled: !!user?.id,
     staleTime: 60_000,

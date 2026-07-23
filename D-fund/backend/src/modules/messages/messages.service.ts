@@ -263,7 +263,7 @@ export class MessagesService {
     if (discussion.opportunityId) {
       this.prisma.opportunity
         .updateMany({ where: { id: discussion.opportunityId }, data: { messagesCount: { increment: 1 } } })
-        .catch(() => undefined);
+        .catch((err) => this.logger.warn(`Failed to increment messagesCount for opportunity ${discussion.opportunityId}: ${err?.message}`));
     }
 
     this.chatGateway.broadcastMessage(discussionId, message);

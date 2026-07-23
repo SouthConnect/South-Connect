@@ -263,7 +263,7 @@ export class ApplicationsService {
       throw new BadRequestException('Only draft applications can be submitted');
     }
 
-    const updated = await this.prisma.application.findUnique({ where: { id } });
+    const updated = await this.prisma.application.findUniqueOrThrow({ where: { id } });
     if (!updated) throw new NotFoundException('Application not found after update');
 
     // Counters dénormalisés — dans une transaction groupée pour éviter la divergence.
@@ -314,8 +314,8 @@ export class ApplicationsService {
    * @throws ForbiddenException when the requester does not own the opportunity.
    */
   async review(id: string, ownerId: string, dto: ReviewApplicationDto) {
-    const application = await this.prisma.application.findUnique({
-      where: { id },
+    const application = await this.prisma.application.findFirst({
+      where: { id, deletedAt: null },
       include: { opportunity: true, candidate: true },
     });
 
@@ -337,16 +337,24 @@ export class ApplicationsService {
       );
     }
 
-    const updated = await this.prisma.application.update({
-      where: { id },
-      data: {
-        stage: dto.stage as ApplicationStage,
-        reviewDate: new Date(),
-        reviewFeedback: dto.reviewFeedback,
-        feedbackTitle: dto.feedbackTitle,
-        isClosed: dto.stage === 'SUCCESS' || dto.stage === 'ARCHIVED',
-      },
+    const updateData = {
+      stage: dto.stage as ApplicationStage,
+      reviewDate: new Date(),
+      reviewFeedback: dto.reviewFeedback,
+      feedbackTitle: dto.feedbackTitle,
+      isClosed: dto.stage === 'SUCCESS' || dto.stage === 'ARCHIVED',
+    };
+
+    const result = await this.prisma.application.updateMany({
+      where: { id, deletedAt: null },
+      data: updateData,
     });
+
+    if (result.count === 0) {
+      throw new NotFoundException('Application was withdrawn or deleted concurrently');
+    }
+
+    const updated = await this.prisma.application.findUniqueOrThrow({ where: { id } });
 
     // Marquer le code de parrainage comme complété quand acceptée (usesCount déjà incrémenté au submit)
     if (dto.stage === 'SUCCESS' && application.referralCodeUsed) {

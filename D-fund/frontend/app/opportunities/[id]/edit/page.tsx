@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, uploadImage, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
@@ -32,7 +33,7 @@ export default function EditOpportunityPage() {
   const prefilled = useRef(false)
 
   const { data: opportunity, isLoading } = useQuery({
-    queryKey: ['opportunity', id],
+    queryKey: qk.opportunity(id),
     queryFn: () => apiJson(`/opportunities/${id}`),
     enabled: !!id,
   })

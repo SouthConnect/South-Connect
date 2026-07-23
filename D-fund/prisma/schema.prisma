@@ -60,6 +60,9 @@ model User {
   savedOpportunities           SavedOpportunity[]
   tasks                        Task[]
 
+  @@index([deletedAt])
+  @@index([role, deletedAt])
+  @@index([isBanned, deletedAt])
   @@map("users")
 }
 

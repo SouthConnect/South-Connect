@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import OpportunityCard from '@/components/OpportunityCard'
@@ -25,7 +26,7 @@ export default function SavedPage() {
   const { user } = useAuth()
 
   const { data: savedOpportunities, isLoading, isError } = useQuery({
-    queryKey: ['saved-opportunities'],
+    queryKey: qk.savedOpportunities(user?.id ?? ''),
     queryFn: () => apiJson('/social/saved'),
     enabled: !!user?.id,
   })

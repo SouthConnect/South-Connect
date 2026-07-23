@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { stageLabel, stageColor } from '@/app/lib/stage-labels'
 import {
@@ -37,7 +38,7 @@ export default function DashboardPage() {
     data: applications,
     isLoading: isLoadingApplications,
   } = useQuery({
-    queryKey: ['my-applications', user?.id],
+    queryKey: qk.myApplications(user?.id ?? ''),
     queryFn: () => apiJson(`/applications/user/${user?.id}`),
     enabled: !!user?.id && tab === 'applications',
     staleTime: 60_000,
@@ -47,7 +48,7 @@ export default function DashboardPage() {
     data: myOppResponse,
     isLoading: isLoadingOpportunities,
   } = useQuery({
-    queryKey: ['my-opportunities-dashboard', user?.id],
+    queryKey: qk.myOpportunitiesDashboard(user?.id ?? ''),
     queryFn: () => apiJson<{ data: any[]; total: number; hasMore: boolean }>(`/opportunities/user/${user?.id}?take=10`),
     enabled: !!user?.id && tab === 'offers',
     staleTime: 60_000,
@@ -58,7 +59,7 @@ export default function DashboardPage() {
     data: privateDiscussions,
     isLoading: isLoadingDMs,
   } = useQuery({
-    queryKey: ['private-discussions', user?.id],
+    queryKey: qk.privateDiscussions(user?.id ?? ''),
     queryFn: () => apiJson('/messages/private'),
     enabled: !!user?.id,
     staleTime: 30_000,
@@ -481,14 +482,14 @@ function TasksSection() {
   const [selectedOppId, setSelectedOppId] = useState('')
 
   const { data: tasks, isLoading } = useQuery({
-    queryKey: ['tasks', user?.id],
+    queryKey: qk.tasks(user?.id ?? ''),
     queryFn: () => apiJson('/tasks'),
     enabled: !!user?.id,
   })
 
   // Clé distincte pour ne pas entrer en conflit avec le take=10 du dashboard
   const { data: myOppsResponse } = useQuery({
-    queryKey: ['my-opportunities-tasks', user?.id],
+    queryKey: qk.myOpportunitiesTasks(user?.id ?? ''),
     queryFn: () => apiJson<{ data: any[]; total: number; hasMore: boolean }>(`/opportunities/user/${user?.id}?take=100`),
     enabled: !!user?.id,
     staleTime: 60_000,
@@ -508,7 +509,7 @@ function TasksSection() {
     mutationFn: (payload: { name: string; relatedItemId?: string; relatedItemType?: string }) =>
       apiJson<Task>('/tasks', { method: 'POST', body: JSON.stringify(payload) }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.tasks(user?.id ?? '') })
       setSelectedOppId('')
       toast.success('Tâche ajoutée !')
     },
@@ -518,13 +519,13 @@ function TasksSection() {
   const updateStatusMutation = useTrackedMutation('task.updateStatus', {
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       apiJson<Task>(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify({ status }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.tasks(user?.id ?? '') }),
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de mettre à jour la tâche.')),
   })
 
   const deleteMutation = useTrackedMutation('task.delete', {
     mutationFn: (id: string) => apiJson<{ success: boolean }>(`/tasks/${id}`, { method: 'DELETE' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks', user?.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.tasks(user?.id ?? '') }),
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de supprimer la tâche.')),
   })
 

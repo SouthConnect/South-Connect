@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useInfiniteQuery, keepPreviousData } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson } from '@/app/lib/api'
 import { useDebounce } from '@/app/hooks/useDebounce'
 import OpportunityCard from '@/components/OpportunityCard'
@@ -80,7 +81,7 @@ export default function OpportunitiesPage() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery({
-    queryKey: ['opportunities', { search: debouncedSearch, status, type }],
+    queryKey: qk.opportunitiesAdmin(debouncedSearch, status, type),
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams()
       params.set('take', '20')

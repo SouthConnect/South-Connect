@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import DOMPurify from 'dompurify'
 import type { Opportunity, Application, PublicDiscussion, PrivateDiscussion } from '@/app/lib/types'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { qk } from '@/app/lib/queryKeys'
 
 const TYPE_GRADIENTS: Record<string, string> = {
   JOB_OPPORTUNITY:          'from-[#1e3a5f] via-[#2d5fa0] to-[#3b49df]',
@@ -70,7 +71,7 @@ export default function OpportunityDetailPage() {
   const queryClient = useQueryClient()
 
   const { data: opportunity, isLoading, isError, error } = useQuery({
-    queryKey: ['opportunity', id],
+    queryKey: qk.opportunity(id),
     queryFn: () => apiJson(`/opportunities/${id}`),
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
@@ -109,9 +110,9 @@ export default function OpportunityDetailPage() {
       })
     },
     onMutate: async (currentlyLiked) => {
-      await queryClient.cancelQueries({ queryKey: ['opportunity', id] })
-      const prev = queryClient.getQueryData(['opportunity', id])
-      queryClient.setQueryData(['opportunity', id], (old: Opportunity | undefined) => {
+      await queryClient.cancelQueries({ queryKey: qk.opportunity(id) })
+      const prev = queryClient.getQueryData(qk.opportunity(id))
+      queryClient.setQueryData(qk.opportunity(id), (old: Opportunity | undefined) => {
         if (!old) return old
         return {
           ...old,
@@ -122,10 +123,10 @@ export default function OpportunityDetailPage() {
       return { prev }
     },
     onError: (error: unknown, _, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
+      if (ctx?.prev) queryClient.setQueryData(qk.opportunity(id), ctx.prev)
       toast.error(getErrorMessage(error, 'Impossible de mettre à jour le like'))
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: qk.opportunity(id) }),
   })
 
   const toggleSaveMutation = useTrackedMutation('opportunity.save', {
@@ -135,9 +136,9 @@ export default function OpportunityDetailPage() {
       })
     },
     onMutate: async (currentlySaved) => {
-      await queryClient.cancelQueries({ queryKey: ['opportunity', id] })
-      const prev = queryClient.getQueryData(['opportunity', id])
-      queryClient.setQueryData(['opportunity', id], (old: Opportunity | undefined) => {
+      await queryClient.cancelQueries({ queryKey: qk.opportunity(id) })
+      const prev = queryClient.getQueryData(qk.opportunity(id))
+      queryClient.setQueryData(qk.opportunity(id), (old: Opportunity | undefined) => {
         if (!old) return old
         return {
           ...old,
@@ -148,7 +149,7 @@ export default function OpportunityDetailPage() {
       return { prev }
     },
     onError: (error: unknown, _, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
+      if (ctx?.prev) queryClient.setQueryData(qk.opportunity(id), ctx.prev)
       toast.error(getErrorMessage(error, "Impossible de mettre à jour l'enregistrement"))
     },
   })
@@ -157,7 +158,7 @@ export default function OpportunityDetailPage() {
     mutationFn: (ownerId: string) =>
       apiJson(`/messages/private/start/${ownerId}`, { method: 'POST' }),
     onSuccess: (discussion: Pick<PrivateDiscussion, 'id'>) => {
-      queryClient.invalidateQueries({ queryKey: ['private-discussions', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.privateDiscussions(user?.id ?? '') })
       if (discussion?.id) router.push(`/chat/private/${discussion.id}`)
     },
     onError: (error: unknown) => {
@@ -172,17 +173,18 @@ export default function OpportunityDetailPage() {
         body: JSON.stringify({ opportunityId: id }),
       }),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['opportunity', id] })
-      return { prev: queryClient.getQueryData(['opportunity', id]) }
+      await queryClient.cancelQueries({ queryKey: qk.opportunity(id) })
+      return { prev: queryClient.getQueryData(qk.opportunity(id)) }
     },
     onSuccess: (app: Pick<Application, 'id'>) => {
-      queryClient.invalidateQueries({ queryKey: ['my-applications', user?.id] })
-      queryClient.invalidateQueries({ queryKey: ['analytics-my-apps', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.myApplications(user?.id ?? '') })
+      queryClient.invalidateQueries({ queryKey: qk.myApplicationsFull(user?.id ?? '') })
+      queryClient.invalidateQueries({ queryKey: qk.analyticsMyApps(user?.id ?? '') })
       toast.success('Brouillon de candidature créé ! Complétez et soumettez-le.')
       router.push(`/applications/${app.id}`)
     },
     onError: (error: unknown, _, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['opportunity', id], ctx.prev)
+      if (ctx?.prev) queryClient.setQueryData(qk.opportunity(id), ctx.prev)
       if (error instanceof ApiError && error.status === 409) {
         toast.error('Vous avez déjà postulé à cette opportunité.', {
           action: { label: 'Voir mes candidatures', onClick: () => router.push('/dashboard') },
@@ -191,7 +193,7 @@ export default function OpportunityDetailPage() {
         toast.error(getErrorMessage(error, 'Impossible de créer la candidature'))
       }
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['opportunity', id] }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: qk.opportunity(id) }),
   })
 
   if (isLoading) {
@@ -469,7 +471,7 @@ function DiscussionSection({
   messagesCount: number
 }) {
   const { data: discussions, isLoading } = useQuery({
-    queryKey: ['public-discussions', 'OPPORTUNITY_RELATED', opportunityId],
+    queryKey: qk.publicDiscussionsOpportunity('OPPORTUNITY_RELATED', opportunityId),
     queryFn: () => apiJson('/messages/public?type=OPPORTUNITY_RELATED'),
   })
 

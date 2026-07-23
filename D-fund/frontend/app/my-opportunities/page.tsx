@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import Link from 'next/link'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
@@ -51,7 +52,7 @@ export default function MyOpportunitiesPage() {
   const [pendingActionId, setPendingActionId] = useState<string | null>(null)
 
   const { data: oppResponse, isLoading, isError, error } = useQuery({
-    queryKey: ['my-opportunities', user?.id],
+    queryKey: qk.myOpportunities(user?.id ?? ''),
     queryFn: () => apiJson<{ data: Opportunity[]; total: number; hasMore: boolean }>(`/opportunities/user/${user?.id}?take=100`),
     enabled: !!user?.id,
   })
@@ -65,11 +66,11 @@ export default function MyOpportunitiesPage() {
       }),
     onMutate: (id) => setPendingActionId(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
-      queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
-      queryClient.invalidateQueries({ queryKey: ['opportunities-feed'] })
-      queryClient.invalidateQueries({ queryKey: ['explore'] })
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      queryClient.invalidateQueries({ queryKey: qk.myOpportunities(user?.id ?? '') })
+      queryClient.invalidateQueries({ queryKey: qk.myOpportunitiesDashboard(user?.id ?? '') })
+      queryClient.invalidateQueries({ queryKey: qk._root.opportunitiesFeed })
+      queryClient.invalidateQueries({ queryKey: qk._root.explore })
+      queryClient.invalidateQueries({ queryKey: qk._root.opportunities })
       toast.success('Publiée ! Votre opportunité est maintenant visible par la communauté.')
     },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de publier l\'opportunité.')),
@@ -84,11 +85,11 @@ export default function MyOpportunitiesPage() {
       }),
     onMutate: (id) => setPendingActionId(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
-      queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
-      queryClient.invalidateQueries({ queryKey: ['opportunities-feed'] })
-      queryClient.invalidateQueries({ queryKey: ['explore'] })
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      queryClient.invalidateQueries({ queryKey: qk.myOpportunities(user?.id ?? '') })
+      queryClient.invalidateQueries({ queryKey: qk.myOpportunitiesDashboard(user?.id ?? '') })
+      queryClient.invalidateQueries({ queryKey: qk._root.opportunitiesFeed })
+      queryClient.invalidateQueries({ queryKey: qk._root.explore })
+      queryClient.invalidateQueries({ queryKey: qk._root.opportunities })
       toast.success('Opportunité archivée.')
     },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible d\'archiver l\'opportunité.')),
@@ -103,11 +104,11 @@ export default function MyOpportunitiesPage() {
       }),
     onMutate: (id) => setPendingActionId(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-opportunities', user?.id] })
-      queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard', user?.id] })
-      queryClient.invalidateQueries({ queryKey: ['opportunities-feed'] })
-      queryClient.invalidateQueries({ queryKey: ['explore'] })
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
+      queryClient.invalidateQueries({ queryKey: qk.myOpportunities(user?.id ?? '') })
+      queryClient.invalidateQueries({ queryKey: qk.myOpportunitiesDashboard(user?.id ?? '') })
+      queryClient.invalidateQueries({ queryKey: qk._root.opportunitiesFeed })
+      queryClient.invalidateQueries({ queryKey: qk._root.explore })
+      queryClient.invalidateQueries({ queryKey: qk._root.opportunities })
       toast.success('Publiée ! Votre opportunité est maintenant visible par la communauté.')
     },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de publier l\'opportunité.')),

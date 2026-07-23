@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
+import { useAuth } from '@/app/lib/AuthContext'
+import { qk } from '@/app/lib/queryKeys'
 import AuthGuard from '@/components/AuthGuard'
 import { Plus, Trash2, ExternalLink, Check, Circle, Lightbulb, Loader2, X, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
@@ -65,20 +67,22 @@ export default function TasksPage() {
 }
 
 function TasksContent() {
+  const { user } = useAuth()
   const queryClient = useQueryClient()
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<TaskStatus | 'ALL'>('ALL')
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
-    queryKey: ['tasks'],
+    queryKey: qk.tasks(user?.id ?? ''),
     queryFn: () => apiJson('/tasks'),
+    enabled: !!user?.id,
   })
 
   const createMutation = useTrackedMutation('task.create', {
     mutationFn: (dto: Partial<Task>) => apiJson('/tasks', { method: 'POST', body: JSON.stringify(dto) }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: qk.tasks(user?.id ?? '') })
       setShowAdd(false)
       toast.success('Tâche créée')
     },
@@ -89,7 +93,7 @@ function TasksContent() {
     mutationFn: ({ id, ...dto }: Partial<Task> & { id: string }) =>
       apiJson(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify(dto) }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: qk.tasks(user?.id ?? '') })
       setEditingId(null)
     },
     onError: (e: any) => toast.error(e.message || 'Impossible de mettre à jour la tâche.'),
@@ -98,7 +102,7 @@ function TasksContent() {
   const deleteMutation = useTrackedMutation('task.delete', {
     mutationFn: (id: string) => apiJson(`/tasks/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: qk.tasks(user?.id ?? '') })
       toast.success('Tâche supprimée')
     },
     onError: (e: any) => toast.error(e.message || 'Impossible de supprimer la tâche.'),

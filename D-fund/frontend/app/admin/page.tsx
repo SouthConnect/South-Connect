@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useDebounce } from '@/app/hooks/useDebounce'
 import { useAuth } from '@/app/lib/AuthContext'
@@ -32,13 +33,13 @@ export default function AdminPage() {
   const [confirmPending, setConfirmPending] = useState<{ type: string; id: string } | null>(null)
 
   const { data: stats } = useQuery({
-    queryKey: ['admin-stats'],
+    queryKey: qk.adminStats(),
     queryFn: () => apiJson('/opportunities/admin/stats'),
     enabled: isAdmin,
   })
 
   const { data: opportunities, isLoading } = useQuery({
-    queryKey: ['admin-opportunities', statusFilter, debouncedSearch],
+    queryKey: qk.adminOpportunities(statusFilter, debouncedSearch),
     queryFn: () =>
       apiJson(`/opportunities/admin/all?status=${statusFilter}&search=${encodeURIComponent(debouncedSearch)}`),
     enabled: isAdmin,
@@ -51,7 +52,7 @@ export default function AdminPage() {
         body: JSON.stringify({ status }),
       }),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['admin-opportunities'] }),
+      queryClient.invalidateQueries({ queryKey: qk._root.adminOpportunities }),
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de mettre à jour le statut.')),
   })
 
@@ -59,7 +60,7 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState('')
   const debouncedUserSearch = useDebounce(userSearch, 350)
   const { data: usersData, isLoading: isLoadingUsers } = useQuery({
-    queryKey: ['admin-users', debouncedUserSearch],
+    queryKey: qk.adminUsers(debouncedUserSearch),
     queryFn: () => apiJson(`/users/admin/list?search=${encodeURIComponent(debouncedUserSearch)}&take=50`),
     enabled: isAdmin && activeTab === 'users',
   })
@@ -67,21 +68,21 @@ export default function AdminPage() {
   const banMutation = useTrackedMutation('admin.ban', {
     mutationFn: ({ id, ban }: { id: string; ban: boolean }) =>
       apiJson(`/users/admin/${id}/${ban ? 'ban' : 'unban'}`, { method: 'PUT' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk._root.adminUsers }),
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de modifier le statut du compte.')),
   })
 
   const roleMutation = useTrackedMutation('admin.updateRole', {
     mutationFn: ({ id, role }: { id: string; role: string }) =>
       apiJson(`/users/admin/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk._root.adminUsers }),
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de modifier le rôle.')),
   })
 
   const deleteUserMutation = useTrackedMutation('admin.deleteUser', {
     mutationFn: (id: string) => apiJson(`/users/admin/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      queryClient.invalidateQueries({ queryKey: qk._root.adminUsers })
       toast.success('Utilisateur supprimé.')
     },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de supprimer l\'utilisateur.')),
@@ -90,36 +91,36 @@ export default function AdminPage() {
   // ── Industries tab ──
   const [newIndustryName, setNewIndustryName] = useState('')
   const { data: industries, isLoading: isLoadingIndustries } = useQuery<{ id: string; name: string; opportunitiesCount: number }[]>({
-    queryKey: ['admin-industries'],
+    queryKey: qk.adminIndustries(),
     queryFn: () => apiJson('/industries'),
     enabled: isAdmin && activeTab === 'industries',
   })
   const createIndustryMutation = useTrackedMutation('admin.createIndustry', {
     mutationFn: (name: string) => apiJson('/industries', { method: 'POST', body: JSON.stringify({ name }) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-industries'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/industries'] }); setNewIndustryName('') },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qk.adminIndustries() }); queryClient.invalidateQueries({ queryKey: qk.multiselect('/industries') }); setNewIndustryName('') },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de créer le secteur.')),
   })
   const deleteIndustryMutation = useTrackedMutation('admin.deleteIndustry', {
     mutationFn: (id: string) => apiJson(`/industries/${id}`, { method: 'DELETE' }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-industries'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/industries'] }) },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qk.adminIndustries() }); queryClient.invalidateQueries({ queryKey: qk.multiselect('/industries') }) },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de supprimer le secteur.')),
   })
 
   // ── Markets tab ──
   const [newMarketName, setNewMarketName] = useState('')
   const { data: markets, isLoading: isLoadingMarkets } = useQuery<{ id: string; name: string }[]>({
-    queryKey: ['admin-markets'],
+    queryKey: qk.adminMarkets(),
     queryFn: () => apiJson('/markets'),
     enabled: isAdmin && activeTab === 'markets',
   })
   const createMarketMutation = useTrackedMutation('admin.createMarket', {
     mutationFn: (name: string) => apiJson('/markets', { method: 'POST', body: JSON.stringify({ name }) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-markets'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/markets'] }); setNewMarketName('') },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qk.adminMarkets() }); queryClient.invalidateQueries({ queryKey: qk.multiselect('/markets') }); setNewMarketName('') },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de créer le marché.')),
   })
   const deleteMarketMutation = useTrackedMutation('admin.deleteMarket', {
     mutationFn: (id: string) => apiJson(`/markets/${id}`, { method: 'DELETE' }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-markets'] }); queryClient.invalidateQueries({ queryKey: ['multiselect', '/markets'] }) },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qk.adminMarkets() }); queryClient.invalidateQueries({ queryKey: qk.multiselect('/markets') }) },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de supprimer le marché.')),
   })
 
@@ -127,19 +128,19 @@ export default function AdminPage() {
   const [newFeatureName, setNewFeatureName] = useState('')
   const [newFeatureCategory, setNewFeatureCategory] = useState('')
   const { data: features, isLoading: isLoadingFeatures } = useQuery<{ id: string; name: string; category: string | null; opportunitiesCount: number }[]>({
-    queryKey: ['admin-features'],
+    queryKey: qk.adminFeatures(),
     queryFn: () => apiJson('/features'),
     enabled: isAdmin && activeTab === 'features',
   })
   const createFeatureMutation = useTrackedMutation('admin.createFeature', {
     mutationFn: ({ name, category }: { name: string; category?: string }) =>
       apiJson('/features', { method: 'POST', body: JSON.stringify({ name, category: category || undefined }) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-features'] }); setNewFeatureName(''); setNewFeatureCategory('') },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: qk.adminFeatures() }); setNewFeatureName(''); setNewFeatureCategory('') },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de créer la fonctionnalité.')),
   })
   const deleteFeatureMutation = useTrackedMutation('admin.deleteFeature', {
     mutationFn: (id: string) => apiJson(`/features/${id}`, { method: 'DELETE' }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-features'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.adminFeatures() }),
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de supprimer la fonctionnalité.')),
   })
 

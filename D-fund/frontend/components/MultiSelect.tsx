@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson } from '@/app/lib/api'
 import { ChevronDown, X, Check } from 'lucide-react'
 
@@ -30,7 +31,7 @@ export default function MultiSelect({ endpoint, value, onChange, placeholder = '
   const containerRef = useRef<HTMLDivElement>(null)
 
   const { data: items = [] } = useQuery<Item[]>({
-    queryKey: ['multiselect', endpoint],
+    queryKey: qk.multiselect(endpoint),
     queryFn: () => apiJson<Item[]>(endpoint),
     staleTime: 5 * 60 * 1000, // cache 5 min — reference data changes rarely
   })

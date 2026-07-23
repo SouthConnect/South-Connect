@@ -8,6 +8,8 @@ import {
   ArrowRight, Zap, Users, DollarSign, Briefcase,
 } from 'lucide-react'
 import { apiJson, ApiError } from '@/app/lib/api'
+import { useDebounce } from '@/app/hooks/useDebounce'
+import { qk } from '@/app/lib/queryKeys'
 import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -36,15 +38,6 @@ const TYPE_LABELS: Record<string, string> = {
   VENTURE_PROGRAM: 'Programme Venture',
   CHILL_WORK_SPOT: 'Espace de Travail',
   MARKET_ADVISOR: 'Conseiller Marché',
-}
-
-function useDebounce<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
-  return debounced
 }
 
 // ── Router ──────────────────────────────────────────────────────────────────
@@ -275,7 +268,7 @@ function LandingPage() {
 
 function OpportunityPreview() {
   const { data, isLoading } = useQuery({
-    queryKey: ['opportunities-preview'],
+    queryKey: qk.opportunitiesPreview(),
     queryFn: () => apiJson<OpportunityListResponse>('/opportunities?take=3&skip=0&status=ACTIVE'),
     staleTime: 5 * 60 * 1000,
   })
@@ -323,7 +316,7 @@ function AppFeed() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery({
-    queryKey: ['opportunities-feed', debouncedSearch, typeFilter, tab === 'trending' ? 'trending' : 'newest'],
+    queryKey: qk.opportunitiesFeed(debouncedSearch, typeFilter, tab === 'trending' ? 'trending' : 'newest'),
     queryFn: ({ pageParam }: { pageParam: string | undefined }) => {
       const params = new URLSearchParams()
       params.set('take', String(PAGE_SIZE))
@@ -350,7 +343,7 @@ function AppFeed() {
   })
 
   const { data: saved, isLoading: isLoadingSaved } = useQuery({
-    queryKey: ['saved-opportunities'],
+    queryKey: qk.savedOpportunities(user?.id ?? ''),
     queryFn: () => apiJson('/social/saved'),
     enabled: !!user && tab === 'favorites',
     staleTime: 3 * 60 * 1000,

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -16,6 +17,7 @@ import { NotificationsService } from '../notifications/notifications.service';
  */
 @Injectable()
 export class SocialService {
+  private readonly logger = new Logger(SocialService.name);
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
@@ -86,12 +88,12 @@ export class SocialService {
         undefined,
         `/profiles/${followerId}`,
       )
-      .catch(() => undefined);
+      .catch((err) => this.logger.warn(`Failed to send new-follower in-app notification: ${err?.message}`));
 
     if (follower) {
       this.notifications
         .sendNewFollowerEmail(follower, following)
-        .catch(() => undefined);
+        .catch((err) => this.logger.warn(`Failed to send new-follower email: ${err?.message}`));
     }
 
     return { message: 'User followed successfully' };

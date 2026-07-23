@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, uploadImage, getErrorMessage } from '@/app/lib/api'
 import { useRouter } from 'next/navigation'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
@@ -35,7 +36,7 @@ function ProfilePageContent() {
   const isOnboarding = searchParams?.get('onboarding') === 'true'
 
   const { data: profile, isLoading } = useQuery({
-    queryKey: ['profile', authUser?.id],
+    queryKey: qk.profile(authUser?.id ?? ''),
     queryFn: () => apiJson(`/profiles/${authUser?.id}`),
     enabled: !!authUser?.id,
   })
@@ -83,7 +84,7 @@ function ProfilePageContent() {
     }),
     onSuccess: async () => {
       await refreshUser()
-      queryClient.invalidateQueries({ queryKey: ['profile', authUser?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.profile(authUser?.id ?? '') })
       setSavedInfo(true)
       if (savedInfoTimer.current) clearTimeout(savedInfoTimer.current)
       savedInfoTimer.current = setTimeout(() => setSavedInfo(false), 3000)
@@ -96,7 +97,7 @@ function ProfilePageContent() {
       body: JSON.stringify(data),
     }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile', authUser?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.profile(authUser?.id ?? '') })
       setSavedBtoC(true)
       if (savedBtoCTimer.current) clearTimeout(savedBtoCTimer.current)
       savedBtoCTimer.current = setTimeout(() => setSavedBtoC(false), 3000)
@@ -113,7 +114,7 @@ function ProfilePageContent() {
         body: JSON.stringify(data),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile', authUser?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.profile(authUser?.id ?? '') })
       setSavedBtoB(true)
       if (savedBtoBTimer.current) clearTimeout(savedBtoBTimer.current)
       savedBtoBTimer.current = setTimeout(() => setSavedBtoB(false), 3000)
@@ -253,7 +254,7 @@ function ProfilePageContent() {
                         body: JSON.stringify({ profilePic: url }),
                       })
                       await refreshUser()
-                      queryClient.invalidateQueries({ queryKey: ['profile', authUser.id] })
+                      queryClient.invalidateQueries({ queryKey: qk.profile(authUser.id) })
                     } catch (error: any) {
                       setUploadError(error?.message || 'Impossible de mettre à jour la photo de profil')
                     }

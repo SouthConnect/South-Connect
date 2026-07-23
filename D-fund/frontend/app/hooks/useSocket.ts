@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/app/lib/AuthContext'
+import { qk } from '@/app/lib/queryKeys'
 import { toast } from 'sonner'
 
 let sharedSocket: Socket | null = null
@@ -80,14 +81,20 @@ export function useSocket(): Socket | null {
         }
       })
 
-      // Reconnect: dismiss error toast and refetch messages that may have been
-      // missed during the disconnection window. Invalidating with prefix keys
-      // covers any open private or public chat page without knowing the ID.
+      // Reconnect: dismiss error toast and refetch data missed during the
+      // disconnection window. Using prefix roots covers all open chat pages
+      // without needing to know specific IDs. User-specific keys use the
+      // captured userId to avoid cross-user cache collisions.
       sharedSocket.on('reconnect', () => {
+        const uid = currentUserId
         toast.dismiss('socket-error')
-        queryClient.invalidateQueries({ queryKey: ['private-discussion-messages'] })
-        queryClient.invalidateQueries({ queryKey: ['public-discussion-messages'] })
-        queryClient.invalidateQueries({ queryKey: ['private-discussions'] })
+        queryClient.invalidateQueries({ queryKey: qk._root.privateDiscussionMessages })
+        queryClient.invalidateQueries({ queryKey: qk._root.publicDiscussionMessages })
+        if (uid) {
+          queryClient.invalidateQueries({ queryKey: qk.privateDiscussions(uid) })
+          queryClient.invalidateQueries({ queryKey: qk.notifications(uid) })
+          queryClient.invalidateQueries({ queryKey: qk.notificationsCount(uid) })
+        }
       })
 
       sharedSocket.on('connect_error', () => {

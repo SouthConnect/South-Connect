@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useRouter } from 'next/navigation'
@@ -42,7 +43,7 @@ export default function ChatPage() {
         body: JSON.stringify({ title: newTitle.trim(), description: newDescription.trim() || undefined }),
       }),
     onSuccess: (discussion: Pick<PublicDiscussion, 'id'>) => {
-      queryClient.invalidateQueries({ queryKey: ['public-discussions', 'OPEN_FORUM'] })
+      queryClient.invalidateQueries({ queryKey: qk.publicDiscussions('OPEN_FORUM') })
       setShowNewForum(false)
       setNewTitle('')
       setNewDescription('')
@@ -56,7 +57,7 @@ export default function ChatPage() {
     isLoading: isLoadingOpportunityDiscussions,
     isError: isErrorOpportunityDiscussions,
   } = useQuery({
-    queryKey: ['public-discussions', 'OPPORTUNITY_RELATED'],
+    queryKey: qk.publicDiscussions('OPPORTUNITY_RELATED'),
     queryFn: () => apiJson('/messages/public?type=OPPORTUNITY_RELATED'),
   })
 
@@ -65,7 +66,7 @@ export default function ChatPage() {
     isLoading: isLoadingForumDiscussions,
     isError: isErrorForumDiscussions,
   } = useQuery({
-    queryKey: ['public-discussions', 'OPEN_FORUM'],
+    queryKey: qk.publicDiscussions('OPEN_FORUM'),
     queryFn: () => apiJson('/messages/public?type=OPEN_FORUM'),
   })
 
@@ -73,7 +74,7 @@ export default function ChatPage() {
     data: privateDiscussions,
     isLoading: isLoadingPrivateDiscussions,
   } = useQuery({
-    queryKey: ['private-discussions', user?.id],
+    queryKey: qk.privateDiscussions(user?.id ?? ''),
     queryFn: () => apiJson('/messages/private'),
     enabled: !!user?.id,
   })
@@ -300,8 +301,8 @@ function DiscussionList({
       })
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['public-discussions', 'OPEN_FORUM'] })
-      queryClient.invalidateQueries({ queryKey: ['public-discussions', 'OPPORTUNITY_RELATED'] })
+      queryClient.invalidateQueries({ queryKey: qk.publicDiscussions('OPEN_FORUM') })
+      queryClient.invalidateQueries({ queryKey: qk.publicDiscussions('OPPORTUNITY_RELATED') })
     },
   })
 

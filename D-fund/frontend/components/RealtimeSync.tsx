@@ -6,11 +6,15 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useSocket } from '@/app/hooks/useSocket'
 import { useAuth } from '@/app/lib/AuthContext'
+import { qk } from '@/app/lib/queryKeys'
 
 /**
  * Invisible component that keeps React Query caches in sync with WebSocket events.
  * Dynamically imported in AppShell so that socket.io-client is code-split into
  * its own chunk and does not block the initial page load.
+ *
+ * The 'reconnect' event is handled exclusively in useSocket to avoid duplicate
+ * handlers with diverging invalidation scopes.
  */
 export default function RealtimeSync() {
   const { user } = useAuth()
@@ -28,28 +32,20 @@ export default function RealtimeSync() {
           ? { label: 'Voir', onClick: () => router.push(notif.link!) }
           : undefined,
       })
-      queryClient.invalidateQueries({ queryKey: ['notifications-count', user.id] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      queryClient.invalidateQueries({ queryKey: ['private-discussions', user.id] })
+      queryClient.invalidateQueries({ queryKey: qk.notificationsCount(user.id) })
+      queryClient.invalidateQueries({ queryKey: qk.notifications(user.id) })
+      queryClient.invalidateQueries({ queryKey: qk.privateDiscussions(user.id) })
     }
 
     const handleChatBadge = () => {
-      queryClient.invalidateQueries({ queryKey: ['private-discussions', user.id] })
-    }
-
-    const handleReconnect = () => {
-      queryClient.invalidateQueries({ queryKey: ['private-discussions'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications-count'] })
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: qk.privateDiscussions(user.id) })
     }
 
     socket.on('notification', handleNotification)
     socket.on('chatBadgeUpdate', handleChatBadge)
-    socket.on('reconnect', handleReconnect)
     return () => {
       socket.off('notification', handleNotification)
       socket.off('chatBadgeUpdate', handleChatBadge)
-      socket.off('reconnect', handleReconnect)
     }
   }, [socket, user, router, queryClient])
 

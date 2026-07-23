@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useSocket } from '@/app/hooks/useSocket'
@@ -39,7 +40,7 @@ export default function PublicDiscussionPage() {
 
   // Metadata de la discussion
   const { data: allDiscussions } = useQuery({
-    queryKey: ['public-discussions-all'],
+    queryKey: qk.publicDiscussionsAll(),
     queryFn: () => apiJson('/messages/public'),
   })
   const discussion = (allDiscussions as PublicDiscussion[] | undefined)?.find((d) => d.id === id)
@@ -48,7 +49,7 @@ export default function PublicDiscussionPage() {
 
   // Messages
   const { data: messages, isLoading, isError } = useQuery({
-    queryKey: ['public-discussion-messages', id],
+    queryKey: qk.publicDiscussionMessages(id),
     queryFn: () => apiJson<Message[]>(`/messages/public/${id}`),
     enabled: !!id,
     staleTime: Infinity,
@@ -62,7 +63,7 @@ export default function PublicDiscussionPage() {
         body: JSON.stringify({ content: text, clientMessageId }),
       }),
     onMutate: async ({ text, clientMessageId }) => {
-      await queryClient.cancelQueries({ queryKey: ['public-discussion-messages', id] })
+      await queryClient.cancelQueries({ queryKey: qk.publicDiscussionMessages(id) })
       const prev = queryClient.getQueryData(['public-discussion-messages', id])
       const optimistic: Message = {
         id: clientMessageId,

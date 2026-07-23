@@ -48,7 +48,7 @@ export class CronService implements OnApplicationBootstrap {
 
   private async releaseLock(jobName: string): Promise<void> {
     if (!this.redis) return;
-    await this.redis.del(`cron:lock:${jobName}`).catch(() => undefined);
+    await this.redis.del(`cron:lock:${jobName}`).catch((err) => this.logger.warn(`Failed to release cron lock ${jobName}: ${err?.message}`));
   }
 
   /**
@@ -110,7 +110,7 @@ export class CronService implements OnApplicationBootstrap {
         if (count > 0) {
           this.logger.log(`Archived ${count} expired opportunities`);
           // Stats cache reflects opportunity counts — must be invalidated after bulk archive
-          if (this.redis) await this.redis.del('admin:stats').catch(() => undefined);
+          if (this.redis) await this.redis.del('admin:stats').catch((err) => this.logger.warn(`Redis stats cache invalidation failed after bulk archive: ${err?.message}`));
         }
       } catch (err) {
         this.logger.error('Failed to archive expired opportunities', err);

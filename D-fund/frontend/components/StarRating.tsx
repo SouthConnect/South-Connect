@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { Star } from 'lucide-react'
@@ -40,12 +41,12 @@ export default function StarRating({ itemId, interactive = false, size = 'md' }:
   const [hovered, setHovered] = useState(0)
 
   const { data: stats } = useQuery<RatingStats>({
-    queryKey: ['rating-stats', itemId],
+    queryKey: qk.ratingStats(itemId),
     queryFn: () => apiJson(`/ratings/${itemId}/stats`),
   })
 
   const { data: myRating } = useQuery<{ rating: number } | null>({
-    queryKey: ['my-rating', itemId],
+    queryKey: qk.myRating(itemId),
     queryFn: () => apiJson(`/ratings/${itemId}/my`),
     enabled: !!user && interactive,
   })
@@ -54,8 +55,8 @@ export default function StarRating({ itemId, interactive = false, size = 'md' }:
     mutationFn: (rating: number) =>
       apiJson('/ratings', { method: 'POST', body: JSON.stringify({ itemId, rating }) }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['rating-stats', itemId] })
-      queryClient.invalidateQueries({ queryKey: ['my-rating', itemId] })
+      queryClient.invalidateQueries({ queryKey: qk.ratingStats(itemId) })
+      queryClient.invalidateQueries({ queryKey: qk.myRating(itemId) })
       toast.success('Note enregistrée')
     },
     onError: (e: any) => toast.error(e.message || 'Impossible d\'enregistrer la note'),

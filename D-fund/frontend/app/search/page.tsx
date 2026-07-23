@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { apiJson } from '@/app/lib/api'
 import Link from 'next/link'
@@ -16,7 +17,7 @@ function SearchContent() {
   const [activeTab, setActiveTab] = useState<'all' | 'opportunities' | 'profiles' | 'discussions'>('all')
 
   const { data, isLoading } = useQuery({
-    queryKey: ['search', initialQ],
+    queryKey: qk.search(initialQ),
     queryFn: () => apiJson(`/search?q=${encodeURIComponent(initialQ)}`),
     enabled: initialQ.length >= 2,
   })

@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, OpportunityType, uploadImage, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
@@ -104,9 +105,9 @@ export default function CreateOpportunityPage() {
       return created
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['opportunities'] })
-      queryClient.invalidateQueries({ queryKey: ['my-opportunities'] })
-      queryClient.invalidateQueries({ queryKey: ['my-opportunities-dashboard'] })
+      queryClient.invalidateQueries({ queryKey: qk._root.opportunities })
+      queryClient.invalidateQueries({ queryKey: qk._root.opportunitiesFeed })
+      queryClient.invalidateQueries({ queryKey: qk._root.explore })
       router.push(`/opportunities/${data.id}`)
     },
     onError: (error: unknown) => {

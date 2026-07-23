@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/app/lib/AuthContext'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, uploadImage, getErrorMessage } from '@/app/lib/api'
 import AuthGuard from '@/components/AuthGuard'
 import { ArrowLeft, FileText, Paperclip, Gift, Send, ExternalLink, Upload, X, Download } from 'lucide-react'
@@ -40,7 +41,7 @@ export default function ApplicationDetailPage() {
     isError,
     error,
   } = useQuery<Application[]>({
-    queryKey: ['my-applications-full', user?.id],
+    queryKey: qk.myApplicationsFull(user?.id ?? ''),
     queryFn: () => apiJson<Application[]>(`/applications/user/${user?.id}`),
     enabled: !!user?.id,
   })
@@ -106,7 +107,7 @@ export default function ApplicationDetailPage() {
       }),
     onSuccess: (_, { silent }) => {
       setHasPendingSave(false)
-      queryClient.invalidateQueries({ queryKey: ['my-applications-full', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.myApplicationsFull(user?.id ?? '') })
       if (!silent) toast.success('Brouillon sauvegardé !')
     },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Échec de la sauvegarde')),
@@ -116,7 +117,7 @@ export default function ApplicationDetailPage() {
     mutationFn: () =>
       apiJson(`/applications/${id}/submit`, { method: 'POST' }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-applications-full', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.myApplicationsFull(user?.id ?? '') })
       toast.success('Candidature envoyée !')
       router.push('/applications')
     },
@@ -207,7 +208,7 @@ export default function ApplicationDetailPage() {
           attachmentUrl: url,
         }),
       })
-      queryClient.invalidateQueries({ queryKey: ['my-applications-full', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.myApplicationsFull(user?.id ?? '') })
       toast.success('Fichier uploadé et sauvegardé !')
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, "Erreur lors de l'upload"))
@@ -230,7 +231,7 @@ export default function ApplicationDetailPage() {
         attachmentUrl: undefined,
       }),
     }).catch(() => null)
-    queryClient.invalidateQueries({ queryKey: ['my-applications-full', user?.id] })
+    queryClient.invalidateQueries({ queryKey: qk.myApplicationsFull(user?.id ?? '') })
     toast.success('Pièce jointe supprimée')
   }
 

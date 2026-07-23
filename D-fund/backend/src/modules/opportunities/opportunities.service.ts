@@ -28,7 +28,7 @@ export class OpportunitiesService {
   ) {}
 
   private async invalidateStatsCache() {
-    if (this.redis) await this.redis.del(ADMIN_STATS_CACHE_KEY).catch(() => undefined);
+    if (this.redis) await this.redis.del(ADMIN_STATS_CACHE_KEY).catch((err) => this.logger.warn(`Redis stats cache invalidation failed: ${err?.message}`));
   }
 
   private async invalidateFeedCache() {
@@ -41,7 +41,7 @@ export class OpportunitiesService {
         stream.on('end', resolve);
         stream.on('error', reject);
       });
-      if (keys.length) await this.redis.del(...keys).catch(() => undefined);
+      if (keys.length) await this.redis.del(...keys).catch((err) => this.logger.warn(`Redis feed cache del failed: ${err?.message}`));
     } catch {
       // Redis indisponible — le cache expirera naturellement (TTL 45s)
     }
@@ -174,7 +174,7 @@ export class OpportunitiesService {
 
     const result = { data: pageItems, total: isPublicFeed ? undefined : total, hasMore, nextCursor };
     if (isCacheable && feedCacheKey) {
-      this.redis!.setex(feedCacheKey, FEED_CACHE_TTL_SECONDS, JSON.stringify(result)).catch(() => undefined);
+      this.redis!.setex(feedCacheKey, FEED_CACHE_TTL_SECONDS, JSON.stringify(result)).catch((err) => this.logger.warn(`Redis feed cache write failed: ${err?.message}`));
     }
     if (requesterId) {
       const enriched = await this.attachSocialState(pageItems, requesterId);
@@ -515,7 +515,7 @@ export class OpportunitiesService {
     if (this.redis) {
       this.redis
         .set(ADMIN_STATS_CACHE_KEY, JSON.stringify(stats), 'EX', ADMIN_STATS_TTL_SECONDS)
-        .catch(() => undefined);
+        .catch((err) => this.logger.warn(`Redis admin stats cache write failed: ${err?.message}`));
     }
 
     return stats;

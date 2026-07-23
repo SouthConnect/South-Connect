@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
+import { qk } from '@/app/lib/queryKeys'
 import { stageLabel, stageColor } from '@/app/lib/stage-labels'
 import { useAuth } from '@/app/lib/AuthContext'
 import AuthGuard from '@/components/AuthGuard'
@@ -35,7 +36,7 @@ export default function ApplicationsPage() {
     isError,
     error,
   } = useQuery<Application[]>({
-    queryKey: ['my-applications-full', user?.id],
+    queryKey: qk.myApplicationsFull(user?.id ?? ''),
     queryFn: () => apiJson<Application[]>(`/applications/user/${user?.id}`),
     enabled: !!user?.id,
   })

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { apiJson } from '@/app/lib/api'
+import { qk } from '@/app/lib/queryKeys'
 import Link from 'next/link'
 import {
   Search, Briefcase, Users, Lightbulb, DollarSign, Calendar, Rocket,
@@ -106,7 +107,7 @@ export default function ExplorePage() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery<{ data: Opportunity[]; nextCursor: string | null; hasMore: boolean }>({
-    queryKey: ['explore', typeFilter, countryFilter, dateDays, remoteOnly],
+    queryKey: qk.explore(typeFilter, countryFilter, dateDays, remoteOnly),
     queryFn: ({ pageParam }) => apiJson(buildUrl(pageParam as string | undefined)),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
@@ -126,7 +127,7 @@ export default function ExplorePage() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   const { data: profiles } = useQuery<any[]>({
-    queryKey: ['explore-profiles'],
+    queryKey: qk.exploreProfiles(),
     queryFn: () => apiJson('/profiles/lists/members?take=6'),
     enabled: activeGroup === null && !hasFilters,
     staleTime: 3 * 60 * 1000,

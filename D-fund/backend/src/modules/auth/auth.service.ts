@@ -205,21 +205,42 @@ export class AuthService implements OnModuleDestroy {
     return `login:attempts:${email.toLowerCase()}`;
   }
 
-  private async checkAndIncrementLoginAttempts(email: string): Promise<void> {
-    if (!this.redis) return;
-    const key = this.loginAttemptKey(email);
-    const attempts = await this.redis.incr(key);
-    if (attempts === 1) {
-      await this.redis.expire(key, AuthService.LOCK_TTL_SECONDS);
+  // In-memory fallback used when Redis is absent (single-process only — sufficient for dev/staging).
+  private readonly loginAttemptsMap = new Map<string, { count: number; expiresAt: number }>();
+  private readonly loginAttemptsCleanup = setInterval(() => {
+    if (this.redis) return;
+    const now = Date.now();
+    for (const [k, v] of this.loginAttemptsMap) {
+      if (v.expiresAt < now) this.loginAttemptsMap.delete(k);
     }
-    if (attempts > AuthService.MAX_LOGIN_ATTEMPTS) {
+  }, 5 * 60 * 1000).unref();
+
+  private async checkAndIncrementLoginAttempts(email: string): Promise<void> {
+    const key = this.loginAttemptKey(email);
+    if (this.redis) {
+      const attempts = await this.redis.incr(key);
+      if (attempts === 1) await this.redis.expire(key, AuthService.LOCK_TTL_SECONDS);
+      if (attempts > AuthService.MAX_LOGIN_ATTEMPTS) {
+        throw new UnauthorizedException('Too many failed attempts — try again in 15 minutes');
+      }
+      return;
+    }
+    const now = Date.now();
+    const entry = this.loginAttemptsMap.get(key);
+    const count = (entry && entry.expiresAt > now ? entry.count : 0) + 1;
+    this.loginAttemptsMap.set(key, { count, expiresAt: now + AuthService.LOCK_TTL_SECONDS * 1000 });
+    if (count > AuthService.MAX_LOGIN_ATTEMPTS) {
       throw new UnauthorizedException('Too many failed attempts — try again in 15 minutes');
     }
   }
 
   private async resetLoginAttempts(email: string): Promise<void> {
-    if (!this.redis) return;
-    await this.redis.del(this.loginAttemptKey(email));
+    const key = this.loginAttemptKey(email);
+    if (this.redis) {
+      await this.redis.del(key);
+      return;
+    }
+    this.loginAttemptsMap.delete(key);
   }
 
   /**
@@ -230,11 +251,18 @@ export class AuthService implements OnModuleDestroy {
    */
   async login(dto: LoginDto) {
     // Vérifier le lock brute-force avant de toucher la DB (fail-fast)
-    if (this.redis) {
+    {
       const key = this.loginAttemptKey(dto.email);
-      const attempts = parseInt(await this.redis.get(key) ?? '0', 10);
-      if (attempts >= AuthService.MAX_LOGIN_ATTEMPTS) {
-        throw new UnauthorizedException('Too many failed attempts — try again in 15 minutes');
+      if (this.redis) {
+        const attempts = parseInt(await this.redis.get(key) ?? '0', 10);
+        if (attempts >= AuthService.MAX_LOGIN_ATTEMPTS) {
+          throw new UnauthorizedException('Too many failed attempts — try again in 15 minutes');
+        }
+      } else {
+        const entry = this.loginAttemptsMap.get(key);
+        if (entry && entry.expiresAt > Date.now() && entry.count >= AuthService.MAX_LOGIN_ATTEMPTS) {
+          throw new UnauthorizedException('Too many failed attempts — try again in 15 minutes');
+        }
       }
     }
 

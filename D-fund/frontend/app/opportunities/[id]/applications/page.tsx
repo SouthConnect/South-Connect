@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { stageLabel, stageColor } from '@/app/lib/stage-labels'
@@ -40,7 +41,7 @@ export default function OpportunityApplicationsPage() {
     data: opportunity,
     isLoading: isLoadingOpportunity,
   } = useQuery({
-    queryKey: ['opportunity', opportunityId],
+    queryKey: qk.opportunity(opportunityId),
     queryFn: () => apiJson(`/opportunities/${opportunityId}`),
     enabled: !!opportunityId,
   })
@@ -50,7 +51,7 @@ export default function OpportunityApplicationsPage() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['owner-applications', opportunityId],
+    queryKey: qk.ownerApplications(opportunityId),
     queryFn: () => apiJson(`/applications/opportunity/${opportunityId}`),
     enabled: !!opportunityId && !!user?.id,
   })
@@ -84,7 +85,7 @@ export default function OpportunityApplicationsPage() {
         }),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['owner-applications', opportunityId] })
+      queryClient.invalidateQueries({ queryKey: qk.ownerApplications(opportunityId) })
       setReviewSaved(true)
       setTimeout(() => setReviewSaved(false), 3000)
     },

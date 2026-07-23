@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { qk } from '@/app/lib/queryKeys'
 import { apiJson } from '@/app/lib/api'
 import AuthGuard from '@/components/AuthGuard'
 import { Bell, Mail, Loader2, CheckCircle } from 'lucide-react'
@@ -74,7 +75,7 @@ function PrefsPageContent() {
   useEffect(() => () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current) }, [])
 
   const { data: prefs, isLoading, isError } = useQuery<NotificationPreferences>({
-    queryKey: ['notificationPrefs', user?.id],
+    queryKey: qk.notificationPrefs(user?.id ?? ''),
     queryFn: () => apiJson('/notifications/preferences'),
     enabled: !!user?.id,
   })
@@ -90,7 +91,7 @@ function PrefsPageContent() {
     },
     onError: () => {
       // Rollback optimistic update on error
-      queryClient.invalidateQueries({ queryKey: ['notificationPrefs', user?.id] })
+      queryClient.invalidateQueries({ queryKey: qk.notificationPrefs(user?.id ?? '') })
     },
   })
 
