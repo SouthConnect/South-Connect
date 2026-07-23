@@ -235,6 +235,7 @@ model Application {
 
 model Message {
   id                  String             @id @default(cuid())
+  clientMessageId     String?            @unique
   content             String
   senderId            String
   receiverId          String?

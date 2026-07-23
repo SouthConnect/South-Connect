@@ -157,6 +157,7 @@ export default function OpportunityDetailPage() {
     mutationFn: (ownerId: string) =>
       apiJson(`/messages/private/start/${ownerId}`, { method: 'POST' }),
     onSuccess: (discussion: Pick<PrivateDiscussion, 'id'>) => {
+      queryClient.invalidateQueries({ queryKey: ['private-discussions', user?.id] })
       if (discussion?.id) router.push(`/chat/private/${discussion.id}`)
     },
     onError: (error: unknown) => {

@@ -93,6 +93,7 @@ function RowActions({ userId, isFollowing }: { userId: string; isFollowing: bool
   const startConversation = useTrackedMutation('conversation.start', {
     mutationFn: () => apiJson(`/messages/private/start/${userId}`, { method: 'POST' }),
     onSuccess: (discussion: any) => {
+      queryClient.invalidateQueries({ queryKey: ['private-discussions', user?.id] })
       if (discussion?.id) router.push(`/chat/private/${discussion.id}`)
     },
     onError: () => toast.error("Impossible d'ouvrir la conversation"),

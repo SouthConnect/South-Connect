@@ -249,7 +249,7 @@ export class MessagesService {
 
     const message = await this.prisma.$transaction(async (tx) => {
       const msg = await tx.message.create({
-        data: { content, senderId, publicDiscussionId: discussionId },
+        data: { content, senderId, publicDiscussionId: discussionId, clientMessageId: clientMessageId ?? null },
         include: { sender: { select: { id: true, name: true, profilePic: true } } },
       });
       await tx.publicDiscussion.update({
@@ -347,6 +347,7 @@ export class MessagesService {
           senderId,
           receiverId: otherParticipant?.userId,
           privateDiscussionId: discussionId,
+          clientMessageId: clientMessageId ?? null,
         },
         include: { sender: { select: { id: true, name: true, profilePic: true } } },
       });

@@ -56,7 +56,10 @@ export default function AnalyticsPage() {
 
   const { data: myOpps } = useQuery<Opportunity[]>({
     queryKey: ['analytics-my-opps', user?.id],
-    queryFn: () => apiJson<Opportunity[]>(`/opportunities/user/${user?.id}?take=100`),
+    queryFn: () =>
+      apiJson<{ data: Opportunity[]; total: number; hasMore: boolean }>(
+        `/opportunities/user/${user?.id}?take=100`,
+      ).then((res) => res.data),
     enabled: !!user?.id,
   })
 
