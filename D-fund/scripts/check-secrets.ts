@@ -32,6 +32,27 @@ function getStagedFiles(): string[] {
   return output.split('\n').filter(Boolean);
 }
 
+function getDeletedFiles(): string[] {
+  const output = execSync('git diff --cached --name-only --diff-filter=D', { encoding: 'utf8' }).trim();
+  if (!output) return [];
+  return output.split('\n').filter(Boolean);
+}
+
+const PROTECTED_INFRA_FILES = [
+  'D-fund/frontend/vercel.json',
+  'D-fund/railway.toml',
+  'D-fund/frontend/next.config.js',
+  'D-fund/frontend/middleware.ts',
+  'D-fund/prisma/schema.prisma',
+  'D-fund/backend/src/main.ts',
+];
+
+function checkDeletedInfraFiles(deletedFiles: string[]): string[] {
+  return deletedFiles
+    .filter((f) => PROTECTED_INFRA_FILES.includes(f))
+    .map((f) => `Suppression d'un fichier d'infrastructure protégé : ${f}\n    Confirmez explicitement cette suppression avec l'utilisateur avant de pusher.`);
+}
+
 function isEnvFile(filePath: string): boolean {
   const base = path.basename(filePath);
   return (
@@ -104,6 +125,10 @@ function main() {
     }
 
     const problems: string[] = [];
+
+    // Vérifier les suppressions de fichiers d'infrastructure protégés
+    const deletedFiles = getDeletedFiles();
+    problems.push(...checkDeletedInfraFiles(deletedFiles));
 
     for (const file of stagedFiles) {
       // 1) Bloquer explicitement les fichiers d'environnement
