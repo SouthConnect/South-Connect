@@ -107,7 +107,13 @@ async function bootstrap() {
   const sessionStore = redisUrl
     ? (() => {
         const Redis = require('ioredis');
-        const client = new Redis(redisUrl, { lazyConnect: true, enableOfflineQueue: false });
+        // Connect eagerly — lazyConnect + enableOfflineQueue:false caused the first
+        // session write (OAuth state) to fail silently before Redis was ready,
+        // producing a state mismatch and OAUTH_FAILED on the callback.
+        const client = new Redis(redisUrl, {
+          maxRetriesPerRequest: null,
+          enableReadyCheck: false,
+        });
         client.on('error', (err: Error) => logger.warn(`Session Redis error: ${err.message}`));
         return new RedisStore({ client, prefix: 'sess:' });
       })()
