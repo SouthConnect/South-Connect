@@ -53,6 +53,8 @@ export default function PublicDiscussionPage() {
     queryFn: () => apiJson<Message[]>(`/messages/public/${id}`),
     enabled: !!id,
     staleTime: Infinity,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
   })
 
   // Envoi
@@ -63,8 +65,9 @@ export default function PublicDiscussionPage() {
         body: JSON.stringify({ content: text, clientMessageId }),
       }),
     onMutate: async ({ text, clientMessageId }) => {
-      await queryClient.cancelQueries({ queryKey: qk.publicDiscussionMessages(id) })
-      const prev = queryClient.getQueryData(['public-discussion-messages', id])
+      const key = qk.publicDiscussionMessages(id)
+      await queryClient.cancelQueries({ queryKey: key })
+      const prev = queryClient.getQueryData<Message[]>(key)
       const optimistic: Message = {
         id: clientMessageId,
         content: text,
@@ -73,13 +76,13 @@ export default function PublicDiscussionPage() {
         sender: user ? { id: user.id, name: user.name, profilePic: user.profilePic } : undefined,
         clientMessageId,
       }
-      queryClient.setQueryData(['public-discussion-messages', id], (old: Message[] | undefined) =>
+      queryClient.setQueryData<Message[]>(key, (old) =>
         old ? [...old, optimistic] : [optimistic],
       )
       return { prev }
     },
     onError: (err: unknown, __, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['public-discussion-messages', id], ctx.prev)
+      if (ctx?.prev !== undefined) queryClient.setQueryData(qk.publicDiscussionMessages(id), ctx.prev)
       toast.error(getErrorMessage(err, 'Impossible d\'envoyer le message.'))
     },
   })
@@ -90,7 +93,7 @@ export default function PublicDiscussionPage() {
     socket.emit('join', id)
 
     const handleNewMessage = (msg: Message) => {
-      queryClient.setQueryData(['public-discussion-messages', id], (old: Message[] | undefined) => {
+      queryClient.setQueryData<Message[]>(qk.publicDiscussionMessages(id), (old) => {
         if (!old) return [msg]
         if (msg.clientMessageId && old.some((m) => m.id === msg.clientMessageId)) {
           return old.map((m) => m.id === msg.clientMessageId ? msg : m)
@@ -203,13 +206,13 @@ export default function PublicDiscussionPage() {
           </div>
         )}
 
-        {isError && (
+        {isError && msgs.length === 0 && (
           <div className="text-center py-8 text-sm text-red-500">
             Impossible de charger la discussion.
           </div>
         )}
 
-        {!isLoading && !isError && msgs.length === 0 && (
+        {!isLoading && msgs.length === 0 && !isError && (
           <div className="flex flex-col items-center justify-center h-full py-16 text-center">
             <div className="w-12 h-12 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center text-lg font-bold text-[#3b49df] mb-3">
               {title?.[0] || 'D'}
@@ -221,7 +224,7 @@ export default function PublicDiscussionPage() {
           </div>
         )}
 
-        {!isLoading && !isError && msgs.length > 0 && (
+        {!isLoading && msgs.length > 0 && (
           <>
             {msgs.map((m, idx) => {
               const isOwn = m.senderId === user?.id

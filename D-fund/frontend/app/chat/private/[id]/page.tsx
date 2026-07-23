@@ -57,8 +57,9 @@ export default function PrivateDiscussionPage() {
     queryKey: qk.privateDiscussionMessages(id),
     queryFn: () => apiJson<Message[]>(`/messages/private/${id}`),
     enabled: !!id && !!user?.id,
-    // Pas de refetchInterval : le socket gère le temps réel
     staleTime: Infinity,
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10000),
   })
 
   // ── send mutation ──────────────────────────────────────────────────────────
@@ -69,8 +70,9 @@ export default function PrivateDiscussionPage() {
         body: JSON.stringify({ content: text, clientMessageId }),
       }),
     onMutate: async ({ text, clientMessageId }) => {
-      await queryClient.cancelQueries({ queryKey: qk.privateDiscussionMessages(id) })
-      const prev = queryClient.getQueryData(['private-discussion-messages', id])
+      const key = qk.privateDiscussionMessages(id)
+      await queryClient.cancelQueries({ queryKey: key })
+      const prev = queryClient.getQueryData<Message[]>(key)
       const optimistic: Message = {
         id: clientMessageId,
         content: text,
@@ -79,17 +81,17 @@ export default function PrivateDiscussionPage() {
         sender: user ? { id: user.id, name: user.name, profilePic: user.profilePic } : undefined,
         clientMessageId,
       }
-      queryClient.setQueryData(['private-discussion-messages', id], (old: Message[] | undefined) =>
+      queryClient.setQueryData<Message[]>(key, (old) =>
         old ? [...old, optimistic] : [optimistic],
       )
       return { prev, clientMessageId }
     },
-    onSuccess: (_, __, ctx) => {
+    onSuccess: () => {
       // Socket will deliver the confirmed message and replace the optimistic one via clientMessageId
       queryClient.invalidateQueries({ queryKey: qk.privateDiscussions(user?.id ?? '') })
     },
     onError: (err: unknown, __, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(['private-discussion-messages', id], ctx.prev)
+      if (ctx?.prev !== undefined) queryClient.setQueryData(qk.privateDiscussionMessages(id), ctx.prev)
       toast.error(getErrorMessage(err, 'Impossible d\'envoyer le message.'))
     },
   })
@@ -100,7 +102,7 @@ export default function PrivateDiscussionPage() {
     socket.emit('join', id)
 
     const handleNewMessage = (msg: Message) => {
-      queryClient.setQueryData(['private-discussion-messages', id], (old: Message[] | undefined) => {
+      queryClient.setQueryData<Message[]>(qk.privateDiscussionMessages(id), (old) => {
         if (!old) return [msg]
         // Replace optimistic message by clientMessageId if it exists
         if (msg.clientMessageId && old.some((m) => m.id === msg.clientMessageId)) {
@@ -243,13 +245,13 @@ export default function PrivateDiscussionPage() {
           </div>
         )}
 
-        {isError && (
+        {isError && msgs.length === 0 && (
           <div className="text-center py-8 text-sm text-red-500">
             Impossible de charger la conversation.
           </div>
         )}
 
-        {!isLoading && !isError && msgs.length === 0 && (
+        {!isLoading && msgs.length === 0 && !isError && (
           <div className="flex flex-col items-center justify-center h-full py-16 text-center">
             <div className="w-16 h-16 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center text-xl font-bold text-[#3b49df] mb-3 overflow-hidden relative">
               {otherParticipant?.profilePic ? (
@@ -263,7 +265,7 @@ export default function PrivateDiscussionPage() {
           </div>
         )}
 
-        {!isLoading && !isError && msgs.length > 0 && (
+        {!isLoading && msgs.length > 0 && (
           <>
             {msgs.map((m, idx) => {
               const isOwn = m.senderId === user?.id

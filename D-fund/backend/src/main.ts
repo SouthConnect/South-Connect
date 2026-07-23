@@ -22,6 +22,7 @@ import helmet from 'helmet';
 import * as compression from 'compression';
 import * as cookieParser from 'cookie-parser';
 import * as session from 'express-session';
+import { RedisStore } from 'connect-redis';
 import { JsonLoggerService } from './common/logger/json-logger.service';
 import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor';
 import { CorsIoAdapter } from './common/adapters/cors-io.adapter';
@@ -100,8 +101,20 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Session middleware — required only for the Google OAuth state parameter (CSRF protection).
-  // User authentication relies exclusively on JWT HttpOnly cookies, not on this session.
+  // Uses Redis when REDIS_URL is set (production) so the OAuth state survives container restarts.
+  // Falls back to in-memory MemoryStore in local dev (no Redis_URL required).
+  const redisUrl = process.env.REDIS_URL;
+  const sessionStore = redisUrl
+    ? (() => {
+        const Redis = require('ioredis');
+        const client = new Redis(redisUrl, { lazyConnect: true, enableOfflineQueue: false });
+        client.on('error', (err: Error) => logger.warn(`Session Redis error: ${err.message}`));
+        return new RedisStore({ client, prefix: 'sess:' });
+      })()
+    : undefined; // MemoryStore (dev only)
+
   app.use(session({
+    store: sessionStore,
     secret: process.env.SESSION_SECRET || process.env.JWT_SECRET!,
     resave: false,
     saveUninitialized: false,
