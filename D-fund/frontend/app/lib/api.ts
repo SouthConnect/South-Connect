@@ -31,7 +31,8 @@ export class ApiError extends Error {
 const API_TIMEOUT_MS = 15000
 
 /**
- * Singleton promise shared across all concurrent apiCall() invocations.
+ * Singleton promise shared across all concurrent apiCall() invocations
+ * within this tab.
  *
  * Without this mutex, multiple parallel requests that all receive a 401 at the
  * same moment would each independently attempt a token refresh. The first
@@ -48,10 +49,10 @@ const API_TIMEOUT_MS = 15000
 type RefreshResult = 'ok' | 'expired' | 'server-error'
 let _refreshPromise: Promise<RefreshResult> | null = null
 
-const attemptTokenRefresh = (apiUrl: string): Promise<RefreshResult> => {
-  if (_refreshPromise) return _refreshPromise
+const hasWebLocks = typeof navigator !== 'undefined' && 'locks' in navigator
 
-  _refreshPromise = fetch(`${apiUrl}/auth/refresh`, {
+const doRefreshRequest = (apiUrl: string): Promise<RefreshResult> =>
+  fetch(`${apiUrl}/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
   })
@@ -62,9 +63,28 @@ const attemptTokenRefresh = (apiUrl: string): Promise<RefreshResult> => {
       return 'expired' // 401/403 → token définitivement invalide
     })
     .catch((): RefreshResult => 'server-error') // erreur réseau — ne pas déconnecter
-    .finally(() => {
-      _refreshPromise = null
-    })
+
+const attemptTokenRefresh = (apiUrl: string): Promise<RefreshResult> => {
+  if (_refreshPromise) return _refreshPromise
+
+  // Web Locks API: serializes the refresh across every tab of the same origin,
+  // not just within this tab. Without this, two tabs waking up at the same
+  // moment would each send the same (still valid at that instant) refresh_token
+  // cookie in parallel — the backend only accepts the first (single-use
+  // rotation), and the second tab treats its rejection as a real logout even
+  // though the session is fine. Queuing behind the lock means the second tab's
+  // request only fires after the first tab's Set-Cookie has already landed, so
+  // it refreshes from the new cookie instead of racing the old one.
+  // Note: navigator.locks.request()'s TS signature doesn't model its actual
+  // runtime behavior of unwrapping the callback's returned promise, so the
+  // result needs a manual cast back to Promise<RefreshResult>.
+  _refreshPromise = (
+    hasWebLocks
+      ? (navigator.locks.request('dfund-refresh-token', () => doRefreshRequest(apiUrl)) as unknown as Promise<RefreshResult>)
+      : doRefreshRequest(apiUrl)
+  ).finally(() => {
+    _refreshPromise = null
+  })
 
   return _refreshPromise
 }
