@@ -81,15 +81,15 @@ export function useSocket(): Socket | null {
         }
       })
 
-      // Reconnect: dismiss error toast and refetch data missed during the
-      // disconnection window. Using prefix roots covers all open chat pages
-      // without needing to know specific IDs. User-specific keys use the
-      // captured userId to avoid cross-user cache collisions.
+      // Reconnect: dismiss error toast and refetch the lightweight, always-
+      // relevant data (conversation list + notification badges). The message
+      // cache of whichever discussion is actually open is refreshed by that
+      // page's own reconnect handler (see chat/private|public/[id]/page.tsx) —
+      // invalidating every cached discussion's messages here, open or not,
+      // would trigger a refetch storm on every reconnection.
       sharedSocket.on('reconnect', () => {
         const uid = currentUserId
         toast.dismiss('socket-error')
-        queryClient.invalidateQueries({ queryKey: qk._root.privateDiscussionMessages })
-        queryClient.invalidateQueries({ queryKey: qk._root.publicDiscussionMessages })
         if (uid) {
           queryClient.invalidateQueries({ queryKey: qk.privateDiscussions(uid) })
           queryClient.invalidateQueries({ queryKey: qk.notifications(uid) })

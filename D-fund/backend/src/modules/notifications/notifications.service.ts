@@ -253,6 +253,22 @@ export class NotificationsService {
   }
 
   /**
+   * Marks all unread notifications pointing to the given link as read.
+   *
+   * Used to reconcile the notification bell with feature-specific "already
+   * read" signals — e.g. opening a private chat discussion also clears the
+   * NEW_MESSAGE notification that was created for it, so the bell badge
+   * doesn't stay stuck after the underlying content has been read elsewhere.
+   */
+  async markReadByLink(userId: string, link: string): Promise<{ success: boolean }> {
+    await this.prisma.notification.updateMany({
+      where: { userId, link, isRead: false },
+      data: { isRead: true },
+    });
+    return { success: true };
+  }
+
+  /**
    * Sends an email verification message to the given user.
    * Falls back to a log entry when the email client is not configured.
    */

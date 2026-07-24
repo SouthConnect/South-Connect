@@ -278,6 +278,10 @@ model Participant {
   discussionId String
   joinedAt     DateTime          @default(now())
   unreadCount  Int               @default(0)
+  // Timestamp of this participant's last "mark as read" action. Null means
+  // never read — lets the nightly counter-resync cron recompute unreadCount
+  // from message history instead of only ever resetting it to 0.
+  lastReadAt   DateTime?
   discussion   PrivateDiscussion @relation("PrivateDiscussionParticipants", fields: [discussionId], references: [id], onDelete: Cascade)
   user         User              @relation("PrivateDiscussionParticipants", fields: [userId], references: [id], onDelete: Cascade)
 

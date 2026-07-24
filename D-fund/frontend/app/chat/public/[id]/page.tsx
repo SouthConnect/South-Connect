@@ -116,15 +116,29 @@ export default function PublicDiscussionPage() {
       })
     }
 
+    // Room membership is per Socket.IO connection instance — a reconnection
+    // (network blip, laptop wake) gets a fresh server-side socket and loses
+    // it silently. Without re-joining here, messages sent while "reconnected"
+    // never reach this client until the page is remounted. Also refetch this
+    // conversation's messages to catch anything sent during the gap between
+    // disconnect and this re-join (targeted — only this open conversation,
+    // not every cached discussion; see useSocket.ts's own reconnect handler).
+    const handleReconnect = () => {
+      socket.emit('join', id)
+      queryClient.invalidateQueries({ queryKey: qk.publicDiscussionMessages(id) })
+    }
+
     socket.on('newMessage', handleNewMessage)
     socket.on('typing', handleTyping)
     socket.on('stopTyping', handleStopTyping)
+    socket.on('reconnect', handleReconnect)
 
     return () => {
       socket.emit('leave', id)
       socket.off('newMessage', handleNewMessage)
       socket.off('typing', handleTyping)
       socket.off('stopTyping', handleStopTyping)
+      socket.off('reconnect', handleReconnect)
     }
   }, [socket, id, user?.id, queryClient])
 

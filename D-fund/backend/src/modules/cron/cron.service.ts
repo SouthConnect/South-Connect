@@ -183,9 +183,17 @@ export class CronService implements OnApplicationBootstrap {
   }
 
   /**
-   * Deletes DRAFT opportunities not modified in the last 7 days.
+   * Soft-deletes DRAFT opportunities not modified in the last 7 days.
    * 48 h was too aggressive — a user spending a weekend writing a draft
    * would silently lose their work.
+   *
+   * Soft-delete, not hard delete: a hard `deleteMany` here would cascade-
+   * remove any Application, LikedOpportunity, or SavedOpportunity attached
+   * to the draft (all `onDelete: Cascade` in the schema), which contradicts
+   * the soft-delete migration's own stated goal — "opportunities recoverable,
+   * related data (applications, discussions) intact" — for whichever drafts
+   * happen to have interactions attached.
+   *
    * Runs at 03:30 UTC.
    */
   @Cron('30 3 * * *')
@@ -193,10 +201,11 @@ export class CronService implements OnApplicationBootstrap {
     await this.withLock('cleanupOrphanDrafts', async () => {
       const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       try {
-        const { count } = await this.prisma.opportunity.deleteMany({
-          where: { status: OpportunityStatus.DRAFT, updatedAt: { lt: cutoff } },
+        const { count } = await this.prisma.opportunity.updateMany({
+          where: { status: OpportunityStatus.DRAFT, updatedAt: { lt: cutoff }, deletedAt: null },
+          data: { deletedAt: new Date() },
         });
-        if (count > 0) this.logger.log(`Deleted ${count} orphan DRAFT opportunities (>7 days)`);
+        if (count > 0) this.logger.log(`Soft-deleted ${count} orphan DRAFT opportunities (>7 days)`);
       } catch (err) {
         this.logger.error('Failed to clean up orphan DRAFT opportunities', err);
         Sentry.captureException(err, { tags: { cron: 'cleanupOrphanDrafts' } });
@@ -222,6 +231,7 @@ export class CronService implements OnApplicationBootstrap {
         await this._recountOpportunityCounters();
         await this._recountIndustryFeatureCounters();
         await this._recountDiscussionMembersCount();
+        await this._recountUnreadCounts();
         this.logger.log('Full counter resync complete');
       } catch (err) {
         this.logger.error('Failed to resync counters', err);
@@ -241,7 +251,7 @@ export class CronService implements OnApplicationBootstrap {
     await this.withLock('recomputeTrendingScores', async () => {
       try {
         const opportunities = await this.prisma.opportunity.findMany({
-          where: { status: OpportunityStatus.ACTIVE },
+          where: { status: OpportunityStatus.ACTIVE, deletedAt: null },
           select: {
             id: true,
             likesCount: true,
@@ -450,5 +460,35 @@ export class CronService implements OnApplicationBootstrap {
     }
 
     this.logger.debug(`Discussion membersCount + likesCount resynced for ${discussions.length} discussions`);
+  }
+
+  /**
+   * Recomputes Participant.unreadCount from message history, using lastReadAt
+   * as the read cursor (null = never read, so every message from the other
+   * participant counts). Corrects any drift from the real-time increment on
+   * message send (best-effort, outside the message transaction) and from the
+   * mark-as-read reset — both paths can silently diverge from the true count.
+   */
+  private async _recountUnreadCounts() {
+    const participants = await this.prisma.participant.findMany({
+      select: { id: true, userId: true, discussionId: true, lastReadAt: true },
+    });
+
+    for (let i = 0; i < participants.length; i += 20) {
+      await Promise.all(
+        participants.slice(i, i + 20).map(async ({ id, userId, discussionId, lastReadAt }) => {
+          const unreadCount = await this.prisma.message.count({
+            where: {
+              privateDiscussionId: discussionId,
+              senderId: { not: userId },
+              ...(lastReadAt ? { createdAt: { gt: lastReadAt } } : {}),
+            },
+          });
+          await this.prisma.participant.update({ where: { id }, data: { unreadCount } });
+        }),
+      );
+    }
+
+    this.logger.debug(`unreadCount resynced for ${participants.length} participants`);
   }
 }

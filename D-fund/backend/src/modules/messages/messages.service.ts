@@ -296,8 +296,16 @@ export class MessagesService {
 
     await this.prisma.participant.updateMany({
       where: { userId, discussionId },
-      data: { unreadCount: 0 },
+      data: { unreadCount: 0, lastReadAt: new Date() },
     });
+
+    // Best-effort: also clears the NEW_MESSAGE bell notification for this
+    // discussion so it doesn't stay stuck after the messages have been read.
+    try {
+      await this.notificationsService.markReadByLink(userId, `/chat/private/${discussionId}`);
+    } catch (err) {
+      this.logger.error(`Failed to reconcile NEW_MESSAGE notification: ${err.message}`);
+    }
 
     return { success: true };
   }
@@ -355,6 +363,12 @@ export class MessagesService {
         where: { id: discussionId },
         data: { lastMessageAt: new Date() },
       });
+      if (otherParticipant) {
+        await tx.participant.updateMany({
+          where: { userId: otherParticipant.userId, discussionId },
+          data: { unreadCount: { increment: 1 } },
+        });
+      }
       return msg;
     });
 
@@ -362,11 +376,6 @@ export class MessagesService {
 
     if (otherParticipant) {
       try {
-        await this.prisma.participant.updateMany({
-          where: { userId: otherParticipant.userId, discussionId },
-          data: { unreadCount: { increment: 1 } },
-        });
-
         // Always push a lightweight badge-update event to the recipient's socket,
         // regardless of their in-app notification preferences. This keeps the
         // unread-chat badge in sync even when inAppNewMessage is disabled.

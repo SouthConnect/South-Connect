@@ -114,7 +114,13 @@ export default function PrivateDiscussionPage() {
       // Debounce /read — coalesce bursts of messages into a single API call
       if (readDebounceTimer.current) clearTimeout(readDebounceTimer.current)
       readDebounceTimer.current = setTimeout(() => {
-        apiJson(`/messages/private/${id}/read`, { method: 'POST' }).catch(() => {})
+        apiJson(`/messages/private/${id}/read`, { method: 'POST' })
+          .then(() => {
+            // Keeps the Sidebar/chat-list unread badge in sync — otherwise it
+            // stays stuck until an unrelated socket event invalidates it.
+            if (user?.id) queryClient.invalidateQueries({ queryKey: qk.privateDiscussions(user.id) })
+          })
+          .catch(() => {})
       }, 500)
     }
 
@@ -131,15 +137,29 @@ export default function PrivateDiscussionPage() {
       })
     }
 
+    // Room membership is per Socket.IO connection instance — a reconnection
+    // (network blip, laptop wake) gets a fresh server-side socket and loses
+    // it silently. Without re-joining here, messages sent while "reconnected"
+    // never reach this client until the page is remounted. Also refetch this
+    // conversation's messages to catch anything sent during the gap between
+    // disconnect and this re-join (targeted — only this open conversation,
+    // not every cached discussion; see useSocket.ts's own reconnect handler).
+    const handleReconnect = () => {
+      socket.emit('join', id)
+      queryClient.invalidateQueries({ queryKey: qk.privateDiscussionMessages(id) })
+    }
+
     socket.on('newMessage', handleNewMessage)
     socket.on('typing', handleTyping)
     socket.on('stopTyping', handleStopTyping)
+    socket.on('reconnect', handleReconnect)
 
     return () => {
       socket.emit('leave', id)
       socket.off('newMessage', handleNewMessage)
       socket.off('typing', handleTyping)
       socket.off('stopTyping', handleStopTyping)
+      socket.off('reconnect', handleReconnect)
     }
   }, [socket, id, user?.id, queryClient])
 
@@ -151,8 +171,12 @@ export default function PrivateDiscussionPage() {
   // ── mark as read on mount ──────────────────────────────────────────────────
   useEffect(() => {
     if (!id || !user?.id) return
-    apiJson(`/messages/private/${id}/read`, { method: 'POST' }).catch(() => {})
-  }, [id, user?.id])
+    apiJson(`/messages/private/${id}/read`, { method: 'POST' })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: qk.privateDiscussions(user.id) })
+      })
+      .catch(() => {})
+  }, [id, user?.id, queryClient])
 
   // ── cleanup timers on unmount ──────────────────────────────────────────────
   useEffect(() => {
