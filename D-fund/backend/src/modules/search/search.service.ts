@@ -29,10 +29,10 @@ export class SearchService {
   private toTsQuery(term: string): string {
     return term
       .trim()
-      .replace(/[&|!():*\\]/g, ' ')  // strip tsquery operators
+      .replace(/[&|!():*\\]/g, ' ') // strip tsquery operators
       .split(/\s+/)
       .filter(Boolean)
-      .map((word) => `${word}:*`)    // prefix search
+      .map((word) => `${word}:*`) // prefix search
       .join(' | ');
   }
 

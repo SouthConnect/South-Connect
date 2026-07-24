@@ -105,7 +105,11 @@ export class NotificationsService {
   }
 
   private static escapeAttr(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   private static btn(href: string, label: string): string {
@@ -220,22 +224,25 @@ export class NotificationsService {
    * Updates notification preferences for a user.
    * Only provided fields are changed — all others remain as-is.
    */
-  async updatePreferences(userId: string, data: Partial<{
-    emailApplicationSubmitted: boolean;
-    emailApplicationReviewed: boolean;
-    emailApplicationAccepted: boolean;
-    emailOpportunityApproved: boolean;
-    emailOpportunityRejected: boolean;
-    emailNewMessage: boolean;
-    emailNewFollower: boolean;
-    inAppApplicationSubmitted: boolean;
-    inAppApplicationReviewed: boolean;
-    inAppApplicationAccepted: boolean;
-    inAppOpportunityApproved: boolean;
-    inAppOpportunityRejected: boolean;
-    inAppNewMessage: boolean;
-    inAppNewFollower: boolean;
-  }>) {
+  async updatePreferences(
+    userId: string,
+    data: Partial<{
+      emailApplicationSubmitted: boolean;
+      emailApplicationReviewed: boolean;
+      emailApplicationAccepted: boolean;
+      emailOpportunityApproved: boolean;
+      emailOpportunityRejected: boolean;
+      emailNewMessage: boolean;
+      emailNewFollower: boolean;
+      inAppApplicationSubmitted: boolean;
+      inAppApplicationReviewed: boolean;
+      inAppApplicationAccepted: boolean;
+      inAppOpportunityApproved: boolean;
+      inAppOpportunityRejected: boolean;
+      inAppNewMessage: boolean;
+      inAppNewFollower: boolean;
+    }>,
+  ) {
     return this.prisma.notificationPreferences.upsert({
       where: { userId },
       create: { userId, ...data },
@@ -275,7 +282,9 @@ export class NotificationsService {
   async sendEmailVerification(user: User, verificationLink: string) {
     if (!this.resend || !this.fromEmail) {
       // Do NOT log the token — it could appear in production log aggregators.
-      this.logger.warn(`[mock] Email service not configured — skipping verification email to ${user.email}`);
+      this.logger.warn(
+        `[mock] Email service not configured — skipping verification email to ${user.email}`,
+      );
       return;
     }
 
@@ -317,7 +326,9 @@ export class NotificationsService {
    */
   async sendWelcomeEmail(user: User) {
     if (!this.resend || !this.fromEmail) {
-      this.logger.warn(`[mock] Email service not configured — skipping welcome email to ${user.email}`);
+      this.logger.warn(
+        `[mock] Email service not configured — skipping welcome email to ${user.email}`,
+      );
       return;
     }
 
@@ -342,10 +353,12 @@ export class NotificationsService {
     opportunity: Opportunity,
   ) {
     if (!this.hasEmailClient()) {
-      this.logger.warn(`[mock] Email service not configured — skipping application submitted email to ${owner.email}`);
+      this.logger.warn(
+        `[mock] Email service not configured — skipping application submitted email to ${owner.email}`,
+      );
       return;
     }
-    if (!await this.isEmailPrefEnabled(owner.id, 'emailApplicationSubmitted')) return;
+    if (!(await this.isEmailPrefEnabled(owner.id, 'emailApplicationSubmitted'))) return;
 
     const subject = `Nouvelle candidature — ${NotificationsService.esc(opportunity.name)}`;
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
@@ -368,10 +381,12 @@ export class NotificationsService {
     opportunity: Opportunity,
   ) {
     if (!this.hasEmailClient()) {
-      this.logger.warn(`[mock] Email service not configured — skipping application reviewed email to ${candidate.email}`);
+      this.logger.warn(
+        `[mock] Email service not configured — skipping application reviewed email to ${candidate.email}`,
+      );
       return;
     }
-    if (!await this.isEmailPrefEnabled(candidate.id, 'emailApplicationReviewed')) return;
+    if (!(await this.isEmailPrefEnabled(candidate.id, 'emailApplicationReviewed'))) return;
 
     const subject = `Votre candidature a été revue — ${NotificationsService.esc(opportunity.name)}`;
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
@@ -398,10 +413,12 @@ export class NotificationsService {
     opportunity: Opportunity,
   ) {
     if (!this.hasEmailClient()) {
-      this.logger.warn(`[mock] Email service not configured — skipping application accepted email to ${candidate.email}`);
+      this.logger.warn(
+        `[mock] Email service not configured — skipping application accepted email to ${candidate.email}`,
+      );
       return;
     }
-    if (!await this.isEmailPrefEnabled(candidate.id, 'emailApplicationAccepted')) return;
+    if (!(await this.isEmailPrefEnabled(candidate.id, 'emailApplicationAccepted'))) return;
 
     const subject = `Félicitations ! Votre candidature a été acceptée — ${NotificationsService.esc(opportunity.name)}`;
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
@@ -409,7 +426,7 @@ export class NotificationsService {
       <p>Bonjour <strong>${NotificationsService.esc(candidate.firstName || '')}</strong>,</p>
       <p>Excellente nouvelle ! Votre candidature pour <strong>${NotificationsService.esc(opportunity.name)}</strong> a été <strong style="color:#16a34a">acceptée</strong>.</p>
       <p>Le créateur de l'opportunité va prendre contact avec vous prochainement.</p>
-      <p>${NotificationsService.btn(`${frontendUrl}/opportunities/${opportunity.id}`, 'Voir l\'opportunité')}</p>
+      <p>${NotificationsService.btn(`${frontendUrl}/opportunities/${opportunity.id}`, "Voir l'opportunité")}</p>
     `);
 
     this.sendEmailAsync(candidate.email, subject, html);
@@ -429,7 +446,7 @@ export class NotificationsService {
       );
       return;
     }
-    if (!await this.isEmailPrefEnabled(owner.id, 'emailOpportunityApproved')) return;
+    if (!(await this.isEmailPrefEnabled(owner.id, 'emailOpportunityApproved'))) return;
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
     const subject = `Votre opportunité est en ligne — ${NotificationsService.esc(opportunity.name)}`;
@@ -456,7 +473,7 @@ export class NotificationsService {
       );
       return;
     }
-    if (!await this.isEmailPrefEnabled(owner.id, 'emailOpportunityRejected')) return;
+    if (!(await this.isEmailPrefEnabled(owner.id, 'emailOpportunityRejected'))) return;
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
     const subject = `Votre opportunité "${NotificationsService.esc(opportunity.name)}" n'a pas été approuvée`;
@@ -481,10 +498,12 @@ export class NotificationsService {
     discussionId: string,
   ) {
     if (!this.resend || !this.fromEmail) {
-      this.logger.warn(`[mock] Email service not configured — skipping new message email to ${recipient.email}`);
+      this.logger.warn(
+        `[mock] Email service not configured — skipping new message email to ${recipient.email}`,
+      );
       return;
     }
-    if (!await this.isEmailPrefEnabled(recipient.id, 'emailNewMessage')) return;
+    if (!(await this.isEmailPrefEnabled(recipient.id, 'emailNewMessage'))) return;
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
     const subject = `Nouveau message de ${NotificationsService.esc(senderName)}`;
@@ -504,13 +523,15 @@ export class NotificationsService {
    */
   async sendNewFollowerEmail(follower: User, followee: User) {
     if (!this.resend || !this.fromEmail) {
-      this.logger.warn(`[mock] Email service not configured — skipping new follower email to ${followee.email}`);
+      this.logger.warn(
+        `[mock] Email service not configured — skipping new follower email to ${followee.email}`,
+      );
       return;
     }
-    if (!await this.isEmailPrefEnabled(followee.id, 'emailNewFollower')) return;
+    if (!(await this.isEmailPrefEnabled(followee.id, 'emailNewFollower'))) return;
 
     const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://southconnect.io';
-    const subject = `${NotificationsService.esc(follower.name ?? 'Quelqu\'un')} vous suit sur SouthConnect`;
+    const subject = `${NotificationsService.esc(follower.name ?? "Quelqu'un")} vous suit sur SouthConnect`;
     const html = NotificationsService.emailLayout(`
       <p>Bonjour <strong>${NotificationsService.esc(followee.firstName || '')}</strong>,</p>
       <p><strong>${NotificationsService.esc(follower.name ?? 'Un utilisateur')}</strong> vient de commencer à vous suivre.</p>
@@ -526,7 +547,9 @@ export class NotificationsService {
    */
   async sendPasswordChangedEmail(user: User) {
     if (!this.hasEmailClient()) {
-      this.logger.warn(`[mock] Email service not configured — skipping password changed email (user: ${user.id})`);
+      this.logger.warn(
+        `[mock] Email service not configured — skipping password changed email (user: ${user.id})`,
+      );
       return;
     }
 
@@ -546,7 +569,9 @@ export class NotificationsService {
    */
   async sendPasswordResetEmail(user: User, resetLink: string) {
     if (!this.hasEmailClient()) {
-      this.logger.warn(`[mock] Email service not configured — skipping password reset email (user: ${user.id})`);
+      this.logger.warn(
+        `[mock] Email service not configured — skipping password reset email (user: ${user.id})`,
+      );
       return;
     }
 
@@ -589,7 +614,10 @@ export class NotificationsService {
 
     if (!skipUnsubscribeFooter) {
       const user = await this.prisma.user
-        .findUnique({ where: { email: to }, select: { emailOptOut: true, emailUnsubscribeToken: true } })
+        .findUnique({
+          where: { email: to },
+          select: { emailOptOut: true, emailUnsubscribeToken: true },
+        })
         .catch(() => null);
 
       if (user?.emailOptOut) return; // silently skip — user opted out
@@ -658,7 +686,9 @@ export class NotificationsService {
     if (this.emailQueue) {
       const jobData: EmailJobData = { to, subject, html, skipUnsubscribeFooter, jobType };
       this.emailQueue.add('send', jobData).catch((err: Error) => {
-        this.logger.warn(`Failed to enqueue email job [${jobType}] → ${to}: ${err.message}. Falling back to in-process delivery.`);
+        this.logger.warn(
+          `Failed to enqueue email job [${jobType}] → ${to}: ${err.message}. Falling back to in-process delivery.`,
+        );
         // Fallback: deliver in-process if queue.add itself failed
         this.sendEmailFallback(to, subject, html, skipUnsubscribeFooter);
       });

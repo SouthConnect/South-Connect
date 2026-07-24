@@ -1,4 +1,12 @@
-import { BadRequestException, ForbiddenException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { DiscussionType, Prisma } from '@prisma/client';
 import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
@@ -148,7 +156,12 @@ export class MessagesService {
    * @throws NotFoundException  when the discussion does not exist.
    * @throws ForbiddenException when the requester is not a participant.
    */
-  async findPrivateDiscussionMessages(discussionId: string, requesterId: string, take = 50, skip = 0) {
+  async findPrivateDiscussionMessages(
+    discussionId: string,
+    requesterId: string,
+    take = 50,
+    skip = 0,
+  ) {
     const discussion = await this.prisma.privateDiscussion.findUnique({
       where: { id: discussionId },
       include: { participants: true },
@@ -225,7 +238,12 @@ export class MessagesService {
    *
    * @throws NotFoundException when the discussion does not exist.
    */
-  async createPublicMessage(discussionId: string, senderId: string, content: string, clientMessageId?: string) {
+  async createPublicMessage(
+    discussionId: string,
+    senderId: string,
+    content: string,
+    clientMessageId?: string,
+  ) {
     // Idempotency: return the same message if the client retries
     if (clientMessageId) {
       const cached = await this.dedupGet(`pub:${senderId}:${clientMessageId}`);
@@ -249,7 +267,12 @@ export class MessagesService {
 
     const message = await this.prisma.$transaction(async (tx) => {
       const msg = await tx.message.create({
-        data: { content, senderId, publicDiscussionId: discussionId, clientMessageId: clientMessageId ?? null },
+        data: {
+          content,
+          senderId,
+          publicDiscussionId: discussionId,
+          clientMessageId: clientMessageId ?? null,
+        },
         include: { sender: { select: { id: true, name: true, profilePic: true } } },
       });
       await tx.publicDiscussion.update({
@@ -262,8 +285,15 @@ export class MessagesService {
     // Maintenir Opportunity.messagesCount si la discussion est liée à une opportunité (fire-and-forget)
     if (discussion.opportunityId) {
       this.prisma.opportunity
-        .updateMany({ where: { id: discussion.opportunityId }, data: { messagesCount: { increment: 1 } } })
-        .catch((err) => this.logger.warn(`Failed to increment messagesCount for opportunity ${discussion.opportunityId}: ${err?.message}`));
+        .updateMany({
+          where: { id: discussion.opportunityId },
+          data: { messagesCount: { increment: 1 } },
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `Failed to increment messagesCount for opportunity ${discussion.opportunityId}: ${err?.message}`,
+          ),
+        );
     }
 
     this.chatGateway.broadcastMessage(discussionId, message);
@@ -320,7 +350,12 @@ export class MessagesService {
    * @throws NotFoundException  when the discussion does not exist.
    * @throws ForbiddenException when the sender is not a participant.
    */
-  async createPrivateMessage(discussionId: string, senderId: string, content: string, clientMessageId?: string) {
+  async createPrivateMessage(
+    discussionId: string,
+    senderId: string,
+    content: string,
+    clientMessageId?: string,
+  ) {
     // Idempotency: return the same message if the client retries
     if (clientMessageId) {
       const cached = await this.dedupGet(`priv:${senderId}:${clientMessageId}`);

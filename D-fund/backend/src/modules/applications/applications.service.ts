@@ -33,12 +33,7 @@ export class ApplicationsService {
    *
    * @throws ForbiddenException when the requester does not own the opportunity.
    */
-  async findByOpportunityForOwner(
-    opportunityId: string,
-    ownerId: string,
-    take = 50,
-    skip = 0,
-  ) {
+  async findByOpportunityForOwner(opportunityId: string, ownerId: string, take = 50, skip = 0) {
     const opportunity = await this.prisma.opportunity.findUnique({
       where: { id: opportunityId },
       select: { ownerId: true },
@@ -237,7 +232,9 @@ export class ApplicationsService {
         where: { code: application.referralCodeUsed },
       });
       if (!referral) {
-        throw new BadRequestException(`Referral code "${application.referralCodeUsed}" does not exist`);
+        throw new BadRequestException(
+          `Referral code "${application.referralCodeUsed}" does not exist`,
+        );
       }
       if (referral.status !== ReferralStatus.ACTIVE) {
         throw new BadRequestException('This referral code is no longer active');
@@ -278,18 +275,22 @@ export class ApplicationsService {
 
     // Counters dénormalisés — dans une transaction groupée pour éviter la divergence.
     // Non-bloquant (pas d'await) : le cron nightly resynce si ça échoue.
-    this.prisma.$transaction([
-      this.prisma.opportunity.updateMany({
-        where: { id: application.opportunityId },
-        data: { applicationsCount: { increment: 1 } },
-      }),
-      ...(application.referralCodeUsed
-        ? [this.prisma.referralCode.updateMany({
-            where: { code: application.referralCodeUsed },
-            data: { usesCount: { increment: 1 } },
-          })]
-        : []),
-    ]).catch((err) => this.logger.error('Counter sync failed — will resync at nightly cron', err));
+    this.prisma
+      .$transaction([
+        this.prisma.opportunity.updateMany({
+          where: { id: application.opportunityId },
+          data: { applicationsCount: { increment: 1 } },
+        }),
+        ...(application.referralCodeUsed
+          ? [
+              this.prisma.referralCode.updateMany({
+                where: { code: application.referralCodeUsed },
+                data: { usesCount: { increment: 1 } },
+              }),
+            ]
+          : []),
+      ])
+      .catch((err) => this.logger.error('Counter sync failed — will resync at nightly cron', err));
 
     try {
       if (application.opportunity?.owner) {
@@ -342,9 +343,7 @@ export class ApplicationsService {
     };
     const allowedTargets = VALID_TRANSITIONS[application.stage];
     if (!allowedTargets || !allowedTargets.includes(dto.stage as ApplicationStage)) {
-      throw new BadRequestException(
-        `Cannot transition from ${application.stage} to ${dto.stage}`,
-      );
+      throw new BadRequestException(`Cannot transition from ${application.stage} to ${dto.stage}`);
     }
 
     const updateData = {
@@ -452,15 +451,18 @@ export class ApplicationsService {
       // Soit déjà retiré, soit pas le bon owner
       const existing = await this.prisma.application.findFirst({ where: { id } });
       if (!existing) throw new NotFoundException('Application not found');
-      if (existing.candidateId !== candidateId) throw new ForbiddenException('You cannot withdraw this application');
+      if (existing.candidateId !== candidateId)
+        throw new ForbiddenException('You cannot withdraw this application');
       throw new ConflictException('Application already withdrawn');
     }
 
     if (wasCounted) {
-      this.prisma.opportunity.updateMany({
-        where: { id: application.opportunityId },
-        data: { applicationsCount: { decrement: 1 } },
-      }).catch((err) => this.logger.error('Counter decrement failed on withdraw', err));
+      this.prisma.opportunity
+        .updateMany({
+          where: { id: application.opportunityId },
+          data: { applicationsCount: { decrement: 1 } },
+        })
+        .catch((err) => this.logger.error('Counter decrement failed on withdraw', err));
     }
 
     return { message: 'Application withdrawn successfully' };

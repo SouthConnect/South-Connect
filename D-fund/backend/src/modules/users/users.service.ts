@@ -62,15 +62,15 @@ export class UsersService {
   async updateMe(userId: string, dto: UpdateUserDto) {
     // If firstName or lastName changes, recompute the composite name field so
     // the sidebar, profiles list and search always display a consistent name.
-    let computedName: string | undefined
+    let computedName: string | undefined;
     if (dto.firstName !== undefined || dto.lastName !== undefined) {
       const current = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { firstName: true, lastName: true },
       });
-      const first = dto.firstName ?? current?.firstName ?? ''
-      const last  = dto.lastName  ?? current?.lastName  ?? ''
-      computedName = `${first} ${last}`.trim() || undefined
+      const first = dto.firstName ?? current?.firstName ?? '';
+      const last = dto.lastName ?? current?.lastName ?? '';
+      computedName = `${first} ${last}`.trim() || undefined;
     }
 
     return this.prisma.user.update({
@@ -140,7 +140,11 @@ export class UsersService {
   async adminSetBan(id: string, isBanned: boolean) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
-    return this.prisma.user.update({ where: { id }, data: { isBanned }, select: USER_ADMIN_SELECT });
+    return this.prisma.user.update({
+      where: { id },
+      data: { isBanned },
+      select: USER_ADMIN_SELECT,
+    });
   }
 
   /**
@@ -152,10 +156,24 @@ export class UsersService {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
       select: {
-        id: true, email: true, name: true, firstName: true, lastName: true,
-        bio: true, profilePic: true, phone: true, city: true, country: true,
-        linkedinUrl: true, website: true, visibility: true, role: true,
-        isEmailVerified: true, emailOptOut: true, createdAt: true, updatedAt: true,
+        id: true,
+        email: true,
+        name: true,
+        firstName: true,
+        lastName: true,
+        bio: true,
+        profilePic: true,
+        phone: true,
+        city: true,
+        country: true,
+        linkedinUrl: true,
+        website: true,
+        visibility: true,
+        role: true,
+        isEmailVerified: true,
+        emailOptOut: true,
+        createdAt: true,
+        updatedAt: true,
         btoCProfile: true,
         btoBProfile: true,
         opportunities: {
@@ -163,8 +181,11 @@ export class UsersService {
         },
         applications: {
           select: {
-            id: true, stage: true, isDraft: true,
-            createdAt: true, updatedAt: true,
+            id: true,
+            stage: true,
+            isDraft: true,
+            createdAt: true,
+            updatedAt: true,
             opportunity: { select: { id: true, name: true } },
           },
         },

@@ -48,7 +48,9 @@ export class CronService implements OnApplicationBootstrap {
 
   private async releaseLock(jobName: string): Promise<void> {
     if (!this.redis) return;
-    await this.redis.del(`cron:lock:${jobName}`).catch((err) => this.logger.warn(`Failed to release cron lock ${jobName}: ${err?.message}`));
+    await this.redis
+      .del(`cron:lock:${jobName}`)
+      .catch((err) => this.logger.warn(`Failed to release cron lock ${jobName}: ${err?.message}`));
   }
 
   /**
@@ -56,7 +58,11 @@ export class CronService implements OnApplicationBootstrap {
    * Always releases the lock when `fn` completes (success or error).
    * Pass a custom `ttlSeconds` for long-running jobs to avoid premature lock expiry.
    */
-  private async withLock(jobName: string, fn: () => Promise<void>, ttlSeconds = 300): Promise<void> {
+  private async withLock(
+    jobName: string,
+    fn: () => Promise<void>,
+    ttlSeconds = 300,
+  ): Promise<void> {
     const acquired = await this.acquireLock(jobName, ttlSeconds);
     if (!acquired) {
       this.logger.debug(`Skipping ${jobName} — another instance holds the lock`);
@@ -110,7 +116,14 @@ export class CronService implements OnApplicationBootstrap {
         if (count > 0) {
           this.logger.log(`Archived ${count} expired opportunities`);
           // Stats cache reflects opportunity counts — must be invalidated after bulk archive
-          if (this.redis) await this.redis.del('admin:stats').catch((err) => this.logger.warn(`Redis stats cache invalidation failed after bulk archive: ${err?.message}`));
+          if (this.redis)
+            await this.redis
+              .del('admin:stats')
+              .catch((err) =>
+                this.logger.warn(
+                  `Redis stats cache invalidation failed after bulk archive: ${err?.message}`,
+                ),
+              );
         }
       } catch (err) {
         this.logger.error('Failed to archive expired opportunities', err);
@@ -167,7 +180,10 @@ export class CronService implements OnApplicationBootstrap {
       const now = new Date();
       try {
         await this.prisma.user.updateMany({
-          where: { emailVerificationTokenExpiry: { lt: now }, emailVerificationToken: { not: null } },
+          where: {
+            emailVerificationTokenExpiry: { lt: now },
+            emailVerificationToken: { not: null },
+          },
           data: { emailVerificationToken: null, emailVerificationTokenExpiry: null },
         });
         await this.prisma.user.updateMany({
@@ -205,7 +221,8 @@ export class CronService implements OnApplicationBootstrap {
           where: { status: OpportunityStatus.DRAFT, updatedAt: { lt: cutoff }, deletedAt: null },
           data: { deletedAt: new Date() },
         });
-        if (count > 0) this.logger.log(`Soft-deleted ${count} orphan DRAFT opportunities (>7 days)`);
+        if (count > 0)
+          this.logger.log(`Soft-deleted ${count} orphan DRAFT opportunities (>7 days)`);
       } catch (err) {
         this.logger.error('Failed to clean up orphan DRAFT opportunities', err);
         Sentry.captureException(err, { tags: { cron: 'cleanupOrphanDrafts' } });
@@ -224,20 +241,24 @@ export class CronService implements OnApplicationBootstrap {
    */
   @Cron('0 4 * * *')
   async recountAllCounters() {
-    await this.withLock('recountAllCounters', async () => {
-      try {
-        await this._recountProfileCounters();
-        await this._recountFollowerCounts();
-        await this._recountOpportunityCounters();
-        await this._recountIndustryFeatureCounters();
-        await this._recountDiscussionMembersCount();
-        await this._recountUnreadCounts();
-        this.logger.log('Full counter resync complete');
-      } catch (err) {
-        this.logger.error('Failed to resync counters', err);
-        Sentry.captureException(err, { tags: { cron: 'recountAllCounters' } });
-      }
-    }, 1800); // 30 min TTL — job peut être long sur une grande base
+    await this.withLock(
+      'recountAllCounters',
+      async () => {
+        try {
+          await this._recountProfileCounters();
+          await this._recountFollowerCounts();
+          await this._recountOpportunityCounters();
+          await this._recountIndustryFeatureCounters();
+          await this._recountDiscussionMembersCount();
+          await this._recountUnreadCounts();
+          this.logger.log('Full counter resync complete');
+        } catch (err) {
+          this.logger.error('Failed to resync counters', err);
+          Sentry.captureException(err, { tags: { cron: 'recountAllCounters' } });
+        }
+      },
+      1800,
+    ); // 30 min TTL — job peut être long sur une grande base
   }
 
   /**
@@ -267,17 +288,24 @@ export class CronService implements OnApplicationBootstrap {
 
         for (let i = 0; i < opportunities.length; i += BATCH) {
           await Promise.all(
-            opportunities.slice(i, i + BATCH).map(({ id, likesCount, applicationsCount, savedCount, viewsCount, createdAt }) => {
-              const ageHours = (now - createdAt.getTime()) / 3_600_000;
-              const score =
-                (likesCount * 3 + applicationsCount * 5 + savedCount * 2 + viewsCount) /
-                Math.pow(ageHours + 2, 1.5);
-              return this.prisma.opportunity.update({ where: { id }, data: { trendingScore: score } });
-            }),
+            opportunities
+              .slice(i, i + BATCH)
+              .map(({ id, likesCount, applicationsCount, savedCount, viewsCount, createdAt }) => {
+                const ageHours = (now - createdAt.getTime()) / 3_600_000;
+                const score =
+                  (likesCount * 3 + applicationsCount * 5 + savedCount * 2 + viewsCount) /
+                  Math.pow(ageHours + 2, 1.5);
+                return this.prisma.opportunity.update({
+                  where: { id },
+                  data: { trendingScore: score },
+                });
+              }),
           );
         }
 
-        this.logger.log(`Trending scores recomputed for ${opportunities.length} active opportunities`);
+        this.logger.log(
+          `Trending scores recomputed for ${opportunities.length} active opportunities`,
+        );
       } catch (err) {
         this.logger.error('Failed to recompute trending scores', err);
         Sentry.captureException(err, { tags: { cron: 'recomputeTrendingScores' } });
@@ -301,7 +329,7 @@ export class CronService implements OnApplicationBootstrap {
       }),
     ]);
 
-    const totalMap  = new Map(totalGroups.map((r) => [r.ownerId, r._count._all]));
+    const totalMap = new Map(totalGroups.map((r) => [r.ownerId, r._count._all]));
     const activeMap = new Map(activeGroups.map((r) => [r.ownerId, r._count._all]));
 
     await Promise.all(
@@ -370,7 +398,7 @@ export class CronService implements OnApplicationBootstrap {
 
     const likesMap = new Map(likeGroups.map((r) => [r.opportunityId, r._count._all]));
     const savesMap = new Map(saveGroups.map((r) => [r.opportunityId, r._count._all]));
-    const appsMap  = new Map(appGroups.map((r)  => [r.opportunityId, r._count._all]));
+    const appsMap = new Map(appGroups.map((r) => [r.opportunityId, r._count._all]));
 
     const allIds = [...new Set([...likesMap.keys(), ...savesMap.keys(), ...appsMap.keys()])];
 
@@ -406,7 +434,10 @@ export class CronService implements OnApplicationBootstrap {
         const count = await this.prisma.opportunity.count({
           where: { industries: { has: industry.name } },
         });
-        await this.prisma.industry.update({ where: { id: industry.id }, data: { opportunitiesCount: count } });
+        await this.prisma.industry.update({
+          where: { id: industry.id },
+          data: { opportunitiesCount: count },
+        });
       }),
     );
 
@@ -459,7 +490,9 @@ export class CronService implements OnApplicationBootstrap {
       );
     }
 
-    this.logger.debug(`Discussion membersCount + likesCount resynced for ${discussions.length} discussions`);
+    this.logger.debug(
+      `Discussion membersCount + likesCount resynced for ${discussions.length} discussions`,
+    );
   }
 
   /**

@@ -1,4 +1,11 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { OpportunityStatus, Prisma } from '@prisma/client';
 import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,7 +36,10 @@ export class OpportunitiesService {
   ) {}
 
   private async invalidateStatsCache() {
-    if (this.redis) await this.redis.del(ADMIN_STATS_CACHE_KEY).catch((err) => this.logger.warn(`Redis stats cache invalidation failed: ${err?.message}`));
+    if (this.redis)
+      await this.redis
+        .del(ADMIN_STATS_CACHE_KEY)
+        .catch((err) => this.logger.warn(`Redis stats cache invalidation failed: ${err?.message}`));
   }
 
   private async invalidateFeedCache() {
@@ -38,11 +48,16 @@ export class OpportunitiesService {
       const keys: string[] = [];
       const stream = this.redis.scanStream({ match: `${FEED_CACHE_PREFIX}:*`, count: 100 });
       await new Promise<void>((resolve, reject) => {
-        stream.on('data', (batch: string[]) => { keys.push(...batch); });
+        stream.on('data', (batch: string[]) => {
+          keys.push(...batch);
+        });
         stream.on('end', resolve);
         stream.on('error', reject);
       });
-      if (keys.length) await this.redis.del(...keys).catch((err) => this.logger.warn(`Redis feed cache del failed: ${err?.message}`));
+      if (keys.length)
+        await this.redis
+          .del(...keys)
+          .catch((err) => this.logger.warn(`Redis feed cache del failed: ${err?.message}`));
     } catch {
       // Redis indisponible — le cache expirera naturellement (TTL 45s)
     }
@@ -70,19 +85,45 @@ export class OpportunitiesService {
    * @returns `{ data, total, hasMore }` envelope.
    */
   /** Enriches opportunity items with isLiked/isSaved flags for the given user. Single bulk query per type. */
-  private async attachSocialState<T extends { id: string }>(items: T[], userId: string): Promise<(T & { isLiked: boolean; isSaved: boolean })[]> {
+  private async attachSocialState<T extends { id: string }>(
+    items: T[],
+    userId: string,
+  ): Promise<(T & { isLiked: boolean; isSaved: boolean })[]> {
     const ids = items.map((i) => i.id);
     const [liked, saved] = await Promise.all([
-      this.prisma.likedOpportunity.findMany({ where: { userId, opportunityId: { in: ids } }, select: { opportunityId: true } }),
-      this.prisma.savedOpportunity.findMany({ where: { userId, opportunityId: { in: ids } }, select: { opportunityId: true } }),
+      this.prisma.likedOpportunity.findMany({
+        where: { userId, opportunityId: { in: ids } },
+        select: { opportunityId: true },
+      }),
+      this.prisma.savedOpportunity.findMany({
+        where: { userId, opportunityId: { in: ids } },
+        select: { opportunityId: true },
+      }),
     ]);
     const likedSet = new Set(liked.map((l) => l.opportunityId));
     const savedSet = new Set(saved.map((s) => s.opportunityId));
-    return items.map((item) => ({ ...item, isLiked: likedSet.has(item.id), isSaved: savedSet.has(item.id) }));
+    return items.map((item) => ({
+      ...item,
+      isLiked: likedSet.has(item.id),
+      isSaved: savedSet.has(item.id),
+    }));
   }
 
   async findAll(params?: ListOpportunitiesDto, requesterId?: string) {
-    const { take: rawTake = 20, skip: rawSkip = 0, status, type, types, ownerId, search, sort, cursor, country, remote, createdAfter } = params || {};
+    const {
+      take: rawTake = 20,
+      skip: rawSkip = 0,
+      status,
+      type,
+      types,
+      ownerId,
+      search,
+      sort,
+      cursor,
+      country,
+      remote,
+      createdAfter,
+    } = params || {};
     const take = Math.min(Math.max(rawTake, 1), 100);
     const where: Prisma.OpportunityWhereInput = { deletedAt: null };
 
@@ -96,7 +137,10 @@ export class OpportunitiesService {
 
     if (types) {
       // Multi-type filter: comma-separated string from the frontend category chips
-      const typeList = types.split(',').map((t) => t.trim()).filter(Boolean);
+      const typeList = types
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
       if (typeList.length === 1) {
         where.type = typeList[0] as any;
       } else if (typeList.length > 1) {
@@ -185,9 +229,16 @@ export class OpportunitiesService {
     const nextCursor = hasNext ? pageItems[pageItems.length - 1].id : null;
     const hasMore = isPublicFeed ? hasNext : skip + take < total;
 
-    const result = { data: pageItems, total: isPublicFeed ? undefined : total, hasMore, nextCursor };
+    const result = {
+      data: pageItems,
+      total: isPublicFeed ? undefined : total,
+      hasMore,
+      nextCursor,
+    };
     if (isCacheable && feedCacheKey) {
-      this.redis!.setex(feedCacheKey, FEED_CACHE_TTL_SECONDS, JSON.stringify(result)).catch((err) => this.logger.warn(`Redis feed cache write failed: ${err?.message}`));
+      this.redis!.setex(feedCacheKey, FEED_CACHE_TTL_SECONDS, JSON.stringify(result)).catch((err) =>
+        this.logger.warn(`Redis feed cache write failed: ${err?.message}`),
+      );
     }
     if (requesterId) {
       const enriched = await this.attachSocialState(pageItems, requesterId);
@@ -311,7 +362,10 @@ export class OpportunitiesService {
       const isNew = await this.redis.set(dedupKey, '1', 'EX', 86400, 'NX').catch(() => 'OK');
       if (isNew !== 'OK') return; // Already counted this viewer today
     }
-    await this.prisma.opportunity.updateMany({ where: { id }, data: { viewsCount: { increment: 1 } } });
+    await this.prisma.opportunity.updateMany({
+      where: { id },
+      data: { viewsCount: { increment: 1 } },
+    });
   }
 
   /**
@@ -326,7 +380,10 @@ export class OpportunitiesService {
       const isNew = await this.redis.set(key, '1', 'EX', 86400, 'NX').catch(() => null);
       if (isNew !== 'OK') return { success: true }; // already shared today — no double-count
     }
-    await this.prisma.opportunity.updateMany({ where: { id }, data: { sharedCount: { increment: 1 } } });
+    await this.prisma.opportunity.updateMany({
+      where: { id },
+      data: { sharedCount: { increment: 1 } },
+    });
     return { success: true };
   }
 
@@ -345,7 +402,9 @@ export class OpportunitiesService {
     const allowedStatuses = ['DRAFT', 'ACTIVE'];
     const initialStatus = isAdmin
       ? (dto.status ?? 'ACTIVE')
-      : allowedStatuses.includes(dto.status ?? '') ? dto.status! : 'ACTIVE';
+      : allowedStatuses.includes(dto.status ?? '')
+        ? dto.status!
+        : 'ACTIVE';
 
     const result = await this.prisma.opportunity.create({
       data: {
@@ -389,9 +448,11 @@ export class OpportunitiesService {
     });
 
     // Maintain denormalized counters (fire-and-forget; nightly recount cron corrects any drift)
-    this.prisma.btoCProfile.updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { increment: 1 } } })
+    this.prisma.btoCProfile
+      .updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { increment: 1 } } })
       .catch((err) => this.logger.warn(`Counter increment failed (btoCProfile): ${err.message}`));
-    this.prisma.btoBProfile.updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { increment: 1 } } })
+    this.prisma.btoBProfile
+      .updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { increment: 1 } } })
       .catch((err) => this.logger.warn(`Counter increment failed (btoBProfile): ${err.message}`));
 
     await this.invalidateCaches();
@@ -425,10 +486,18 @@ export class OpportunitiesService {
     const wasActive = opportunity.status === OpportunityStatus.ACTIVE;
     const becomesActive = status === OpportunityStatus.ACTIVE;
     if (!wasActive && becomesActive) {
-      this.prisma.btoCProfile.updateMany({ where: { userId: opportunity.ownerId }, data: { activeOpportunitiesCount: { increment: 1 } } })
+      this.prisma.btoCProfile
+        .updateMany({
+          where: { userId: opportunity.ownerId },
+          data: { activeOpportunitiesCount: { increment: 1 } },
+        })
         .catch((err) => this.logger.warn(`Active counter increment failed: ${err.message}`));
     } else if (wasActive && !becomesActive) {
-      this.prisma.btoCProfile.updateMany({ where: { userId: opportunity.ownerId }, data: { activeOpportunitiesCount: { decrement: 1 } } })
+      this.prisma.btoCProfile
+        .updateMany({
+          where: { userId: opportunity.ownerId },
+          data: { activeOpportunitiesCount: { decrement: 1 } },
+        })
         .catch((err) => this.logger.warn(`Active counter decrement failed: ${err.message}`));
     }
 
@@ -441,7 +510,9 @@ export class OpportunitiesService {
           'Elle est maintenant visible par toute la communauté.',
           `/opportunities/${id}`,
         )
-        .catch((err) => this.logger.warn(`Failed to send approval in-app notification: ${err.message}`));
+        .catch((err) =>
+          this.logger.warn(`Failed to send approval in-app notification: ${err.message}`),
+        );
 
       if (opportunity.owner?.email) {
         this.notifications
@@ -457,7 +528,9 @@ export class OpportunitiesService {
           "Contactez l'équipe SouthConnect pour plus d'informations.",
           `/my-opportunities`,
         )
-        .catch((err) => this.logger.warn(`Failed to send rejection in-app notification: ${err.message}`));
+        .catch((err) =>
+          this.logger.warn(`Failed to send rejection in-app notification: ${err.message}`),
+        );
 
       if (opportunity.owner?.email) {
         this.notifications
@@ -483,22 +556,19 @@ export class OpportunitiesService {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const [
-      totalUsers,
-      newUsers,
-      opportunityByStatus,
-      totalApplications,
-      newApplications,
-    ] = await Promise.all([
-      this.prisma.user.count({ where: { deletedAt: null } }),
-      this.prisma.user.count({ where: { deletedAt: null, createdAt: { gte: thirtyDaysAgo } } }),
-      this.prisma.opportunity.groupBy({
-        by: ['status'],
-        _count: { _all: true },
-      }),
-      this.prisma.application.count({ where: { deletedAt: null, isDraft: false } }),
-      this.prisma.application.count({ where: { deletedAt: null, isDraft: false, createdAt: { gte: thirtyDaysAgo } } }),
-    ]);
+    const [totalUsers, newUsers, opportunityByStatus, totalApplications, newApplications] =
+      await Promise.all([
+        this.prisma.user.count({ where: { deletedAt: null } }),
+        this.prisma.user.count({ where: { deletedAt: null, createdAt: { gte: thirtyDaysAgo } } }),
+        this.prisma.opportunity.groupBy({
+          by: ['status'],
+          _count: { _all: true },
+        }),
+        this.prisma.application.count({ where: { deletedAt: null, isDraft: false } }),
+        this.prisma.application.count({
+          where: { deletedAt: null, isDraft: false, createdAt: { gte: thirtyDaysAgo } },
+        }),
+      ]);
 
     const statusMap = Object.fromEntries(
       opportunityByStatus.map((row) => [row.status, (row._count as { _all?: number })._all ?? 0]),
@@ -655,14 +725,17 @@ export class OpportunitiesService {
 
     // Maintain denormalized counters
     const wasActive = opportunity.status === OpportunityStatus.ACTIVE;
-    this.prisma.btoCProfile.updateMany({
-      where: { userId: ownerId },
-      data: {
-        opportunitiesCount: { decrement: 1 },
-        ...(wasActive ? { activeOpportunitiesCount: { decrement: 1 } } : {}),
-      },
-    }).catch((err) => this.logger.warn(`Counter decrement failed (btoCProfile): ${err.message}`));
-    this.prisma.btoBProfile.updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { decrement: 1 } } })
+    this.prisma.btoCProfile
+      .updateMany({
+        where: { userId: ownerId },
+        data: {
+          opportunitiesCount: { decrement: 1 },
+          ...(wasActive ? { activeOpportunitiesCount: { decrement: 1 } } : {}),
+        },
+      })
+      .catch((err) => this.logger.warn(`Counter decrement failed (btoCProfile): ${err.message}`));
+    this.prisma.btoBProfile
+      .updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { decrement: 1 } } })
       .catch((err) => this.logger.warn(`Counter decrement failed (btoBProfile): ${err.message}`));
 
     await this.invalidateCaches();

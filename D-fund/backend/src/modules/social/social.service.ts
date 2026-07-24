@@ -48,7 +48,9 @@ export class SocialService {
       throw new BadRequestException('You cannot follow yourself');
     }
 
-    const following = await this.prisma.user.findFirst({ where: { id: followingId, deletedAt: null } });
+    const following = await this.prisma.user.findFirst({
+      where: { id: followingId, deletedAt: null },
+    });
     if (!following) throw new NotFoundException('User to follow not found');
 
     try {
@@ -90,7 +92,9 @@ export class SocialService {
         undefined,
         `/profiles/${followerId}`,
       )
-      .catch((err) => this.logger.warn(`Failed to send new-follower in-app notification: ${err?.message}`));
+      .catch((err) =>
+        this.logger.warn(`Failed to send new-follower in-app notification: ${err?.message}`),
+      );
 
     if (follower) {
       this.notifications
@@ -277,14 +281,19 @@ export class SocialService {
    * @throws ConflictException when the user has already liked this discussion.
    */
   async likeDiscussion(userId: string, discussionId: string) {
-    const discussion = await this.prisma.publicDiscussion.findUnique({ where: { id: discussionId } });
+    const discussion = await this.prisma.publicDiscussion.findUnique({
+      where: { id: discussionId },
+    });
     if (!discussion) throw new NotFoundException('Discussion not found');
 
     const ratingKey = `discussion:${discussionId}`;
     try {
       await this.prisma.$transaction([
         this.prisma.rating.create({ data: { itemId: ratingKey, userId, rating: 1 } }),
-        this.prisma.publicDiscussion.update({ where: { id: discussionId }, data: { likesCount: { increment: 1 } } }),
+        this.prisma.publicDiscussion.update({
+          where: { id: discussionId },
+          data: { likesCount: { increment: 1 } },
+        }),
       ]);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {

@@ -56,9 +56,11 @@ export class StorageController {
   @ApiOperation({ summary: 'Upload an image file' })
   @ApiConsumes('multipart/form-data')
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file', {
-    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
-  }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+    }),
+  )
   async uploadFile(
     @UploadedFile() file: any,
     @CurrentUser() user: any,
@@ -68,16 +70,18 @@ export class StorageController {
   ) {
     if (!file) throw new BadRequestException('No file provided');
 
-    const targetBucket = StorageController.ALLOWED_BUCKETS.includes(bucket ?? '') ? (bucket as string) : 'images';
+    const targetBucket = StorageController.ALLOWED_BUCKETS.includes(bucket ?? '')
+      ? (bucket as string)
+      : 'images';
 
-    const isValid = targetBucket === 'attachments'
-      ? this.storageService.isValidAttachmentType(file.mimetype)
-      : this.storageService.isValidImageType(file.mimetype);
+    const isValid =
+      targetBucket === 'attachments'
+        ? this.storageService.isValidAttachmentType(file.mimetype)
+        : this.storageService.isValidImageType(file.mimetype);
 
     if (!isValid) {
-      const allowed = targetBucket === 'attachments'
-        ? 'JPEG, PNG, WebP, PDF, DOC, DOCX'
-        : 'JPEG, PNG, WebP, GIF';
+      const allowed =
+        targetBucket === 'attachments' ? 'JPEG, PNG, WebP, PDF, DOC, DOCX' : 'JPEG, PNG, WebP, GIF';
       throw new BadRequestException(`Invalid file type. Allowed: ${allowed}`);
     }
 
@@ -96,13 +100,18 @@ export class StorageController {
     // Vérification d'ownership selon le préfixe pour empêcher la pollution du namespace d'autrui
     const userOwnedPrefixes = ['avatars', 'covers', 'profile'];
     if (userOwnedPrefixes.includes(prefix)) {
-      if (resourceId !== user.id) throw new ForbiddenException('You can only upload to your own namespace');
+      if (resourceId !== user.id)
+        throw new ForbiddenException('You can only upload to your own namespace');
     } else if (prefix === 'opportunities') {
-      const opp = await this.prisma.opportunity.findUnique({ where: { id: resourceId }, select: { ownerId: true } });
+      const opp = await this.prisma.opportunity.findUnique({
+        where: { id: resourceId },
+        select: { ownerId: true },
+      });
       if (!opp) throw new ForbiddenException('You do not own this opportunity');
       assertSameUser(opp.ownerId, user.id, 'You do not own this opportunity');
     } else if (prefix === 'attachments') {
-      if (resourceId !== user.id) throw new ForbiddenException('You can only upload to your own namespace');
+      if (resourceId !== user.id)
+        throw new ForbiddenException('You can only upload to your own namespace');
     }
 
     const filePath = this.storageService.generateFilePath(prefix!, resourceId!, file.mimetype);
