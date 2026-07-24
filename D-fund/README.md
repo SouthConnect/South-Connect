@@ -1,270 +1,119 @@
-# D-Fund
+# D-Fund (SouthConnect)
 
-Plateforme connectant les entrepreneurs africains à leurs ressources: talents, outils, mentors, accompagnements et investisseurs.
+Plateforme connectant les entrepreneurs africains à leurs ressources : talents, outils, mentors, accompagnements et investisseurs.
 
-## 🏗️ Architecture
+**Production** : [southconnect.io](https://southconnect.io) (Vercel) · API [api.southconnect.io](https://api.southconnect.io) (Railway)
 
-Le projet est structuré en **architecture monorepo séparée** :
+## Stack technique
+
+| Couche | Techno |
+|---|---|
+| Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS |
+| Backend | NestJS, TypeScript, Socket.IO (temps réel messagerie) |
+| Base de données | PostgreSQL (Supabase, pooler AWS eu-north-1), Prisma ORM |
+| Cache / sessions / queues | Redis (Railway), BullMQ |
+| Auth | JWT (cookies HttpOnly) + Google OAuth (Passport) |
+| Email | Resend |
+| Monitoring | Sentry |
+
+## Architecture
 
 ```
 D-fund/
-├── backend/          # API NestJS (Node + TypeScript + Prisma)
-├── frontend/         # Frontend Next.js 14 (App Router)
-├── prisma/           # Schéma Prisma partagé
-├── scripts/          # Scripts utilitaires (migration Glide)
-├── docs/             # Documentation
-└── .env              # Variables d'environnement backend
+├── backend/     # API NestJS — 25 modules métier (auth, opportunities, applications,
+│                #   messages, notifications, social, referral, ratings, search, ai, ...)
+├── frontend/    # Next.js 14 App Router — 41 pages
+├── prisma/      # Schéma partagé (22 modèles) + migrations
+├── docs/        # Documentation projet (onboarding, phases produit, audits, rapports)
+└── scripts/     # Scripts utilitaires
 ```
 
-### Backend (`backend/`)
-- **NestJS** - Framework Node.js avec TypeScript
-- **Prisma** - ORM pour PostgreSQL
-- **PostgreSQL** - Base de données (via Supabase)
-- **JWT** - Authentification
+### Points d'architecture notables
 
-### Frontend (`frontend/`)
-- **Next.js 14** - Framework React avec App Router
-- **TypeScript** - Typage statique
-- **Tailwind CSS** - Framework CSS
+- **Verrous distribués Redis** (`SET NX EX`) sur les cron jobs pour éviter la double exécution en cas de scaling multi-instance.
+- **Socket.IO + adapter Redis** : les messages temps réel traversent toutes les instances du backend via pub/sub Redis, pas seulement le process qui a reçu la connexion WebSocket.
+- **Soft-delete + audit trail** : suppressions RGPD (`deletedAt`) et journal des actions admin (`AdminAuditLog`) plutôt que des `DELETE` définitifs.
+- **Tokens sensibles hachés** (SHA-256) en base — reset password, vérification email, désabonnement — pour qu'un dump DB ne donne pas accès à des liens actifs.
+- **Compteurs dénormalisés** (vues, likes, candidatures) recalculés par cron avec verrou distribué, pour éviter les agrégations coûteuses à chaque lecture.
 
-### Infrastructure
-- **Supabase** - PostgreSQL managé + Auth + Storage
-- **Vercel** - Déploiement frontend (prévu)
-- **Railway/Fly.io** - Déploiement backend (prévu)
+Détails complets dans [`docs/`](./docs), notamment [`PHASE3_ARCHITECTURE_FONCTIONNELLE.md`](./docs/PHASE3_ARCHITECTURE_FONCTIONNELLE.md) et [`PHASE5_SECURITE_PERMISSIONS.md`](./docs/PHASE5_SECURITE_PERMISSIONS.md).
 
-## 📋 Prérequis
+## Sécurité
+
+- Rate limiting différencié par route sensible (`@Throttle`), CSP + headers Helmet, cookies JWT HttpOnly/SameSite.
+- RGPD : opt-out email, suppression de compte anonymisée (art. 17), désabonnement en un clic.
+- IDOR, XSS stocké, races sur soumission de candidature et bypass de modération identifiés et corrigés lors des audits successifs (voir `docs/PHASE5_SECURITE_PERMISSIONS.md`).
+- Scan de secrets (gitleaks) sur chaque push/PR ; `.env` jamais commité.
+
+## CI/CD
+
+Pipeline GitHub Actions (`.github/workflows/ci.yml`) sur chaque push/PR vers `main`/`develop` :
+- **Backend** : type-check strict (`tsc --noEmit`, `noImplicitAny`), lint (ESLint + Prettier), tests unitaires + e2e (Jest), sur Node 20 et 22.
+- **Frontend** : type-check, build Next.js, smoke tests Playwright.
+- Build Docker de l'image de prod.
+
+## Prérequis
 
 - Node.js 18+
-- npm ou yarn
-- Compte Supabase (gratuit)
+- npm
+- Compte Supabase (PostgreSQL managé)
+- Redis (local : `brew install redis` / `docker run redis`)
 
-## 🚀 Installation
+## Installation locale
 
-### 1. Configuration Supabase
+### 1. Variables d'environnement
 
-Suivez le guide détaillé dans [SUPABASE_SETUP.md](./SUPABASE_SETUP.md)
-
-Résumé rapide :
-1. Créez un projet sur [supabase.com](https://supabase.com)
-2. Récupérez la connection string PostgreSQL
-3. Configurez les variables d'environnement
-
-### 2. Variables d'environnement
-
-**À la racine** : Créer `.env` (pour le backend) :
-```env
-DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres"
-JWT_SECRET="your-super-secret-jwt-key"
-PORT=3001
-FRONTEND_URL="http://localhost:3000"
-```
-
-**À la racine** : Créer `.env.local` (pour le frontend) :
-```env
-NEXT_PUBLIC_API_URL="http://localhost:3001/api/v1"
-```
-
-### 3. Installation des dépendances
+Copier les fichiers d'exemple et remplir les valeurs :
 
 ```bash
-# Installer toutes les dépendances (backend + frontend)
-npm run install:all
+cp .env.example .env                       # backend (racine du monorepo)
+cp frontend/.env.example frontend/.env.local
+```
 
-# OU séparément :
+Voir [`.env.example`](./.env.example) pour la liste complète des variables (DB, JWT, Redis, OAuth, email, Sentry...).
+
+### 2. Dépendances
+
+```bash
+npm run install:all
+# ou séparément :
 cd backend && npm install
 cd ../frontend && npm install
 ```
 
-### 4. Configuration Prisma
+### 3. Base de données
 
 ```bash
-# Générer le client Prisma
 npm run db:generate
-
-# Appliquer le schéma à la base
-cd backend
-npx prisma migrate deploy
-# OU pour développement :
-npx prisma migrate dev --name init
+cd backend && npx prisma migrate dev
 ```
 
-## 🏃 Développement
-
-### Démarrer le backend
+## Développement
 
 ```bash
-# Depuis la racine
-npm run backend:dev
-
-# OU depuis backend/
-cd backend
-npm run dev
+npm run backend:dev    # http://localhost:3001
+npm run frontend:dev   # http://localhost:3000
 ```
 
-Le backend sera accessible sur `http://localhost:3001`
+Documentation Swagger disponible sur `http://localhost:3001/api/docs` (désactivée en production).
 
-### Démarrer le frontend
-
-```bash
-# Depuis la racine
-npm run frontend:dev
-
-# OU depuis frontend/
-cd frontend
-npm run dev
-```
-
-Le frontend sera accessible sur `http://localhost:3000`
-
-## 📁 Structure du Projet
-
-```
-D-fund/
-├── backend/                 # API NestJS
-│   ├── src/
-│   │   ├── modules/        # Modules métier
-│   │   │   ├── auth/       # Authentification
-│   │   │   ├── users/      # Gestion utilisateurs
-│   │   │   ├── opportunities/
-│   │   │   ├── applications/
-│   │   │   └── ...
-│   │   ├── common/         # Utilitaires partagés
-│   │   └── main.ts         # Point d'entrée
-│   ├── prisma/
-│   │   └── schema.prisma   # Lien vers ../prisma/schema.prisma
-│   └── package.json
-│
-├── frontend/                # Frontend Next.js
-│   ├── app/                 # Pages et routes (App Router)
-│   ├── components/          # Composants React
-│   ├── lib/                 # Utilitaires
-│   └── package.json
-│
-├── prisma/                  # Schéma Prisma principal
-│   └── schema.prisma        # Modèle de données complet
-│
-├── scripts/                 # Scripts utilitaires
-│   └── migrate.ts           # Migration Glide → Supabase
-│
-├── docs/                    # Documentation
-│   └── ...
-│
-└── .env                     # Variables d'environnement backend
-```
-
-## 🗄️ Base de données
-
-Le schéma Prisma définit les modèles suivants :
-
-### Entités principales
-- **User** - Utilisateurs de la plateforme
-- **BtoCProfile** - Profils individuels (talents, entrepreneurs)
-- **BtoBProfile** - Profils entreprises
-- **Opportunity** - Opportunités (jobs, co-founder, events, etc.)
-- **Application** - Candidatures avec workflow
-- **Message** - Messages privés et publics
-- **Task** - Tâches liées aux opportunités
-- **Rating** - Système de notation
-- **ReferralCode** - Système de parrainage
-
-Voir [prisma/schema.prisma](./prisma/schema.prisma) pour le schéma complet.
-
-## 🔐 Authentification
-
-L'authentification utilise JWT :
-
-- `POST /api/v1/auth/register` - Inscription
-- `POST /api/v1/auth/login` - Connexion
-
-Les tokens JWT sont utilisés pour protéger les routes API.
-
-## 📝 Commandes Utiles
-
-### À la racine
-
-```bash
-# Installation
-npm run install:all
-
-# Backend
-npm run backend:dev
-npm run backend:build
-
-# Frontend
-npm run frontend:dev
-npm run frontend:build
-
-# Prisma
-npm run db:generate
-npm run db:studio
-npm run db:migrate:glide
-```
-
-### Backend
+## Tests
 
 ```bash
 cd backend
-
-# Développement
-npm run dev
-
-# Build
-npm run build
-
-# Production
-npm run start:prod
-
-# Prisma
-npm run prisma:generate
-npm run prisma:migrate
-npm run prisma:studio
+npm run lint:check     # ESLint
+npx tsc --noEmit       # type-check
+npm test               # unit + e2e (Jest)
+npm run test:cov       # avec couverture
 ```
 
-### Frontend
+## Documentation
 
-```bash
-cd frontend
+- [`docs/ONBOARDING.md`](./docs/ONBOARDING.md) — guide d'installation complet pour un nouveau collaborateur
+- [`docs/GUIDE_DEMO.md`](./docs/GUIDE_DEMO.md) — parcours de démonstration de la plateforme
+- [`docs/RAPPORT_DEPLOIEMENT_PRODUCTION.md`](./docs/RAPPORT_DEPLOIEMENT_PRODUCTION.md) — état du déploiement production
+- [`docs/`](./docs) — cadrage produit, modélisation de données, architecture fonctionnelle, sécurité/permissions, notifications, standards de process (phases 1 à 9)
 
-# Développement
-npm run dev
+## Licence
 
-# Build
-npm run build
-
-# Production
-npm start
-```
-
-## 📚 Documentation
-
-- [Architecture](./ARCHITECTURE.md) - Détails de l'architecture
-- [Configuration Supabase](./SUPABASE_SETUP.md) - Guide de setup Supabase
-- [Structure des variables d'environnement](./STRUCTURE_ENV.md) - Guide des .env
-- [Environnement de travail](./docs/ENVIRONNEMENT_DE_TRAVAIL.md) - Guide de développement
-- [Documentation complète](./docs/) - Toutes les phases de validation
-
-## 🎯 Fonctionnalités
-
-### Implémenté
-- ✅ Architecture backend NestJS
-- ✅ Schéma Prisma complet basé sur les données Glide
-- ✅ Authentification JWT de base
-- ✅ Structure frontend Next.js
-- ✅ Migration des données Glide vers Supabase
-
-### En cours / À venir
-- [ ] Modules backend complets (opportunities, applications, messages)
-- [ ] Intégration frontend avec le backend
-- [ ] Dashboard utilisateur
-- [ ] Système de recherche et filtres
-- [ ] Notifications (Resend)
-- [ ] Upload de fichiers (Supabase Storage)
-- [ ] Real-time (Supabase Realtime)
-
-## 📄 Licence
-
-Ce projet est privé.
-
-## 🤝 Contribution
-
-Pour toute question ou suggestion, contactez l'équipe D-Fund.
+Projet privé.
