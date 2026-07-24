@@ -40,8 +40,12 @@ import { EmailQueueModule } from './modules/email-queue/email-queue.module';
      * Named throttler profiles — applied globally by ThrottlerGuard.
      * Per-route overrides reference these names via @Throttle({ <name>: {} }).
      *
-     *  default   — general API traffic (20 req / min)
-     *  auth      — sensitive auth flows (5 req / min)
+     *  default   — general API traffic (100 req / min)
+     *  auth      — login/register/reset (5 req / min) — brute-force protection
+     *  refresh   — POST /auth/refresh only (20 req / min) — higher than `auth`
+     *              because legitimate multi-tab wake-up bursts can hit 5/min
+     *              without any attack involved; brute-force on refresh is
+     *              already mitigated by single-use token rotation.
      *  strict    — password-reset (3 req / min)
      *  messaging — chat message creation (30 req / min)
      *
@@ -56,12 +60,14 @@ import { EmailQueueModule } from './modules/email-queue/email-queue.module';
           ? [
               { name: 'default',   ttl: 60_000, limit: 10_000 },
               { name: 'auth',      ttl: 60_000, limit: 10_000 },
+              { name: 'refresh',   ttl: 60_000, limit: 10_000 },
               { name: 'strict',    ttl: 60_000, limit: 10_000 },
               { name: 'messaging', ttl: 60_000, limit: 10_000 },
             ]
           : [
               { name: 'default',   ttl: 60_000, limit: 100 },
               { name: 'auth',      ttl: 60_000, limit: 5   },
+              { name: 'refresh',   ttl: 60_000, limit: 20  },
               { name: 'strict',    ttl: 60_000, limit: 3   },
               { name: 'messaging', ttl: 60_000, limit: 30  },
             ],

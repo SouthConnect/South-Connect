@@ -149,11 +149,13 @@ export class AuthController {
   /**
    * Issues a fresh access_token + refresh_token pair using the refresh_token cookie.
    * Implements token rotation: the old refresh token is invalidated on each use.
-   * Rate-limited to prevent brute-force attempts.
+   * Rate-limited on its own `refresh` profile (20/min) — separate from `auth`
+   * (login/register) so legitimate multi-tab wake-up bursts don't compete with
+   * brute-force protection on credential-based endpoints.
    */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ auth: {} })
+  @Throttle({ refresh: {} })
   async refresh(
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,

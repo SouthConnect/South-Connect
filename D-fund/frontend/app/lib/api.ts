@@ -44,7 +44,7 @@ const API_TIMEOUT_MS = 15000
  *   true  → refresh succeeded, callers may retry their original request
  *   false → refresh failed, callers should dispatch session-expired
  */
-// 'ok' = refresh succeeded | 'expired' = token definitively invalid | 'server-error' = Redis/network blip
+// 'ok' = refresh succeeded | 'expired' = token definitively invalid | 'server-error' = Redis/network/throttle blip
 type RefreshResult = 'ok' | 'expired' | 'server-error'
 let _refreshPromise: Promise<RefreshResult> | null = null
 
@@ -58,7 +58,8 @@ const attemptTokenRefresh = (apiUrl: string): Promise<RefreshResult> => {
     .then((r): RefreshResult => {
       if (r.ok) return 'ok'
       if (r.status >= 500) return 'server-error' // Redis blip — ne pas déconnecter
-      return 'expired' // 401/403/429 → token définitivement invalide
+      if (r.status === 429) return 'server-error' // Throttle — transitoire, ne pas déconnecter
+      return 'expired' // 401/403 → token définitivement invalide
     })
     .catch((): RefreshResult => 'server-error') // erreur réseau — ne pas déconnecter
     .finally(() => {
