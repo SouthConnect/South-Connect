@@ -162,6 +162,10 @@ function checkDeletedInfraFiles(deletedFiles: string[]): string[] {
 
 function isEnvFile(filePath: string): boolean {
   const base = path.basename(filePath);
+  // Les templates (.env.example, .env.sample, ...) sont faits pour être commités —
+  // ils ne contiennent pas de vraies valeurs. On les laisse passer ici ; s'ils
+  // contiennent malgré tout un vrai secret, le scan de contenu plus bas l'attrapera.
+  if (/\.(example|sample|template)$/i.test(base)) return false;
   return (
     base === '.env' ||
     base.startsWith('.env.') ||
@@ -186,28 +190,43 @@ function isTextFile(filePath: string): boolean {
     '.sh',
     '.env',
     '.env.local',
+    '.example',
+    '.sample',
+    '.template',
   ];
   return textExts.includes(ext) || ext === '';
 }
 
 function containsSensitivePattern(content: string): { match: string; line: string } | null {
-  const patterns = [
+  // Noms de variable : ne comptent que suivis d'une affectation (=, :) — une simple
+  // mention du nom (commentaire, doc, `config.get('JWT_SECRET')`) ne doit pas matcher.
+  const assignmentPatterns = [
     'SUPABASE_URL',
     'SUPABASE_KEY',
     'SERVICE_ROLE_KEY',
     'DATABASE_URL',
     'JWT_SECRET',
+    'REFRESH_TOKEN_SECRET',
+    'SESSION_SECRET',
     'ACCESS_KEY_ID',
     'SECRET_ACCESS_KEY',
     'PRIVATE_KEY',
-    'BEGIN RSA PRIVATE KEY',
-    'PASSWORD=',
-    'PASSWORD =',
-    'PASSWORD:',
-  ];
+    'PASSWORD',
+  ].map((name) => ({ name, re: new RegExp(`${name}\\s*[:=](?!=)`) }));
+
+  // Motifs sans ambiguïté : une simple présence dans le fichier suffit à alerter.
+  const literalPatterns = ['BEGIN RSA PRIVATE KEY'];
 
   // Connection string with an embedded credential, e.g. postgresql://user:pass@host
-  const CREDENTIAL_URL = /:\/\/[^:\s'"/@]+:[^@\s'"]+@/;
+  const CREDENTIAL_URL = /:\/\/([^:\s'"/@]+):([^@\s'"]+)@/;
+  const OBVIOUS_PLACEHOLDER_CREDENTIALS = new Set([
+    'test:test',
+    'user:pass',
+    'user:password',
+    'postgres:postgres',
+    'admin:admin',
+    'foo:bar',
+  ]);
 
   const isPlaceholderLine = (line: string): boolean => {
     const lower = line.toLowerCase();
@@ -222,6 +241,12 @@ function containsSensitivePattern(content: string): { match: string; line: strin
       lower.includes('change-in-production') ||
       lower.includes('your-') ||
       lower.includes('xxx') ||
+      // Une valeur pointant vers localhost/127.0.0.1, ou explicitement nommée
+      // "test", est par nature un secret de test/CI, jamais une vraie credential
+      // de prod — une vraie valeur rotée ne contient jamais littéralement "test".
+      lower.includes('localhost') ||
+      lower.includes('127.0.0.1') ||
+      lower.includes('test') ||
       /\[.*\]/.test(line) ||
       // Référence à une variable d'env/shell (${VAR} ou $VAR), pas une valeur en dur —
       // couvre aussi bien le TypeScript/JS que la syntaxe bash sans accolades.
@@ -233,13 +258,23 @@ function containsSensitivePattern(content: string): { match: string; line: strin
   for (const line of lines) {
     if (isPlaceholderLine(line)) continue;
 
-    if (CREDENTIAL_URL.test(line)) {
-      return { match: 'credential embarqué dans une URL', line: line.trim() };
+    const credentialMatch = line.match(CREDENTIAL_URL);
+    if (credentialMatch) {
+      const pair = `${credentialMatch[1]}:${credentialMatch[2]}`.toLowerCase();
+      if (!OBVIOUS_PLACEHOLDER_CREDENTIALS.has(pair)) {
+        return { match: 'credential embarqué dans une URL', line: line.trim() };
+      }
     }
 
-    for (const pat of patterns) {
+    for (const pat of literalPatterns) {
       if (line.includes(pat)) {
         return { match: pat, line: line.trim() };
+      }
+    }
+
+    for (const { name, re } of assignmentPatterns) {
+      if (re.test(line)) {
+        return { match: name, line: line.trim() };
       }
     }
   }
