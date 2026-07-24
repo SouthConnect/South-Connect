@@ -7,6 +7,7 @@ import { qk } from '@/app/lib/queryKeys'
 import { apiJson, OpportunityType, uploadImage, getErrorMessage } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
+import { readImageFile } from '@/app/lib/imageUpload'
 import { ArrowLeft, Plus, Send, Info, MapPin, Globe, DollarSign, Image as ImageIcon, X, Clock, Sparkles, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import AuthGuard from '@/components/AuthGuard'
@@ -115,46 +116,22 @@ export default function CreateOpportunityPage() {
     }
   })
 
-  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-
-  const handleCoverImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        setErrorMessage('Format non autorisé (JPEG, PNG ou WebP uniquement).')
-        return
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        setErrorMessage('Image trop volumineuse (5 Mo max).')
-        return
-      }
-      setCoverImage(file)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setCoverImagePreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
+    if (!file) return
+    const preview = await readImageFile(file, setErrorMessage)
+    if (!preview) return
+    setCoverImage(file)
+    setCoverImagePreview(preview)
   }
 
-  const handleLogoImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        setErrorMessage('Format non autorisé (JPEG, PNG ou WebP uniquement).')
-        return
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        setErrorMessage('Image trop volumineuse (5 Mo max).')
-        return
-      }
-      setLogoImage(file)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setLogoImagePreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
+    if (!file) return
+    const preview = await readImageFile(file, setErrorMessage)
+    if (!preview) return
+    setLogoImage(file)
+    setLogoImagePreview(preview)
   }
 
   const removeCoverImage = () => {

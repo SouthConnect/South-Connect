@@ -8,6 +8,7 @@ import { qk } from '@/app/lib/queryKeys'
 import { apiJson, uploadImage, getErrorMessage } from '@/app/lib/api'
 import { useRouter } from 'next/navigation'
 import { AFRICAN_COUNTRIES } from '@/app/lib/african-countries'
+import { readImageFile } from '@/app/lib/imageUpload'
 import { User, Mail, Phone, MapPin, Linkedin, Globe, Shield, UserCircle, Building2, Save, Lock, Trash2, Download, AlertTriangle } from 'lucide-react'
 import Image from 'next/image'
 import AuthGuard from '@/components/AuthGuard'
@@ -236,16 +237,10 @@ function ProfilePageContent() {
                   onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file || !authUser) return
-                    if (file.size > 5 * 1024 * 1024) {
-                      setUploadError('L\'image ne doit pas dépasser 5 Mo')
-                      return
-                    }
+                    const preview = await readImageFile(file, setUploadError)
+                    if (!preview) return
                     setAvatarFile(file)
-                    const reader = new FileReader()
-                    reader.onloadend = () => {
-                      setAvatarPreview(reader.result as string)
-                    }
-                    reader.readAsDataURL(file)
+                    setAvatarPreview(preview)
 
                     try {
                       const url = await uploadImage(file, 'avatars', authUser.id, 'images')
@@ -844,19 +839,13 @@ function ProfilePageContent() {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0]
                           if (!file) return
-                          if (file.size > 5 * 1024 * 1024) {
-                            setUploadError('L\'image ne doit pas dépasser 5 Mo')
-                            return
-                          }
+                          const preview = await readImageFile(file, setUploadError)
+                          if (!preview) return
                           setCompanyLogoFile(file)
-                          const reader = new FileReader()
-                          reader.onloadend = () => {
-                            setCompanyLogoPreview(reader.result as string)
-                          }
-                          reader.readAsDataURL(file)
+                          setCompanyLogoPreview(preview)
                         }}
                       />
                     </label>
@@ -894,19 +883,13 @@ function ProfilePageContent() {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0]
                           if (!file) return
-                          if (file.size > 5 * 1024 * 1024) {
-                            setUploadError('L\'image ne doit pas dépasser 5 Mo')
-                            return
-                          }
+                          const preview = await readImageFile(file, setUploadError)
+                          if (!preview) return
                           setHeaderImageFile(file)
-                          const reader = new FileReader()
-                          reader.onloadend = () => {
-                            setHeaderImagePreview(reader.result as string)
-                          }
-                          reader.readAsDataURL(file)
+                          setHeaderImagePreview(preview)
                         }}
                       />
                     </label>

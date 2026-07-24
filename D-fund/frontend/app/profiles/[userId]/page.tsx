@@ -12,6 +12,7 @@ import Image from 'next/image'
 import { toast } from 'sonner'
 import StarRating from '@/components/StarRating'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { useToggleFollow } from '@/app/hooks/useFollow'
 
 export default function PublicProfilePage() {
   const params = useParams()
@@ -36,18 +37,9 @@ export default function PublicProfilePage() {
 
   const isFollowing: boolean = followData?.following ?? false
 
-  const followMutation = useTrackedMutation('profile.follow', {
-    mutationFn: () =>
-      apiJson(`/social/follow/${userId}`, {
-        method: isFollowing ? 'DELETE' : 'POST',
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: qk.publicProfile(userId) })
-      queryClient.invalidateQueries({ queryKey: qk.isFollowing(userId, user?.id ?? '') })
-      queryClient.invalidateQueries({ queryKey: qk.publicProfile(userId) })
-    },
-    onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de modifier le suivi')),
-  })
+  // Shared with the community list — a follow from either place now updates
+  // both cache representations (socialFollowing list + isFollowing boolean).
+  const followMutation = useToggleFollow(userId, isFollowing)
 
   const messageMutation = useTrackedMutation('conversation.start', {
     mutationFn: () =>
@@ -124,7 +116,7 @@ export default function PublicProfilePage() {
             {!isOwnProfile && user && (
               <div className="flex gap-2 mt-2">
                 <button
-                  onClick={() => followMutation.mutate()}
+                  onClick={() => followMutation.toggleFollow()}
                   disabled={followMutation.isPending}
                   className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 ${
                     isFollowing

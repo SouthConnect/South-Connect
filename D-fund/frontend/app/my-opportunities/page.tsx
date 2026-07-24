@@ -65,12 +65,16 @@ export default function MyOpportunitiesPage() {
         body: JSON.stringify({ status: 'ACTIVE' }),
       }),
     onMutate: (id) => setPendingActionId(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: qk.myOpportunities(user?.id ?? '') })
       queryClient.invalidateQueries({ queryKey: qk.myOpportunitiesDashboard(user?.id ?? '') })
       queryClient.invalidateQueries({ queryKey: qk._root.opportunitiesFeed })
       queryClient.invalidateQueries({ queryKey: qk._root.explore })
       queryClient.invalidateQueries({ queryKey: qk._root.opportunities })
+      // Distinct query key from the _root.opportunities prefixes above — the
+      // detail page's own cache was previously never invalidated from here,
+      // so it kept showing the pre-publish status if already cached.
+      queryClient.invalidateQueries({ queryKey: qk.opportunity(id) })
       toast.success('Publiée ! Votre opportunité est maintenant visible par la communauté.')
     },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de publier l\'opportunité.')),
@@ -84,12 +88,13 @@ export default function MyOpportunitiesPage() {
         body: JSON.stringify({ status: 'ARCHIVED' }),
       }),
     onMutate: (id) => setPendingActionId(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: qk.myOpportunities(user?.id ?? '') })
       queryClient.invalidateQueries({ queryKey: qk.myOpportunitiesDashboard(user?.id ?? '') })
       queryClient.invalidateQueries({ queryKey: qk._root.opportunitiesFeed })
       queryClient.invalidateQueries({ queryKey: qk._root.explore })
       queryClient.invalidateQueries({ queryKey: qk._root.opportunities })
+      queryClient.invalidateQueries({ queryKey: qk.opportunity(id) })
       toast.success('Opportunité archivée.')
     },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible d\'archiver l\'opportunité.')),
@@ -103,12 +108,13 @@ export default function MyOpportunitiesPage() {
         body: JSON.stringify({ status: 'ACTIVE' }),
       }),
     onMutate: (id) => setPendingActionId(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: qk.myOpportunities(user?.id ?? '') })
       queryClient.invalidateQueries({ queryKey: qk.myOpportunitiesDashboard(user?.id ?? '') })
       queryClient.invalidateQueries({ queryKey: qk._root.opportunitiesFeed })
       queryClient.invalidateQueries({ queryKey: qk._root.explore })
       queryClient.invalidateQueries({ queryKey: qk._root.opportunities })
+      queryClient.invalidateQueries({ queryKey: qk.opportunity(id) })
       toast.success('Publiée ! Votre opportunité est maintenant visible par la communauté.')
     },
     onError: (err: unknown) => toast.error(getErrorMessage(err, 'Impossible de publier l\'opportunité.')),

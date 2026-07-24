@@ -2,41 +2,17 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useQueryClient, type InfiniteData } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { apiJson } from '@/app/lib/api'
 import { useAuth } from '@/app/lib/AuthContext'
 import { qk } from '@/app/lib/queryKeys'
 import type { Opportunity } from '@/app/lib/types'
 import { ThumbsUp, MessageSquare, Bookmark, Users } from 'lucide-react'
-import { toast } from 'sonner'
-import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { useToggleOpportunityLike, useToggleOpportunitySave } from '@/app/hooks/useOpportunitySocial'
 
 interface OpportunityCardProps {
   opportunity: Opportunity
-}
-
-type PageData = { data: Opportunity[]; nextCursor?: string | null }
-
-function patchOpportunityInAllCaches(
-  queryClient: ReturnType<typeof useQueryClient>,
-  opportunityId: string,
-  patch: Partial<Opportunity>,
-) {
-  const updater = (old: InfiniteData<PageData> | undefined) => {
-    if (!old?.pages) return old
-    return { ...old, pages: old.pages.map(p => ({ ...p, data: p.data.map(o => o.id === opportunityId ? { ...o, ...patch } : o) })) }
-  }
-  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: qk._root.opportunities }, updater)
-  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: qk._root.opportunitiesFeed }, updater)
-  queryClient.setQueriesData<InfiniteData<PageData>>({ queryKey: qk._root.explore }, updater)
-  queryClient.setQueriesData<{ data: Opportunity[] }>(
-    { queryKey: qk.opportunitiesPreview() },
-    (old) => old?.data ? { ...old, data: old.data.map(o => o.id === opportunityId ? { ...o, ...patch } : o) } : old,
-  )
-  queryClient.setQueryData<Opportunity>(qk.opportunity(opportunityId), (old) =>
-    old ? { ...old, ...patch } : old,
-  )
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -65,22 +41,12 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const router = useRouter()
   const { user } = useAuth()
   const queryClient = useQueryClient()
-
-  // Local optimistic state — overrides the prop values while a mutation is in
-  // flight or just after it settles. This decouples the visual feedback from the
-  // React Query list cache (which is not updated during card-level mutations).
-  const serverIsLiked = !!opportunity.isLiked
-  const serverIsSaved = !!opportunity.isSaved
-  const [localLiked, setLocalLiked] = useState<boolean | null>(null)
-  const [localLikeCount, setLocalLikeCount] = useState<number | null>(null)
-  const [localSaved, setLocalSaved] = useState<boolean | null>(null)
-  const [localSaveCount, setLocalSaveCount] = useState<number | null>(null)
   const [imgError, setImgError] = useState(false)
 
-  const displayIsLiked  = localLiked     ?? serverIsLiked
-  const displayLikeCount = localLikeCount ?? (opportunity.likesCount ?? 0)
-  const displayIsSaved  = localSaved     ?? serverIsSaved
-  const displaySaveCount = localSaveCount ?? (opportunity.savedCount ?? 0)
+  const { isLiked: displayIsLiked, likeCount: displayLikeCount, toggleLike, isPending: isLikePending } =
+    useToggleOpportunityLike(opportunity.id, !!opportunity.isLiked, opportunity.likesCount ?? 0)
+  const { isSaved: displayIsSaved, saveCount: displaySaveCount, toggleSave, isPending: isSavePending } =
+    useToggleOpportunitySave(opportunity.id, !!opportunity.isSaved, opportunity.savedCount ?? 0)
 
   const date = new Date(opportunity.createdAt).toLocaleDateString('fr-FR', {
     day: 'numeric',
@@ -91,68 +57,18 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const typeColor = TYPE_COLORS[opportunity.type] ?? 'text-[#3b49df] bg-[#3b49df]/5'
   const typeLabel = opportunity.type.replace(/_/g, ' ')
 
-  const toggleLikeMutation = useTrackedMutation<
-    unknown, Error, boolean, { nextLiked: boolean; nextLikeCount: number }
-  >('opportunity.like', {
-    mutationFn: (currentlyLiked: boolean) =>
-      apiJson(`/social/like/${opportunity.id}`, { method: currentlyLiked ? 'DELETE' : 'POST' }),
-    onMutate: (currentlyLiked) => {
-      // Use displayLikeCount (not opportunity.likesCount) to handle rapid clicks correctly
-      const nextLiked = !currentlyLiked
-      const nextLikeCount = displayLikeCount + (currentlyLiked ? -1 : 1)
-      setLocalLiked(nextLiked)
-      setLocalLikeCount(nextLikeCount)
-      return { nextLiked, nextLikeCount }
-    },
-    onSuccess: (_, _vars, ctx) => {
-      if (!ctx) return
-      const patch = { isLiked: ctx.nextLiked, likesCount: ctx.nextLikeCount }
-      patchOpportunityInAllCaches(queryClient, opportunity.id, patch)
-    },
-    onError: () => {
-      setLocalLiked(null)
-      setLocalLikeCount(null)
-      toast.error('Impossible de mettre à jour le like')
-    },
-  })
-
-  const toggleSaveMutation = useTrackedMutation<
-    unknown, Error, boolean, { nextSaved: boolean; nextSaveCount: number }
-  >('opportunity.save', {
-    mutationFn: (currentlySaved: boolean) =>
-      apiJson(`/social/save/${opportunity.id}`, { method: currentlySaved ? 'DELETE' : 'POST' }),
-    onMutate: (currentlySaved) => {
-      const nextSaved = !currentlySaved
-      const nextSaveCount = displaySaveCount + (currentlySaved ? -1 : 1)
-      setLocalSaved(nextSaved)
-      setLocalSaveCount(nextSaveCount)
-      return { nextSaved, nextSaveCount }
-    },
-    onSuccess: (_, _vars, ctx) => {
-      if (!ctx) return
-      const patch = { isSaved: ctx.nextSaved, savedCount: ctx.nextSaveCount }
-      patchOpportunityInAllCaches(queryClient, opportunity.id, patch)
-      queryClient.invalidateQueries({ queryKey: qk.savedOpportunities(user?.id ?? '') })
-    },
-    onError: () => {
-      setLocalSaved(null)
-      setLocalSaveCount(null)
-      toast.error('Impossible de mettre à jour l\'enregistrement')
-    },
-  })
-
   const handleLikeClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     if (!user) { router.push('/login'); return }
-    toggleLikeMutation.mutate(displayIsLiked)
+    toggleLike()
   }
 
   const handleSaveClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     if (!user) { router.push('/login'); return }
-    toggleSaveMutation.mutate(displayIsSaved)
+    toggleSave()
   }
 
   const handlePrefetch = () => {
@@ -203,7 +119,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
               {user ? (
                 <button
                   onClick={handleLikeClick}
-                  disabled={toggleLikeMutation.isPending}
+                  disabled={isLikePending}
                   className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-50 ${displayIsLiked ? 'text-[#3b49df]' : 'hover:text-[#3b49df]'}`}
                   title="J'aime"
                 >
@@ -230,7 +146,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
               {user ? (
                 <button
                   onClick={handleSaveClick}
-                  disabled={toggleSaveMutation.isPending}
+                  disabled={isSavePending}
                   className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-50 ${displayIsSaved ? 'text-[#3b49df]' : 'hover:text-[#3b49df]'}`}
                   title="Enregistrer"
                 >

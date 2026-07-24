@@ -79,7 +79,7 @@ export class ApplicationsService {
     const cappedTake = Math.min(Math.max(take, 1), 100);
     const cappedSkip = Math.max(skip, 0);
     return this.prisma.application.findMany({
-      where: { candidateId: userId, deletedAt: null },
+      where: { candidateId: userId, deletedAt: null, opportunity: { deletedAt: null } },
       orderBy: { createdAt: 'desc' },
       take: cappedTake,
       skip: cappedSkip,
@@ -111,6 +111,13 @@ export class ApplicationsService {
    * @throws ConflictException when an active (non-withdrawn) application already exists.
    */
   async create(candidateId: string, dto: CreateApplicationDto) {
+    const opportunity = await this.prisma.opportunity.findUnique({
+      where: { id: dto.opportunityId },
+      select: { deletedAt: true },
+    });
+    if (!opportunity) throw new NotFoundException('Opportunity not found');
+    if (opportunity.deletedAt) throw new GoneException('This opportunity is no longer available');
+
     const existing = await this.prisma.application.findFirst({
       where: { opportunityId: dto.opportunityId, candidateId },
     });
@@ -214,6 +221,9 @@ export class ApplicationsService {
     }
 
     const opp = application.opportunity;
+    if (opp.deletedAt) {
+      throw new GoneException('This opportunity is no longer available');
+    }
     if (opp.status !== OpportunityStatus.ACTIVE) {
       throw new BadRequestException('This opportunity is no longer accepting applications');
     }

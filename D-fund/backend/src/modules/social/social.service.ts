@@ -8,6 +8,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { OpportunitiesService } from '../opportunities/opportunities.service';
 
 /**
  * Handles social interactions: follows, opportunity likes, and opportunity saves.
@@ -21,6 +22,7 @@ export class SocialService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private opportunities: OpportunitiesService,
   ) {}
 
   /** Returns whether the given follower is currently following the given user. */
@@ -179,6 +181,11 @@ export class SocialService {
       throw err;
     }
 
+    // Likes/saves aren't owned by OpportunitiesService but do appear in its
+    // cached feed/stats — without this, a like wouldn't show up there until
+    // the 45s TTL naturally expires.
+    await this.opportunities.invalidateCaches();
+
     return { message: 'Opportunity liked successfully' };
   }
 
@@ -201,6 +208,8 @@ export class SocialService {
         data: { likesCount: { decrement: 1 } },
       });
     });
+
+    await this.opportunities.invalidateCaches();
 
     return { message: 'Opportunity unliked successfully' };
   }
@@ -230,6 +239,8 @@ export class SocialService {
       throw err;
     }
 
+    await this.opportunities.invalidateCaches();
+
     return { message: 'Opportunity saved successfully' };
   }
 
@@ -251,6 +262,8 @@ export class SocialService {
         data: { savedCount: { decrement: 1 } },
       });
     });
+
+    await this.opportunities.invalidateCaches();
 
     return { message: 'Opportunity unsaved successfully' };
   }
@@ -316,7 +329,7 @@ export class SocialService {
     const cappedTake = Math.min(Math.max(take, 1), 100);
     const cappedSkip = Math.max(skip, 0);
     const saved = await this.prisma.savedOpportunity.findMany({
-      where: { userId },
+      where: { userId, opportunity: { deletedAt: null } },
       include: {
         opportunity: {
           include: { owner: { select: { id: true, name: true, profilePic: true } } },

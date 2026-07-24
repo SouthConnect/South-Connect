@@ -16,6 +16,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { StorageService } from './storage.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { Throttle } from '@nestjs/throttler';
+import { assertSameUser } from '../../common/authorization';
 
 /**
  * Proxies file upload and deletion requests to Supabase Storage.
@@ -98,7 +99,8 @@ export class StorageController {
       if (resourceId !== user.id) throw new ForbiddenException('You can only upload to your own namespace');
     } else if (prefix === 'opportunities') {
       const opp = await this.prisma.opportunity.findUnique({ where: { id: resourceId }, select: { ownerId: true } });
-      if (!opp || opp.ownerId !== user.id) throw new ForbiddenException('You do not own this opportunity');
+      if (!opp) throw new ForbiddenException('You do not own this opportunity');
+      assertSameUser(opp.ownerId, user.id, 'You do not own this opportunity');
     } else if (prefix === 'attachments') {
       if (resourceId !== user.id) throw new ForbiddenException('You can only upload to your own namespace');
     }
@@ -152,9 +154,8 @@ export class StorageController {
         where: { id: opportunityId },
         select: { ownerId: true },
       });
-      if (!opp || opp.ownerId !== user.id) {
-        throw new ForbiddenException('You are not allowed to delete this file');
-      }
+      if (!opp) throw new ForbiddenException('You are not allowed to delete this file');
+      assertSameUser(opp.ownerId, user.id, 'You are not allowed to delete this file');
     } else if (parts[1] !== user.id) {
       throw new ForbiddenException('You are not allowed to delete this file');
     }

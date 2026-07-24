@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import DOMPurify from 'dompurify'
 import type { Opportunity, Application, PublicDiscussion, PrivateDiscussion } from '@/app/lib/types'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { useToggleOpportunityLike, useToggleOpportunitySave } from '@/app/hooks/useOpportunitySocial'
 import { qk } from '@/app/lib/queryKeys'
 
 const TYPE_GRADIENTS: Record<string, string> = {
@@ -103,56 +104,12 @@ export default function OpportunityDetailPage() {
       .catch(() => toast.error('Impossible de copier le lien'))
   }
 
-  const toggleLikeMutation = useTrackedMutation('opportunity.like', {
-    mutationFn: async (currentlyLiked: boolean) => {
-      await apiJson(`/social/like/${id}`, {
-        method: currentlyLiked ? 'DELETE' : 'POST',
-      })
-    },
-    onMutate: async (currentlyLiked) => {
-      await queryClient.cancelQueries({ queryKey: qk.opportunity(id) })
-      const prev = queryClient.getQueryData(qk.opportunity(id))
-      queryClient.setQueryData(qk.opportunity(id), (old: Opportunity | undefined) => {
-        if (!old) return old
-        return {
-          ...old,
-          likesCount: currentlyLiked ? (old.likesCount ?? 1) - 1 : (old.likesCount ?? 0) + 1,
-          isLiked: !currentlyLiked,
-        }
-      })
-      return { prev }
-    },
-    onError: (error: unknown, _, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(qk.opportunity(id), ctx.prev)
-      toast.error(getErrorMessage(error, 'Impossible de mettre à jour le like'))
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: qk.opportunity(id) }),
-  })
-
-  const toggleSaveMutation = useTrackedMutation('opportunity.save', {
-    mutationFn: async (currentlySaved: boolean) => {
-      await apiJson(`/social/save/${id}`, {
-        method: currentlySaved ? 'DELETE' : 'POST',
-      })
-    },
-    onMutate: async (currentlySaved) => {
-      await queryClient.cancelQueries({ queryKey: qk.opportunity(id) })
-      const prev = queryClient.getQueryData(qk.opportunity(id))
-      queryClient.setQueryData(qk.opportunity(id), (old: Opportunity | undefined) => {
-        if (!old) return old
-        return {
-          ...old,
-          savedCount: currentlySaved ? (old.savedCount ?? 1) - 1 : (old.savedCount ?? 0) + 1,
-          isSaved: !currentlySaved,
-        }
-      })
-      return { prev }
-    },
-    onError: (error: unknown, _, ctx) => {
-      if (ctx?.prev) queryClient.setQueryData(qk.opportunity(id), ctx.prev)
-      toast.error(getErrorMessage(error, "Impossible de mettre à jour l'enregistrement"))
-    },
-  })
+  // Shared with OpportunityCard — a like/save from either place now updates
+  // every cache consistently (feed, explore, preview, saved list, detail).
+  const { isLiked: displayIsLiked, likeCount: displayLikeCount, toggleLike, isPending: isLikePending } =
+    useToggleOpportunityLike(id, !!opportunity?.isLiked, opportunity?.likesCount ?? 0)
+  const { isSaved: displayIsSaved, saveCount: displaySaveCount, toggleSave, isPending: isSavePending } =
+    useToggleOpportunitySave(id, !!opportunity?.isSaved, opportunity?.savedCount ?? 0)
 
   const startConversationMutation = useTrackedMutation('conversation.start', {
     mutationFn: (ownerId: string) =>
@@ -373,36 +330,38 @@ export default function OpportunityDetailPage() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
+                  disabled={isLikePending}
                   onClick={() => {
                     if (!user) { router.push('/login'); return }
-                    toggleLikeMutation.mutate(!!opportunity.isLiked)
+                    toggleLike()
                   }}
-                  className={`flex items-center justify-center gap-2 py-2 border rounded-lg text-sm font-semibold transition-colors ${
-                    opportunity.isLiked
+                  className={`flex items-center justify-center gap-2 py-2 border rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${
+                    displayIsLiked
                       ? 'border-[#3b49df] bg-[#3b49df]/5 text-[#3b49df]'
                       : 'border-gray-100 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   <ThumbsUp className="w-4 h-4" />
-                  {opportunity.isLiked ? 'Aimé' : 'Aimer'}
-                  {(opportunity.likesCount ?? 0) > 0 && (
-                    <span className="text-xs opacity-60">{opportunity.likesCount}</span>
+                  {displayIsLiked ? 'Aimé' : 'Aimer'}
+                  {displayLikeCount > 0 && (
+                    <span className="text-xs opacity-60">{displayLikeCount}</span>
                   )}
                 </button>
                 <button
                   type="button"
+                  disabled={isSavePending}
                   onClick={() => {
                     if (!user) { router.push('/login'); return }
-                    toggleSaveMutation.mutate(!!opportunity.isSaved)
+                    toggleSave()
                   }}
-                  className={`flex items-center justify-center gap-2 py-2 border rounded-lg text-sm font-semibold transition-colors ${
-                    opportunity.isSaved
+                  className={`flex items-center justify-center gap-2 py-2 border rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${
+                    displayIsSaved
                       ? 'border-[#3b49df] bg-[#3b49df]/5 text-[#3b49df]'
                       : 'border-gray-100 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   <Bookmark className="w-4 h-4" />
-                  {opportunity.isSaved ? 'Enregistré' : 'Enregistrer'}
+                  {displayIsSaved ? 'Enregistré' : 'Enregistrer'}
                 </button>
               </div>
               

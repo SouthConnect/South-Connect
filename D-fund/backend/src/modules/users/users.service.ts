@@ -213,8 +213,16 @@ export class UsersService {
    * Anonymise toutes les données personnelles et marque le compte comme supprimé.
    * Les enregistrements liés (candidatures, messages) sont conservés avec un userId
    * anonymisé pour ne pas casser l'intégrité référentielle.
+   *
+   * Factorisé entre deleteMe (self-service) et adminDelete (admin-initiated) —
+   * les deux chemins doivent appliquer exactement la même anonymisation pour
+   * remplir l'obligation RGPD, ce que deux copies indépendantes du même bloc
+   * ne garantissaient pas (un champ PII oublié lors d'une correction future
+   * aurait pu ne l'être que d'un côté).
+   *
+   * @throws NotFoundException when the user does not exist.
    */
-  async deleteMe(userId: string) {
+  private async anonymizeUser(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
@@ -241,37 +249,13 @@ export class UsersService {
     return { success: true };
   }
 
-  /**
-   * GDPR art. 17 — admin-initiated erasure.
-   * Anonymises all PII (same as deleteMe) so that GDPR obligations are met
-   * whether the deletion is self-initiated or admin-initiated.
-   *
-   * @throws NotFoundException when the user does not exist.
-   */
-  async adminDelete(id: string) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
-    if (!user) throw new NotFoundException('User not found');
+  /** RGPD art. 17 — self-service erasure. See {@link anonymizeUser}. */
+  async deleteMe(userId: string) {
+    return this.anonymizeUser(userId);
+  }
 
-    const anon = `deleted_${id}`;
-    await this.prisma.user.update({
-      where: { id },
-      data: {
-        email: `${anon}@deleted.invalid`,
-        name: 'Compte supprimé',
-        firstName: '',
-        lastName: '',
-        bio: null,
-        phone: null,
-        profilePic: null,
-        city: null,
-        country: null,
-        linkedinUrl: null,
-        website: null,
-        googleId: null,
-        password: null,
-        deletedAt: new Date(),
-      },
-    });
-    return { success: true };
+  /** GDPR art. 17 — admin-initiated erasure. See {@link anonymizeUser}. */
+  async adminDelete(id: string) {
+    return this.anonymizeUser(id);
   }
 }

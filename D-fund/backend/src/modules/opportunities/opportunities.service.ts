@@ -4,6 +4,7 @@ import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
+import { assertSameUser } from '../../common/authorization';
 import { CreateOpportunityDto, ListOpportunitiesDto, SortEnum, UpdateOpportunityDto } from './dto';
 
 const ADMIN_STATS_CACHE_KEY = 'admin:stats';
@@ -45,6 +46,18 @@ export class OpportunitiesService {
     } catch {
       // Redis indisponible — le cache expirera naturellement (TTL 45s)
     }
+  }
+
+  /**
+   * Invalidates the admin stats + public feed caches.
+   *
+   * Public so other modules that mutate denormalized Opportunity fields they
+   * don't own (e.g. SocialService updating likesCount/savedCount) can keep
+   * these caches in sync too, instead of the change only surfacing once the
+   * TTL naturally expires.
+   */
+  async invalidateCaches() {
+    await Promise.all([this.invalidateStatsCache(), this.invalidateFeedCache()]);
   }
 
   /**
@@ -381,7 +394,7 @@ export class OpportunitiesService {
     this.prisma.btoBProfile.updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { increment: 1 } } })
       .catch((err) => this.logger.warn(`Counter increment failed (btoBProfile): ${err.message}`));
 
-    await Promise.all([this.invalidateStatsCache(), this.invalidateFeedCache()]);
+    await this.invalidateCaches();
     return result;
   }
 
@@ -453,7 +466,7 @@ export class OpportunitiesService {
       }
     }
 
-    await Promise.all([this.invalidateStatsCache(), this.invalidateFeedCache()]);
+    await this.invalidateCaches();
     return updated;
   }
 
@@ -560,7 +573,7 @@ export class OpportunitiesService {
     const opportunity = await this.prisma.opportunity.findFirst({ where: { id, deletedAt: null } });
 
     if (!opportunity) throw new NotFoundException('Opportunity not found');
-    if (opportunity.ownerId !== ownerId) throw new ForbiddenException('You cannot update this opportunity');
+    assertSameUser(opportunity.ownerId, ownerId, 'You cannot update this opportunity');
 
     const isAdmin = role === 'ADMIN';
     if (!isAdmin) {
@@ -619,7 +632,7 @@ export class OpportunitiesService {
         referralAmount: dto.referralAmount,
       },
     });
-    await Promise.all([this.invalidateStatsCache(), this.invalidateFeedCache()]);
+    await this.invalidateCaches();
     return result;
   }
 
@@ -633,7 +646,7 @@ export class OpportunitiesService {
     const opportunity = await this.prisma.opportunity.findFirst({ where: { id, deletedAt: null } });
 
     if (!opportunity) throw new NotFoundException('Opportunity not found');
-    if (opportunity.ownerId !== ownerId) throw new ForbiddenException('You cannot delete this opportunity');
+    assertSameUser(opportunity.ownerId, ownerId, 'You cannot delete this opportunity');
 
     await this.prisma.opportunity.updateMany({
       where: { id, deletedAt: null },
@@ -652,7 +665,7 @@ export class OpportunitiesService {
     this.prisma.btoBProfile.updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { decrement: 1 } } })
       .catch((err) => this.logger.warn(`Counter decrement failed (btoBProfile): ${err.message}`));
 
-    await Promise.all([this.invalidateStatsCache(), this.invalidateFeedCache()]);
+    await this.invalidateCaches();
     return { id };
   }
 }

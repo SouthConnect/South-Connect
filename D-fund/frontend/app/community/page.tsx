@@ -10,6 +10,7 @@ import { useAuth } from '@/app/lib/AuthContext'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { useToggleFollow } from '@/app/hooks/useFollow'
 import { qk } from '@/app/lib/queryKeys'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -68,28 +69,7 @@ function RowActions({ userId, isFollowing }: { userId: string; isFollowing: bool
   const router = useRouter()
   const queryClient = useQueryClient()
 
-  const toggleFollow = useTrackedMutation('profile.follow', {
-    mutationFn: () =>
-      apiJson(`/social/follow/${userId}`, { method: isFollowing ? 'DELETE' : 'POST' }),
-    onMutate: async () => {
-      const key = qk.socialFollowing(user?.id ?? '')
-      await queryClient.cancelQueries({ queryKey: key })
-      const previous = queryClient.getQueryData<any[]>(key)
-      queryClient.setQueryData<any[]>(key, (old = []) =>
-        isFollowing ? old.filter((u) => u.id !== userId) : [...old, { id: userId }],
-      )
-      return { previous }
-    },
-    onError: (_err: unknown, _vars: unknown, ctx: any) => {
-      if (ctx?.previous !== undefined) {
-        queryClient.setQueryData(qk.socialFollowing(user?.id ?? ''), ctx.previous)
-      }
-      toast.error('Impossible de modifier le suivi')
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: qk.socialFollowing(user?.id ?? '') })
-    },
-  })
+  const toggleFollow = useToggleFollow(userId, isFollowing)
 
   const startConversation = useTrackedMutation('conversation.start', {
     mutationFn: () => apiJson(`/messages/private/start/${userId}`, { method: 'POST' }),
@@ -106,7 +86,7 @@ function RowActions({ userId, isFollowing }: { userId: string; isFollowing: bool
     <div className="flex items-center gap-2 shrink-0 ml-3">
       <button
         type="button"
-        onClick={(e) => { e.preventDefault(); toggleFollow.mutate(undefined) }}
+        onClick={(e) => { e.preventDefault(); toggleFollow.toggleFollow() }}
         disabled={toggleFollow.isPending}
         className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50 ${
           isFollowing

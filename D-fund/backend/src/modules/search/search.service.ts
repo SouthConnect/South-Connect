@@ -57,6 +57,7 @@ export class SearchService {
         ? this.prisma.opportunity.findMany({
             where: {
               status: 'ACTIVE',
+              deletedAt: null,
               OR: [
                 { name: { search: tsQuery } },
                 { punchline: { search: tsQuery } },
