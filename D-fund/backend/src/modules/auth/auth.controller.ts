@@ -19,7 +19,13 @@ import { User } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, ResetPasswordDto, ForgotPasswordDto, ChangePasswordDto } from './dto';
+import {
+  RegisterDto,
+  LoginDto,
+  ResetPasswordDto,
+  ForgotPasswordDto,
+  ChangePasswordDto,
+} from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
@@ -71,7 +77,7 @@ export class AuthController {
     res.cookie('refresh_token', refreshToken, {
       ...base,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: '/api/v1/auth/refresh',      // scoped — not sent to other endpoints
+      path: '/api/v1/auth/refresh', // scoped — not sent to other endpoints
     });
 
     // Non-sensitive flag cookie readable by the Next.js Edge middleware (not HttpOnly).
@@ -107,10 +113,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Register a new account' })
   @Post('register')
   @Throttle({ auth: {} })
-  async register(
-    @Body() dto: RegisterDto,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
     const { user, accessToken, refreshToken } = await this.authService.register(dto);
     this.setAuthCookies(res, accessToken, refreshToken);
     return { user };
@@ -121,10 +124,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ auth: {} })
-  async login(
-    @Body() dto: LoginDto,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const { user, accessToken, refreshToken } = await this.authService.login(dto);
     this.setAuthCookies(res, accessToken, refreshToken);
     return { user };
@@ -156,10 +156,7 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @Throttle({ refresh: {} })
-  async refresh(
-    @Req() req: any,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     const refreshToken: string = req.cookies?.['refresh_token'] ?? '';
     const tokens = await this.authService.refreshTokens(refreshToken);
     this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
@@ -176,10 +173,7 @@ export class AuthController {
    */
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(
-    @Req() req: any,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     const refreshToken: string = req.cookies?.['refresh_token'] ?? '';
     await this.authService.invalidateRefreshToken(refreshToken);
     this.clearAuthCookies(res);
@@ -204,7 +198,9 @@ export class AuthController {
   @Throttle({ auth: {} })
   @UseGuards(GoogleCallbackGuard)
   googleCallback(@Req() req: any, @Res() res: Response) {
-    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000').split(',')[0].trim();
+    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000')
+      .split(',')[0]
+      .trim();
 
     // Strategy signals a conflict: an account with this email exists but uses
     // email/password auth. Redirect to login with an explicit error code so

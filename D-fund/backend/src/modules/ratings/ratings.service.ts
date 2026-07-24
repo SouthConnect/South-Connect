@@ -25,7 +25,10 @@ export class RatingsService {
 
     // Vérifier que l'itemId correspond à un User ou une Opportunity existante
     const [targetUser, targetOpportunity] = await Promise.all([
-      this.prisma.user.findUnique({ where: { id: dto.itemId, deletedAt: null }, select: { id: true } }),
+      this.prisma.user.findUnique({
+        where: { id: dto.itemId, deletedAt: null },
+        select: { id: true },
+      }),
       this.prisma.opportunity.findUnique({ where: { id: dto.itemId }, select: { id: true } }),
     ]);
     if (!targetUser && !targetOpportunity) {

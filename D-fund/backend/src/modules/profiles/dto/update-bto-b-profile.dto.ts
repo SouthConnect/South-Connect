@@ -1,4 +1,12 @@
-import { ArrayMaxSize, IsArray, IsDateString, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsDateString,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 
 /**
  * DTO for updating a company profile (BtoB).

@@ -16,9 +16,10 @@ export class JwtOptionalGuard extends AuthGuard('jwt') {
 
   canActivate(context: ExecutionContext): Promise<boolean> {
     const result = super.canActivate(context);
-    const asPromise = result instanceof Observable
-      ? lastValueFrom(result)
-      : Promise.resolve(result as boolean | Promise<boolean>).then(v => v as boolean);
+    const asPromise =
+      result instanceof Observable
+        ? lastValueFrom(result)
+        : Promise.resolve(result as boolean | Promise<boolean>).then((v) => v as boolean);
     return asPromise.catch(() => true);
   }
 }

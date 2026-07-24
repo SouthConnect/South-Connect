@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,10 +32,7 @@ export class ReferralService {
     );
     const totalEarned = codes
       .filter((c) => c.status === ReferralStatus.COMPLETED)
-      .reduce(
-        (sum, c) => sum.add(c.amount ?? new Prisma.Decimal(0)),
-        new Prisma.Decimal(0),
-      );
+      .reduce((sum, c) => sum.add(c.amount ?? new Prisma.Decimal(0)), new Prisma.Decimal(0));
 
     return {
       codes,
@@ -54,7 +56,9 @@ export class ReferralService {
         select: { ownerId: true },
       });
       if (!opportunity || opportunity.ownerId !== userId) {
-        throw new ForbiddenException('Vous ne pouvez créer un code que pour vos propres opportunités');
+        throw new ForbiddenException(
+          'Vous ne pouvez créer un code que pour vos propres opportunités',
+        );
       }
     }
     const code = this.generateCode();

@@ -1,5 +1,15 @@
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsInt, IsISO8601, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { OpportunityStatusEnum, OpportunityTypeEnum } from './create-opportunity.dto';
 
 export enum SortEnum {

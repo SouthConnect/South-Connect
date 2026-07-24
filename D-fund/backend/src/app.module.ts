@@ -56,26 +56,28 @@ import { EmailQueueModule } from './modules/email-queue/email-queue.module';
       // P0 — storage Redis pour que le rate-limit soit global sur toutes les instances
       // (sans Redis, chaque instance a son propre compteur → bypass en multi-pod)
       useFactory: () => ({
-        throttlers: process.env.NODE_ENV === 'test'
-          ? [
-              { name: 'default',   ttl: 60_000, limit: 10_000 },
-              { name: 'auth',      ttl: 60_000, limit: 10_000 },
-              { name: 'refresh',   ttl: 60_000, limit: 10_000 },
-              { name: 'strict',    ttl: 60_000, limit: 10_000 },
-              { name: 'messaging', ttl: 60_000, limit: 10_000 },
-            ]
-          : [
-              { name: 'default',   ttl: 60_000, limit: 100 },
-              { name: 'auth',      ttl: 60_000, limit: 5   },
-              { name: 'refresh',   ttl: 60_000, limit: 20  },
-              { name: 'strict',    ttl: 60_000, limit: 3   },
-              { name: 'messaging', ttl: 60_000, limit: 30  },
-            ],
+        throttlers:
+          process.env.NODE_ENV === 'test'
+            ? [
+                { name: 'default', ttl: 60_000, limit: 10_000 },
+                { name: 'auth', ttl: 60_000, limit: 10_000 },
+                { name: 'refresh', ttl: 60_000, limit: 10_000 },
+                { name: 'strict', ttl: 60_000, limit: 10_000 },
+                { name: 'messaging', ttl: 60_000, limit: 10_000 },
+              ]
+            : [
+                { name: 'default', ttl: 60_000, limit: 100 },
+                { name: 'auth', ttl: 60_000, limit: 5 },
+                { name: 'refresh', ttl: 60_000, limit: 20 },
+                { name: 'strict', ttl: 60_000, limit: 3 },
+                { name: 'messaging', ttl: 60_000, limit: 30 },
+              ],
         // In test mode use in-memory storage so each NestJS test app starts with
         // fresh counters — prevents Redis state from accumulating across suites.
-        storage: process.env.NODE_ENV !== 'test' && process.env.REDIS_URL
-          ? new ThrottlerStorageRedisService(process.env.REDIS_URL)
-          : undefined,
+        storage:
+          process.env.NODE_ENV !== 'test' && process.env.REDIS_URL
+            ? new ThrottlerStorageRedisService(process.env.REDIS_URL)
+            : undefined,
       }),
     }),
     PrismaModule,
@@ -111,4 +113,3 @@ import { EmailQueueModule } from './modules/email-queue/email-queue.module';
   ],
 })
 export class AppModule {}
-

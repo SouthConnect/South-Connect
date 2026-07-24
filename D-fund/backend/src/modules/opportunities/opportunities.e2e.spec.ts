@@ -120,9 +120,7 @@ describe('Opportunities module (e2e)', () => {
 
   describe('2 — public listing', () => {
     it('should return a paginated response without authentication', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/api/v1/opportunities')
-        .expect(200);
+      const res = await request(app.getHttpServer()).get('/api/v1/opportunities').expect(200);
 
       expect(res.body).toHaveProperty('data');
       expect(Array.isArray(res.body.data)).toBe(true);
@@ -131,9 +129,7 @@ describe('Opportunities module (e2e)', () => {
     });
 
     it('should not include DRAFT opportunities in the public feed', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/api/v1/opportunities')
-        .expect(200);
+      const res = await request(app.getHttpServer()).get('/api/v1/opportunities').expect(200);
 
       const found = res.body.data.find((o: { id: string }) => o.id === opportunityId);
       expect(found).toBeUndefined();
@@ -145,9 +141,7 @@ describe('Opportunities module (e2e)', () => {
         .get('/api/v1/opportunities?status=DRAFT')
         .expect(200);
 
-      const hasDraft = res.body.data.some(
-        (o: { status: string }) => o.status === 'DRAFT',
-      );
+      const hasDraft = res.body.data.some((o: { status: string }) => o.status === 'DRAFT');
       expect(hasDraft).toBe(false);
     });
 
@@ -161,9 +155,7 @@ describe('Opportunities module (e2e)', () => {
     });
 
     it('should reject invalid pagination values', async () => {
-      await request(app.getHttpServer())
-        .get('/api/v1/opportunities?take=999')
-        .expect(400);
+      await request(app.getHttpServer()).get('/api/v1/opportunities?take=999').expect(400);
     });
 
     it('should filter results by type', async () => {
@@ -245,9 +237,7 @@ describe('Opportunities module (e2e)', () => {
         .set('Authorization', `Bearer ${otherToken}`)
         .expect(200);
 
-      const hasDraft = res.body.some(
-        (o: { status: string }) => o.status === 'DRAFT',
-      );
+      const hasDraft = res.body.some((o: { status: string }) => o.status === 'DRAFT');
       expect(hasDraft).toBe(false);
     });
 
@@ -281,9 +271,7 @@ describe('Opportunities module (e2e)', () => {
     });
 
     it('should return 404 for unauthenticated access to a DRAFT opportunity', async () => {
-      await request(app.getHttpServer())
-        .get(`/api/v1/opportunities/${opportunityId}`)
-        .expect(404);
+      await request(app.getHttpServer()).get(`/api/v1/opportunities/${opportunityId}`).expect(404);
     });
 
     it('should allow the owner to access their own DRAFT opportunity', async () => {
@@ -370,9 +358,7 @@ describe('Opportunities module (e2e)', () => {
     });
 
     it('should reject unauthenticated admin routes', async () => {
-      await request(app.getHttpServer())
-        .get('/api/v1/opportunities/admin/all')
-        .expect(401);
+      await request(app.getHttpServer()).get('/api/v1/opportunities/admin/all').expect(401);
     });
   });
 

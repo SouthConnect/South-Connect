@@ -85,10 +85,7 @@ describe('Tasks module (e2e)', () => {
       request(app.getHttpServer()).get('/api/v1/tasks').expect(401));
 
     it('POST /tasks → 401 without token', () =>
-      request(app.getHttpServer())
-        .post('/api/v1/tasks')
-        .send({ name: 'Ghost task' })
-        .expect(401));
+      request(app.getHttpServer()).post('/api/v1/tasks').send({ name: 'Ghost task' }).expect(401));
 
     it('PUT /tasks/:id → 401 without token', () =>
       request(app.getHttpServer())
@@ -158,7 +155,7 @@ describe('Tasks module (e2e)', () => {
   // ── 3. Read ────────────────────────────────────────────────────────────────
 
   describe('3 — list', () => {
-    it('should return only the authenticated user\'s tasks', async () => {
+    it("should return only the authenticated user's tasks", async () => {
       // Create a task for userB to ensure isolation
       await prisma.task.create({
         data: { userId: userBId, name: 'UserB task', status: 'TODO' },
@@ -200,7 +197,7 @@ describe('Tasks module (e2e)', () => {
         .expect(404);
     });
 
-    it('should prevent userB from updating userA\'s task', async () => {
+    it("should prevent userB from updating userA's task", async () => {
       await request(app.getHttpServer())
         .put(`/api/v1/tasks/${taskId}`)
         .set('Authorization', `Bearer ${tokenB}`)
@@ -257,7 +254,7 @@ describe('Tasks module (e2e)', () => {
         .expect(404);
     });
 
-    it('should prevent userB from deleting userA\'s task', async () => {
+    it("should prevent userB from deleting userA's task", async () => {
       await request(app.getHttpServer())
         .delete(`/api/v1/tasks/${taskId}`)
         .set('Authorization', `Bearer ${tokenB}`)
@@ -275,7 +272,9 @@ describe('Tasks module (e2e)', () => {
     });
 
     it('task is gone after deletion', async () => {
-      const found = await prisma.task.findFirst({ where: { userId: userAId, name: 'Updated task name' } });
+      const found = await prisma.task.findFirst({
+        where: { userId: userAId, name: 'Updated task name' },
+      });
       expect(found).toBeNull();
     });
   });

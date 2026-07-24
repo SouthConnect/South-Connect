@@ -1,5 +1,5 @@
 import { Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -59,7 +59,10 @@ export class SocialController {
   @Post('like/:opportunityId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  likeOpportunity(@Param('opportunityId', ParseIdPipe) opportunityId: string, @CurrentUser() user: User) {
+  likeOpportunity(
+    @Param('opportunityId', ParseIdPipe) opportunityId: string,
+    @CurrentUser() user: User,
+  ) {
     return this.socialService.likeOpportunity(user.id, opportunityId);
   }
 
@@ -67,7 +70,10 @@ export class SocialController {
   @Delete('like/:opportunityId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  unlikeOpportunity(@Param('opportunityId', ParseIdPipe) opportunityId: string, @CurrentUser() user: User) {
+  unlikeOpportunity(
+    @Param('opportunityId', ParseIdPipe) opportunityId: string,
+    @CurrentUser() user: User,
+  ) {
     return this.socialService.unlikeOpportunity(user.id, opportunityId);
   }
 
@@ -75,7 +81,10 @@ export class SocialController {
   @Post('save/:opportunityId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  saveOpportunity(@Param('opportunityId', ParseIdPipe) opportunityId: string, @CurrentUser() user: User) {
+  saveOpportunity(
+    @Param('opportunityId', ParseIdPipe) opportunityId: string,
+    @CurrentUser() user: User,
+  ) {
     return this.socialService.saveOpportunity(user.id, opportunityId);
   }
 
@@ -83,7 +92,10 @@ export class SocialController {
   @Delete('save/:opportunityId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  unsaveOpportunity(@Param('opportunityId', ParseIdPipe) opportunityId: string, @CurrentUser() user: User) {
+  unsaveOpportunity(
+    @Param('opportunityId', ParseIdPipe) opportunityId: string,
+    @CurrentUser() user: User,
+  ) {
     return this.socialService.unsaveOpportunity(user.id, opportunityId);
   }
 
@@ -99,7 +111,10 @@ export class SocialController {
   @Post('discussion/like/:discussionId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  likeDiscussion(@Param('discussionId', ParseIdPipe) discussionId: string, @CurrentUser() user: User) {
+  likeDiscussion(
+    @Param('discussionId', ParseIdPipe) discussionId: string,
+    @CurrentUser() user: User,
+  ) {
     return this.socialService.likeDiscussion(user.id, discussionId);
   }
 
@@ -107,7 +122,10 @@ export class SocialController {
   @Delete('discussion/like/:discussionId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  unlikeDiscussion(@Param('discussionId', ParseIdPipe) discussionId: string, @CurrentUser() user: User) {
+  unlikeDiscussion(
+    @Param('discussionId', ParseIdPipe) discussionId: string,
+    @CurrentUser() user: User,
+  ) {
     return this.socialService.unlikeDiscussion(user.id, discussionId);
   }
 
@@ -115,7 +133,10 @@ export class SocialController {
   @Get('discussion/is-liked/:discussionId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  isDiscussionLiked(@Param('discussionId', ParseIdPipe) discussionId: string, @CurrentUser() user: User) {
+  isDiscussionLiked(
+    @Param('discussionId', ParseIdPipe) discussionId: string,
+    @CurrentUser() user: User,
+  ) {
     return this.socialService.isDiscussionLiked(user.id, discussionId);
   }
 }

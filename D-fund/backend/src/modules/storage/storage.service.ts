@@ -51,7 +51,12 @@ export class StorageService {
    * @returns Public URL of the uploaded file.
    * @throws InternalServerErrorException when the client is not configured or upload fails.
    */
-  async uploadFile(bucket: string, path: string, file: Buffer, contentType: string): Promise<string> {
+  async uploadFile(
+    bucket: string,
+    path: string,
+    file: Buffer,
+    contentType: string,
+  ): Promise<string> {
     if (!this.supabase) throw new InternalServerErrorException('Storage service not configured');
 
     try {
@@ -139,7 +144,10 @@ export class StorageService {
    */
   isValidAttachmentType(contentType: string): boolean {
     const allowedTypes = [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

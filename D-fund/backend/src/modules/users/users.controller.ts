@@ -16,7 +16,7 @@ import type { Response } from 'express';
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { User, UserRole } from '@prisma/client';
-import { IsEnum, IsOptional } from 'class-validator';
+import { IsEnum } from 'class-validator';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';

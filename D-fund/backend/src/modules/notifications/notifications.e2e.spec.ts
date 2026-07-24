@@ -126,7 +126,7 @@ describe('Notifications (e2e)', () => {
   // ── 2. GET /notifications ─────────────────────────────────────────────────
 
   describe('2 — GET /notifications', () => {
-    it('returns alice\'s notifications as an array', async () => {
+    it("returns alice's notifications as an array", async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/notifications')
         .set('Authorization', `Bearer ${alice.token}`)
@@ -188,7 +188,7 @@ describe('Notifications (e2e)', () => {
       expect(res.body).toHaveProperty('success', true);
     });
 
-    it('alice\'s unread count decreases by 1', async () => {
+    it("alice's unread count decreases by 1", async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/notifications/unread-count')
         .set('Authorization', `Bearer ${alice.token}`)
@@ -198,7 +198,7 @@ describe('Notifications (e2e)', () => {
       expect(res.body.count).toBeGreaterThanOrEqual(1);
     });
 
-    it('bob cannot mark alice\'s notification as read (updateMany with userId guard, no-op → 200)', async () => {
+    it("bob cannot mark alice's notification as read (updateMany with userId guard, no-op → 200)", async () => {
       // The controller uses updateMany with { id, userId: user.id }
       // So bob's attempt is a silent no-op, not a 403
       const res = await request(app.getHttpServer())
@@ -217,7 +217,7 @@ describe('Notifications (e2e)', () => {
   // ── 5. POST /notifications/read-all ───────────────────────────────────────
 
   describe('5 — POST /notifications/read-all', () => {
-    it('marks all of alice\'s notifications as read → { success: true }', async () => {
+    it("marks all of alice's notifications as read → { success: true }", async () => {
       const res = await request(app.getHttpServer())
         .post('/api/v1/notifications/read-all')
         .set('Authorization', `Bearer ${alice.token}`)
@@ -226,7 +226,7 @@ describe('Notifications (e2e)', () => {
       expect(res.body).toHaveProperty('success', true);
     });
 
-    it('alice\'s unread count is now 0', async () => {
+    it("alice's unread count is now 0", async () => {
       const res = await request(app.getHttpServer())
         .get('/api/v1/notifications/unread-count')
         .set('Authorization', `Bearer ${alice.token}`)
@@ -240,9 +240,7 @@ describe('Notifications (e2e)', () => {
 
   describe('6 — Route protection (complete)', () => {
     it('POST /notifications/:id/read → 401 without token', () =>
-      request(app.getHttpServer())
-        .post(`/api/v1/notifications/${notifId}/read`)
-        .expect(401));
+      request(app.getHttpServer()).post(`/api/v1/notifications/${notifId}/read`).expect(401));
   });
 
   // ── 7. Pagination ──────────────────────────────────────────────────────────
@@ -331,7 +329,9 @@ describe('Notifications (e2e)', () => {
         .set('Authorization', `Bearer ${paginationToken}`)
         .expect(200);
 
-      const dates = res.body.data.map((n: { createdAt: string }) => new Date(n.createdAt).getTime());
+      const dates = res.body.data.map((n: { createdAt: string }) =>
+        new Date(n.createdAt).getTime(),
+      );
       for (let i = 0; i < dates.length - 1; i++) {
         expect(dates[i]).toBeGreaterThanOrEqual(dates[i + 1]);
       }

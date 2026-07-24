@@ -129,10 +129,10 @@ describe('Auth (E2E)', () => {
         AuthService,
         JwtStrategy,
         JwtAuthGuard,
-        { provide: PrismaService,        useValue: mockPrisma },
-        { provide: REDIS_CLIENT,         useValue: mockRedis },
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: REDIS_CLIENT, useValue: mockRedis },
         { provide: NotificationsService, useValue: mockNotifications },
-        { provide: ConfigService,        useValue: mockConfigService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -161,7 +161,10 @@ describe('Auth (E2E)', () => {
     it('crée un compte et pose les cookies HttpOnly', async () => {
       mockPrisma.user.findUnique.mockResolvedValueOnce(null);
       mockPrisma.user.create.mockResolvedValueOnce({ ...SAFE_USER, isEmailVerified: false });
-      mockPrisma.user.findUniqueOrThrow.mockResolvedValueOnce({ ...SAFE_USER, isEmailVerified: false });
+      mockPrisma.user.findUniqueOrThrow.mockResolvedValueOnce({
+        ...SAFE_USER,
+        isEmailVerified: false,
+      });
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/register')
@@ -172,13 +175,13 @@ describe('Auth (E2E)', () => {
       expect(res.body.user.password).toBeUndefined();
       expect(res.body.token).toBeUndefined();
 
-      const cookies: string[] = res.headers['set-cookie'];
-      expect(cookies.some(c => c.startsWith('access_token='))).toBe(true);
-      expect(cookies.some(c => c.startsWith('refresh_token='))).toBe(true);
-      expect(cookies.some(c => c.includes('HttpOnly'))).toBe(true);
+      const cookies = res.headers['set-cookie'] as unknown as string[];
+      expect(cookies.some((c) => c.startsWith('access_token='))).toBe(true);
+      expect(cookies.some((c) => c.startsWith('refresh_token='))).toBe(true);
+      expect(cookies.some((c) => c.includes('HttpOnly'))).toBe(true);
     });
 
-    it('retourne 409 si l\'email existe déjà', async () => {
+    it("retourne 409 si l'email existe déjà", async () => {
       mockPrisma.user.findUnique.mockResolvedValueOnce(VERIFIED_USER_DB);
 
       await request(app.getHttpServer())
@@ -194,7 +197,7 @@ describe('Auth (E2E)', () => {
         .expect(400);
     });
 
-    it('retourne 400 si l\'email est absent', async () => {
+    it("retourne 400 si l'email est absent", async () => {
       await request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send({ password: 'Password1', firstName: 'A', lastName: 'B' })
@@ -217,9 +220,9 @@ describe('Auth (E2E)', () => {
       expect(res.body.user).toBeDefined();
       expect(res.body.token).toBeUndefined();
 
-      const cookies: string[] = res.headers['set-cookie'];
-      expect(cookies.some(c => c.startsWith('access_token='))).toBe(true);
-      expect(cookies.some(c => c.includes('HttpOnly'))).toBe(true);
+      const cookies = res.headers['set-cookie'] as unknown as string[];
+      expect(cookies.some((c) => c.startsWith('access_token='))).toBe(true);
+      expect(cookies.some((c) => c.includes('HttpOnly'))).toBe(true);
     });
 
     it('retourne 401 pour un mauvais mot de passe', async () => {
@@ -251,7 +254,7 @@ describe('Auth (E2E)', () => {
   // ─── GET /auth/me ──────────────────────────────────────────────────────────
 
   describe('GET /auth/me', () => {
-    it('retourne l\'utilisateur avec un cookie valide', async () => {
+    it("retourne l'utilisateur avec un cookie valide", async () => {
       const token = jwtService.sign({ userId: SAFE_USER.id, email: SAFE_USER.email });
       mockPrisma.user.findUnique.mockResolvedValueOnce(SAFE_USER);
 
@@ -268,8 +271,11 @@ describe('Auth (E2E)', () => {
       await request(app.getHttpServer()).get('/api/v1/auth/me').expect(401);
     });
 
-    it('accessible même si l\'email n\'est PAS vérifié (@SkipEmailVerification)', async () => {
-      const token = jwtService.sign({ userId: SAFE_UNVERIFIED_USER.id, email: SAFE_UNVERIFIED_USER.email });
+    it("accessible même si l'email n'est PAS vérifié (@SkipEmailVerification)", async () => {
+      const token = jwtService.sign({
+        userId: SAFE_UNVERIFIED_USER.id,
+        email: SAFE_UNVERIFIED_USER.email,
+      });
       mockPrisma.user.findUnique.mockResolvedValueOnce(SAFE_UNVERIFIED_USER);
 
       const res = await request(app.getHttpServer())
@@ -285,9 +291,12 @@ describe('Auth (E2E)', () => {
 
   describe('Guard email vérifié', () => {
     it('retourne 200 sur resend-verification même sans email vérifié', async () => {
-      const token = jwtService.sign({ userId: SAFE_UNVERIFIED_USER.id, email: SAFE_UNVERIFIED_USER.email });
+      const token = jwtService.sign({
+        userId: SAFE_UNVERIFIED_USER.id,
+        email: SAFE_UNVERIFIED_USER.email,
+      });
       mockPrisma.user.findUnique
-        .mockResolvedValueOnce(SAFE_UNVERIFIED_USER)  // JwtStrategy.validate
+        .mockResolvedValueOnce(SAFE_UNVERIFIED_USER) // JwtStrategy.validate
         .mockResolvedValueOnce(SAFE_UNVERIFIED_USER); // resendVerification
 
       await request(app.getHttpServer())
@@ -302,9 +311,10 @@ describe('Auth (E2E)', () => {
   describe('POST /auth/refresh', () => {
     it('émet de nouveaux tokens depuis un cookie refresh valide', async () => {
       const { refreshToken } = signTestTokens(jwtService, SAFE_USER);
-      mockPrisma.user.findUnique.mockResolvedValueOnce(
-        { id: SAFE_USER.id, email: SAFE_USER.email },
-      );
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: SAFE_USER.id,
+        email: SAFE_USER.email,
+      });
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/refresh')
@@ -312,8 +322,8 @@ describe('Auth (E2E)', () => {
         .expect(200);
 
       expect(res.body.message).toBe('Tokens refreshed.');
-      const cookies: string[] = res.headers['set-cookie'];
-      expect(cookies.some(c => c.startsWith('access_token='))).toBe(true);
+      const cookies = res.headers['set-cookie'] as unknown as string[];
+      expect(cookies.some((c) => c.startsWith('access_token='))).toBe(true);
     });
 
     it('retourne 401 si le token est dans la blocklist', async () => {
@@ -327,16 +337,16 @@ describe('Auth (E2E)', () => {
     });
 
     it('retourne 401 sans cookie refresh', async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/auth/refresh')
-        .expect(401);
+      await request(app.getHttpServer()).post('/api/v1/auth/refresh').expect(401);
     });
 
     it('retourne 401 si le compte est banni (isBanned = true)', async () => {
       const { refreshToken } = signTestTokens(jwtService, SAFE_USER);
-      mockPrisma.user.findUnique.mockResolvedValueOnce(
-        { id: SAFE_USER.id, email: SAFE_USER.email, isBanned: true },
-      );
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: SAFE_USER.id,
+        email: SAFE_USER.email,
+        isBanned: true,
+      });
 
       await request(app.getHttpServer())
         .post('/api/v1/auth/refresh')
@@ -358,8 +368,8 @@ describe('Auth (E2E)', () => {
 
       expect(res.body.message).toBe('Logged out successfully.');
 
-      const cookies: string[] = res.headers['set-cookie'];
-      const accessCookie = cookies.find(c => c.startsWith('access_token='));
+      const cookies = res.headers['set-cookie'] as unknown as string[];
+      const accessCookie = cookies.find((c) => c.startsWith('access_token='));
       expect(accessCookie).toBeDefined();
       // Le cookie doit être expiré (Max-Age=0 ou Expires dans le passé)
       expect(accessCookie).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/i);

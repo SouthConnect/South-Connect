@@ -17,9 +17,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   ) {
     const secret = configService.get<string>('JWT_SECRET');
     if (!secret) {
-      throw new Error(
-        'JWT_SECRET is not configured. Please set it in your environment variables.',
-      );
+      throw new Error('JWT_SECRET is not configured. Please set it in your environment variables.');
     }
 
     super({
@@ -42,4 +40,3 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return user;
   }
 }
-

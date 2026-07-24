@@ -173,7 +173,7 @@ export class ProfilesService {
    * @param skip - Number of records to skip for pagination.
    */
   listMembers(take = 30, skip = 0, search?: string) {
-    const q = search?.trim()
+    const q = search?.trim();
     return this.prisma.user.findMany({
       where: {
         visibility: true,

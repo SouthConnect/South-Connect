@@ -1,6 +1,15 @@
-import { Body, Controller, ForbiddenException, Get, Param, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtOptionalGuard } from '../auth/guards/jwt-optional.guard';
@@ -41,10 +50,7 @@ export class ProfilesController {
   /** Returns a paginated list of company profiles. */
   @Get('lists/companies')
   listCompanies(@Query('take') take?: string, @Query('skip') skip?: string) {
-    return this.profilesService.listCompanies(
-      Math.min(Number(take) || 30, 100),
-      Number(skip) || 0,
-    );
+    return this.profilesService.listCompanies(Math.min(Number(take) || 30, 100), Number(skip) || 0);
   }
 
   /** Returns a paginated list of all publicly visible members, with optional name/bio search. */

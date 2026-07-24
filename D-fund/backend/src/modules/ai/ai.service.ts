@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { OpportunityType } from '@prisma/client';
 
@@ -49,10 +53,7 @@ export class AiService {
    * @throws ServiceUnavailableException when ANTHROPIC_API_KEY is not configured.
    * @throws InternalServerErrorException when the API call fails or returns invalid JSON.
    */
-  async generateOpportunity(
-    type: OpportunityType,
-    context: string,
-  ): Promise<GeneratedOpportunity> {
+  async generateOpportunity(type: OpportunityType, context: string): Promise<GeneratedOpportunity> {
     if (!this.client) {
       throw new ServiceUnavailableException(
         'AI generation is not configured. Set ANTHROPIC_API_KEY to enable it.',
@@ -73,7 +74,10 @@ JSON schema (all fields required):
   "tags": string[]       // 3 to 5 relevant keyword tags (lowercase)
 }`;
 
-    const safeContext = context.replace(/[<>{}`]/g, '').slice(0, 1000).trim();
+    const safeContext = context
+      .replace(/[<>{}`]/g, '')
+      .slice(0, 1000)
+      .trim();
     const userPrompt = `Opportunity type: ${typeLabel}
 User context: ${safeContext}
 
@@ -107,7 +111,10 @@ Write a compelling listing for this opportunity.`;
     }
 
     // Strip any accidental markdown code fences
-    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    const cleaned = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/, '')
+      .trim();
 
     let parsed: GeneratedOpportunity;
     try {
@@ -121,9 +128,7 @@ Write a compelling listing for this opportunity.`;
       name: String(parsed.name ?? '').slice(0, 80),
       punchline: String(parsed.punchline ?? '').slice(0, 120),
       description: String(parsed.description ?? ''),
-      tags: Array.isArray(parsed.tags)
-        ? parsed.tags.map((t) => String(t)).slice(0, 5)
-        : [],
+      tags: Array.isArray(parsed.tags) ? parsed.tags.map((t) => String(t)).slice(0, 5) : [],
     };
   }
 }

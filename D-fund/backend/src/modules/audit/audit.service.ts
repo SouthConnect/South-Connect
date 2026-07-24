@@ -16,7 +16,13 @@ export class AuditService {
   private readonly logger = new Logger(AuditService.name);
   constructor(private readonly prisma: PrismaService) {}
 
-  log(adminId: string, action: AuditAction, targetId?: string, targetType?: string, details?: string) {
+  log(
+    adminId: string,
+    action: AuditAction,
+    targetId?: string,
+    targetType?: string,
+    details?: string,
+  ) {
     return this.prisma.adminAuditLog
       .create({
         data: { adminId, action, targetId, targetType, details },

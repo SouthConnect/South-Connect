@@ -10,5 +10,3 @@ import { ProfilesController } from './profiles.controller';
   exports: [ProfilesService],
 })
 export class ProfilesModule {}
-
-

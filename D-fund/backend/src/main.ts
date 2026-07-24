@@ -32,8 +32,12 @@ const logger = new Logger('Bootstrap');
 
 // P0 — capturer toute promesse rejetée non gérée avant qu'elle ne tue le process
 process.on('unhandledRejection', (reason: unknown) => {
-  logger.error('Unhandled promise rejection', reason instanceof Error ? reason.stack : String(reason));
+  logger.error(
+    'Unhandled promise rejection',
+    reason instanceof Error ? reason.stack : String(reason),
+  );
   if (process.env.NODE_ENV === 'production') {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const Sentry = require('@sentry/nestjs');
     Sentry.captureException(reason);
   }
@@ -42,6 +46,7 @@ process.on('unhandledRejection', (reason: unknown) => {
 process.on('uncaughtException', (err: Error) => {
   logger.error('Uncaught exception — shutting down', err.stack);
   if (process.env.NODE_ENV === 'production') {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const Sentry = require('@sentry/nestjs');
     Sentry.captureException(err);
   }
@@ -64,7 +69,9 @@ async function bootstrap() {
   }
   // SESSION_SECRET doit être distinct de JWT_SECRET pour éviter la réutilisation de clé
   if (!process.env.SESSION_SECRET) {
-    logger.warn('SESSION_SECRET not set — falling back to JWT_SECRET. Set a distinct SESSION_SECRET in production.');
+    logger.warn(
+      'SESSION_SECRET not set — falling back to JWT_SECRET. Set a distinct SESSION_SECRET in production.',
+    );
   }
   // REDIS_PASSWORD requis en production pour sécuriser l'accès Redis
   if (process.env.NODE_ENV === 'production' && !process.env.REDIS_PASSWORD) {
@@ -85,9 +92,10 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create(AppModule, {
-    logger: process.env.NODE_ENV === 'production'
-      ? new JsonLoggerService()
-      : ['error', 'warn', 'log', 'debug', 'verbose'],
+    logger:
+      process.env.NODE_ENV === 'production'
+        ? new JsonLoggerService()
+        : ['error', 'warn', 'log', 'debug', 'verbose'],
   });
   const configService = app.get(ConfigService);
   app.useWebSocketAdapter(new CorsIoAdapter(app, configService));
@@ -106,6 +114,7 @@ async function bootstrap() {
   const redisUrl = process.env.REDIS_URL;
   const sessionStore = redisUrl
     ? (() => {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const Redis = require('ioredis');
         // Connect eagerly — lazyConnect + enableOfflineQueue:false caused the first
         // session write (OAuth state) to fail silently before Redis was ready,
@@ -119,21 +128,25 @@ async function bootstrap() {
       })()
     : undefined; // MemoryStore (dev only)
 
-  app.use(session({
-    store: sessionStore,
-    secret: process.env.SESSION_SECRET || process.env.JWT_SECRET!,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 10 * 60 * 1000, // 10 min — long enough for the OAuth dance
-    },
-  }));
+  app.use(
+    session({
+      store: sessionStore,
+      secret: process.env.SESSION_SECRET || process.env.JWT_SECRET!,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 10 * 60 * 1000, // 10 min — long enough for the OAuth dance
+      },
+    }),
+  );
 
   // Limit JSON body size to prevent memory-exhaustion attacks
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   app.use(require('express').json({ limit: '1mb' }));
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   app.use(require('express').urlencoded({ limit: '1mb', extended: true }));
 
   // Security headers
@@ -157,7 +170,10 @@ async function bootstrap() {
     .map((o) => o.trim())
     .filter(Boolean);
   app.enableCors({
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
       // Requests without an Origin header come from non-browser clients (curl, Postman,
       // server-to-server). CORS cannot protect against these — that is by design.
       // CSRF protection relies on SameSite=Strict cookies + JWT Bearer tokens, not CORS.
@@ -218,8 +234,8 @@ async function bootstrap() {
   if (process.env.NODE_ENV === 'production' && !process.env.COOKIE_DOMAIN) {
     logger.warn(
       'COOKIE_DOMAIN is not set — auth cookies will be host-only to the API domain. ' +
-      'The Next.js Edge middleware cannot read them, which will cause session loss on page refresh. ' +
-      'Set COOKIE_DOMAIN=.southconnect.io in Railway.',
+        'The Next.js Edge middleware cannot read them, which will cause session loss on page refresh. ' +
+        'Set COOKIE_DOMAIN=.southconnect.io in Railway.',
     );
   }
 

@@ -7,7 +7,7 @@ const reviewableStages = [
   ApplicationStage.ARCHIVED,
 ] as const;
 
-type ReviewableStage = typeof reviewableStages[number];
+type ReviewableStage = (typeof reviewableStages)[number];
 
 export class ReviewApplicationDto {
   @IsOptional()

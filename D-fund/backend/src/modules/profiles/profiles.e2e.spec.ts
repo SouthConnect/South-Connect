@@ -221,7 +221,7 @@ describe('Profiles (e2e)', () => {
         .send({ description: 'No auth' })
         .expect(401));
 
-    it('403 when updating another user\'s profile', () =>
+    it("403 when updating another user's profile", () =>
       request(app.getHttpServer())
         .put(`/api/v1/profiles/bto-c/${alice.userId}`)
         .set('Authorization', `Bearer ${bob.token}`)
@@ -254,7 +254,7 @@ describe('Profiles (e2e)', () => {
         .send({ companyName: 'Hack Corp' })
         .expect(401));
 
-    it('403 when updating another user\'s BtoB profile', () =>
+    it("403 when updating another user's BtoB profile", () =>
       request(app.getHttpServer())
         .put(`/api/v1/profiles/bto-b/${alice.userId}`)
         .set('Authorization', `Bearer ${bob.token}`)

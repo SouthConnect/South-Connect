@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  Put,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { FeaturesService } from './features.service';
 import { CreateFeatureDto } from './dto/create-feature.dto';

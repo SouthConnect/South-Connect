@@ -31,7 +31,11 @@ export class FeedbackService {
     if (this.resend && adminEmail) {
       try {
         const esc = (s: string) =>
-          s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
         await this.resend.emails.send({
           from: fromEmail,
           to: adminEmail,

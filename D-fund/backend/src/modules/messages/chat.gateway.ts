@@ -49,7 +49,9 @@ class TypingPayloadDto {
   namespace: '/chat',
   // CORS is configured via CorsIoAdapter in main.ts — do not set here.
 })
-export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy {
+export class ChatGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy
+{
   @WebSocketServer() server!: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
@@ -93,26 +95,31 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         server.adapter(createAdapter(pubClient, subClient));
         this.logger.log('Socket.IO Redis adapter attached (multi-instance mode)');
       } catch (err: any) {
-        this.logger.warn(`Failed to attach Redis adapter — falling back to in-memory: ${err.message}`);
+        this.logger.warn(
+          `Failed to attach Redis adapter — falling back to in-memory: ${err.message}`,
+        );
       }
     }
 
     // Periodic sanitization: remove socket IDs that Socket.IO no longer tracks.
     // Guards against missed disconnect events (e.g. abrupt process restarts).
-    this.sanitizeInterval = setInterval(() => {
-      // Guard: server.sockets.sockets can be undefined during shutdown or
-      // before the namespace is fully initialised — bail out rather than crash.
-      const connected = this.server?.sockets?.sockets;
-      if (!connected) return;
-      for (const [userId, sockets] of this.onlineUsers) {
-        for (const socketId of sockets) {
-          if (!connected.has(socketId)) {
-            sockets.delete(socketId);
+    this.sanitizeInterval = setInterval(
+      () => {
+        // Guard: server.sockets.sockets can be undefined during shutdown or
+        // before the namespace is fully initialised — bail out rather than crash.
+        const connected = this.server?.sockets?.sockets;
+        if (!connected) return;
+        for (const [userId, sockets] of this.onlineUsers) {
+          for (const socketId of sockets) {
+            if (!connected.has(socketId)) {
+              sockets.delete(socketId);
+            }
           }
+          if (sockets.size === 0) this.onlineUsers.delete(userId);
         }
-        if (sockets.size === 0) this.onlineUsers.delete(userId);
-      }
-    }, 5 * 60 * 1000); // every 5 minutes
+      },
+      5 * 60 * 1000,
+    ); // every 5 minutes
   }
 
   /**
@@ -210,10 +217,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
    * Membership is verified so only participants can send typing events.
    */
   @SubscribeMessage('typing')
-  async handleTyping(
-    @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() raw: unknown,
-  ) {
+  async handleTyping(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() raw: unknown) {
     const payload = plainToInstance(TypingPayloadDto, raw);
     const errors = validateSync(payload);
     if (errors.length) throw new WsException('Invalid payload');

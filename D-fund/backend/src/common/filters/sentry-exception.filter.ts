@@ -66,9 +66,7 @@ export class SentryExceptionFilter implements ExceptionFilter {
     }
 
     const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
     // Only report server-side errors; 4xx are expected client mistakes
     if (status >= 500) {
@@ -77,13 +75,12 @@ export class SentryExceptionFilter implements ExceptionFilter {
     }
 
     const rawResponse =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : 'Internal server error';
+      exception instanceof HttpException ? exception.getResponse() : 'Internal server error';
 
-    const message = process.env.NODE_ENV === 'production'
-      ? this.sanitizeHttpResponse(rawResponse, status)
-      : rawResponse;
+    const message =
+      process.env.NODE_ENV === 'production'
+        ? this.sanitizeHttpResponse(rawResponse, status)
+        : rawResponse;
 
     response.status(status).json({
       statusCode: status,
@@ -98,7 +95,11 @@ export class SentryExceptionFilter implements ExceptionFilter {
     const { message } = raw as any;
     return {
       statusCode: status,
-      message: Array.isArray(message) ? message : (typeof message === 'string' ? message : `Error ${status}`),
+      message: Array.isArray(message)
+        ? message
+        : typeof message === 'string'
+          ? message
+          : `Error ${status}`,
     };
   }
 }

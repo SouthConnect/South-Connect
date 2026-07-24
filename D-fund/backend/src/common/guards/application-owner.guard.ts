@@ -51,4 +51,3 @@ export class ApplicationOwnerGuard implements CanActivate {
     return true;
   }
 }
-

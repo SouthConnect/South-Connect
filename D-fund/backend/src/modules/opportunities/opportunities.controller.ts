@@ -13,7 +13,7 @@ import {
 import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { User, UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { JwtOptionalGuard } from '../auth/guards/jwt-optional.guard';
@@ -85,8 +85,8 @@ export class OpportunitiesController {
       dto.status === 'ACTIVE'
         ? 'APPROVE_OPPORTUNITY'
         : dto.status === 'ARCHIVED'
-        ? 'ARCHIVE_OPPORTUNITY'
-        : 'REJECT_OPPORTUNITY';
+          ? 'ARCHIVE_OPPORTUNITY'
+          : 'REJECT_OPPORTUNITY';
     this.auditService.log(admin.id, action, id, 'opportunity', `status=${dto.status}`);
     return result;
   }
@@ -113,7 +113,11 @@ export class OpportunitiesController {
   /** Updates an opportunity. Only the owner may call this endpoint. */
   @Put(':id')
   @UseGuards(JwtAuthGuard)
-  update(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User, @Body() dto: UpdateOpportunityDto) {
+  update(
+    @Param('id', ParseIdPipe) id: string,
+    @CurrentUser() user: User,
+    @Body() dto: UpdateOpportunityDto,
+  ) {
     return this.opportunitiesService.update(id, user.id, dto, user.role);
   }
 
@@ -137,7 +141,14 @@ export class OpportunitiesController {
     const xff = req.headers['x-forwarded-for'];
     // Prendre la dernière IP de la chaîne (ajoutée par notre proxy) — évite le spoofing via le header
     const xffStr = Array.isArray(xff) ? xff.join(',') : (xff ?? '');
-    const ip = xffStr.split(',').map((s) => s.trim()).filter(Boolean).pop() ?? req.ip ?? 'unknown';
+    const ip =
+      xffStr
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .pop() ??
+      req.ip ??
+      'unknown';
     const viewerKey = requester?.id ?? ip;
     return this.opportunitiesService.findOne(id, requester?.id, viewerKey);
   }

@@ -8,5 +8,4 @@ import { SetMetadata } from '@nestjs/common';
  * yet confirmed their email address (e.g. GET /auth/me, POST /auth/resend-verification).
  */
 export const SKIP_EMAIL_VERIFICATION_KEY = 'skipEmailVerification';
-export const SkipEmailVerification = () =>
-  SetMetadata(SKIP_EMAIL_VERIFICATION_KEY, true);
+export const SkipEmailVerification = () => SetMetadata(SKIP_EMAIL_VERIFICATION_KEY, true);

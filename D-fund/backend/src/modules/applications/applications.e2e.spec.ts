@@ -257,7 +257,7 @@ describe('Applications module (e2e)', () => {
         .expect(401);
     });
 
-    it('should reject users accessing other users\' application lists', async () => {
+    it("should reject users accessing other users' application lists", async () => {
       const candidateUser = await prisma.user.findUnique({
         where: { email: candidateCredentials.email },
       });

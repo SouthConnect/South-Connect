@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -38,7 +38,11 @@ export class TasksController {
 
   /** Updates a task. Only the task owner may call this endpoint. */
   @Put(':id')
-  update(@CurrentUser() user: User, @Param('id', ParseIdPipe) id: string, @Body() dto: UpdateTaskDto) {
+  update(
+    @CurrentUser() user: User,
+    @Param('id', ParseIdPipe) id: string,
+    @Body() dto: UpdateTaskDto,
+  ) {
     return this.tasksService.update(id, user.id, dto);
   }
 

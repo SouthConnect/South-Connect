@@ -92,7 +92,7 @@ export class AuthService implements OnModuleDestroy {
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
     const rawVerificationToken = crypto.randomBytes(32).toString('hex');
-    const rawUnsubscribeToken  = crypto.randomBytes(32).toString('hex');
+    const rawUnsubscribeToken = crypto.randomBytes(32).toString('hex');
 
     const created = await this.prisma.user.create({
       data: {
@@ -120,11 +120,14 @@ export class AuthService implements OnModuleDestroy {
     });
     const tokens = this.generateTokens(created.id, created.email, created.role);
 
-    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000').split(',')[0].trim();
+    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000')
+      .split(',')[0]
+      .trim();
     const verificationLink = `${frontendUrl}/verify-email?token=${rawVerificationToken}`;
 
     // Fire-and-forget: does not block the registration response
-    this.notificationsService.sendEmailVerification(created, verificationLink)
+    this.notificationsService
+      .sendEmailVerification(created, verificationLink)
       .catch((err) => this.logger.error(`Failed to send verification email: ${err.message}`));
 
     return { user, ...tokens };
@@ -144,7 +147,10 @@ export class AuthService implements OnModuleDestroy {
     // Primary lookup by hash (new tokens). Fallback to plaintext for tokens
     // created before the hash migration (expire within 24 h naturally).
     let user = await this.prisma.user.findFirst({
-      where: { emailVerificationToken: this.hashToken(token), emailVerificationTokenExpiry: expiry },
+      where: {
+        emailVerificationToken: this.hashToken(token),
+        emailVerificationTokenExpiry: expiry,
+      },
     });
     if (!user) {
       user = await this.prisma.user.findFirst({
@@ -186,12 +192,15 @@ export class AuthService implements OnModuleDestroy {
       },
     });
 
-    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000').split(',')[0].trim();
+    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000')
+      .split(',')[0]
+      .trim();
     const verificationLink = `${frontendUrl}/verify-email?token=${rawToken}`;
 
     // Fire-and-forget: une erreur Resend ne doit pas faire échouer la requête —
     // l'utilisateur peut demander un nouveau renvoi depuis l'interface.
-    this.notificationsService.sendEmailVerification(user, verificationLink)
+    this.notificationsService
+      .sendEmailVerification(user, verificationLink)
       .catch((err) => this.logger.error(`Failed to resend verification email: ${err.message}`));
 
     return { message: 'Email de vérification renvoyé.' };
@@ -207,13 +216,16 @@ export class AuthService implements OnModuleDestroy {
 
   // In-memory fallback used when Redis is absent (single-process only — sufficient for dev/staging).
   private readonly loginAttemptsMap = new Map<string, { count: number; expiresAt: number }>();
-  private readonly loginAttemptsCleanup = setInterval(() => {
-    if (this.redis) return;
-    const now = Date.now();
-    for (const [k, v] of this.loginAttemptsMap) {
-      if (v.expiresAt < now) this.loginAttemptsMap.delete(k);
-    }
-  }, 5 * 60 * 1000).unref();
+  private readonly loginAttemptsCleanup = setInterval(
+    () => {
+      if (this.redis) return;
+      const now = Date.now();
+      for (const [k, v] of this.loginAttemptsMap) {
+        if (v.expiresAt < now) this.loginAttemptsMap.delete(k);
+      }
+    },
+    5 * 60 * 1000,
+  ).unref();
 
   private async checkAndIncrementLoginAttempts(email: string): Promise<void> {
     const key = this.loginAttemptKey(email);
@@ -254,13 +266,17 @@ export class AuthService implements OnModuleDestroy {
     {
       const key = this.loginAttemptKey(dto.email);
       if (this.redis) {
-        const attempts = parseInt(await this.redis.get(key) ?? '0', 10);
+        const attempts = parseInt((await this.redis.get(key)) ?? '0', 10);
         if (attempts >= AuthService.MAX_LOGIN_ATTEMPTS) {
           throw new UnauthorizedException('Too many failed attempts — try again in 15 minutes');
         }
       } else {
         const entry = this.loginAttemptsMap.get(key);
-        if (entry && entry.expiresAt > Date.now() && entry.count >= AuthService.MAX_LOGIN_ATTEMPTS) {
+        if (
+          entry &&
+          entry.expiresAt > Date.now() &&
+          entry.count >= AuthService.MAX_LOGIN_ATTEMPTS
+        ) {
           throw new UnauthorizedException('Too many failed attempts — try again in 15 minutes');
         }
       }
@@ -336,12 +352,16 @@ export class AuthService implements OnModuleDestroy {
    * (REFRESH_TOKEN_SECRET or JWT_SECRET + '_refresh') so that a stolen
    * refresh token cannot be used to forge access tokens.
    */
-  generateTokens(userId: string, email: string, role: string): { accessToken: string; refreshToken: string } {
+  generateTokens(
+    userId: string,
+    email: string,
+    role: string,
+  ): { accessToken: string; refreshToken: string } {
     const accessToken = this.jwtService.sign({ userId, email, role }, { expiresIn: '15m' });
 
     const refreshSecret =
       this.config.get<string>('REFRESH_TOKEN_SECRET') ??
-      (this.config.get<string>('JWT_SECRET')! + '_refresh');
+      this.config.get<string>('JWT_SECRET')! + '_refresh';
     const refreshToken = this.jwtService.sign(
       { userId, email, role },
       { secret: refreshSecret, expiresIn: '7d' },
@@ -364,11 +384,18 @@ export class AuthService implements OnModuleDestroy {
    * @throws UnauthorizedException when the token is missing, already consumed,
    *         invalid, expired, or belongs to a banned / deleted user.
    */
-  async refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+  async refreshTokens(
+    refreshToken: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     if (!refreshToken) throw new UnauthorizedException('No refresh token provided');
 
     // Decode first (without verifying signature) to get the expiry claim for the TTL.
-    const decoded = this.jwtService.decode(refreshToken) as { userId?: string; email?: string; exp?: number; iat?: number } | null;
+    const decoded = this.jwtService.decode(refreshToken) as {
+      userId?: string;
+      email?: string;
+      exp?: number;
+      iat?: number;
+    } | null;
     const exp = decoded?.exp;
 
     // Atomic consumption: SET the hash NX (only if not already set) with the
@@ -383,15 +410,24 @@ export class AuthService implements OnModuleDestroy {
     try {
       const refreshSecret =
         this.config.get<string>('REFRESH_TOKEN_SECRET') ??
-        (this.config.get<string>('JWT_SECRET')! + '_refresh');
-      const payload = this.jwtService.verify<{ userId: string; email: string; exp: number; iat: number }>(
-        refreshToken,
-        { secret: refreshSecret },
-      );
+        this.config.get<string>('JWT_SECRET')! + '_refresh';
+      const payload = this.jwtService.verify<{
+        userId: string;
+        email: string;
+        exp: number;
+        iat: number;
+      }>(refreshToken, { secret: refreshSecret });
 
       const user = await this.prisma.user.findUnique({
         where: { id: payload.userId },
-        select: { id: true, email: true, role: true, isBanned: true, deletedAt: true, passwordChangedAt: true },
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          isBanned: true,
+          deletedAt: true,
+          passwordChangedAt: true,
+        },
       });
       if (!user) throw new UnauthorizedException('User not found');
       if (user.deletedAt) throw new UnauthorizedException('Account deleted');
@@ -440,9 +476,7 @@ export class AuthService implements OnModuleDestroy {
     }
 
     try {
-      const ttl = expClaim
-        ? expClaim - Math.floor(Date.now() / 1000)
-        : 7 * 24 * 60 * 60; // fallback: 7 days (max refresh token lifetime)
+      const ttl = expClaim ? expClaim - Math.floor(Date.now() / 1000) : 7 * 24 * 60 * 60; // fallback: 7 days (max refresh token lifetime)
 
       if (ttl <= 0) return false; // token already expired — treat as consumed
 
@@ -504,13 +538,16 @@ export class AuthService implements OnModuleDestroy {
 
   /** Fallback in-memory store used when Redis is not configured. */
   private readonly oauthCodesMap = new Map<string, { token: string; expiresAt: number }>();
-  private readonly oauthCleanupInterval = setInterval(() => {
-    if (this.redis) return; // Redis is handling TTL — nothing to do
-    const now = Date.now();
-    for (const [code, entry] of this.oauthCodesMap) {
-      if (entry.expiresAt < now) this.oauthCodesMap.delete(code);
-    }
-  }, 5 * 60 * 1000).unref(); // .unref() so the timer never prevents Node.js from exiting
+  private readonly oauthCleanupInterval = setInterval(
+    () => {
+      if (this.redis) return; // Redis is handling TTL — nothing to do
+      const now = Date.now();
+      for (const [code, entry] of this.oauthCodesMap) {
+        if (entry.expiresAt < now) this.oauthCodesMap.delete(code);
+      }
+    },
+    5 * 60 * 1000,
+  ).unref(); // .unref() so the timer never prevents Node.js from exiting
 
   /**
    * Stores a one-time OAuth code → JWT mapping with a 60-second TTL.
@@ -585,7 +622,9 @@ export class AuthService implements OnModuleDestroy {
       data: { passwordResetToken: this.hashToken(rawToken), passwordResetExpiry: expiry },
     });
 
-    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000').split(',')[0].trim();
+    const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000')
+      .split(',')[0]
+      .trim();
     const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
 
     try {

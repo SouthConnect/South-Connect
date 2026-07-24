@@ -12,5 +12,3 @@ import { OpportunitiesController } from './opportunities.controller';
   exports: [OpportunitiesService],
 })
 export class OpportunitiesModule {}
-
-

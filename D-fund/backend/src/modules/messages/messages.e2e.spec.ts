@@ -13,7 +13,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import * as request from 'supertest';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from '../../app.module';
 import { PrismaService } from '../prisma/prisma.service';
@@ -78,7 +78,7 @@ describe('Messages + ChatGateway (e2e)', () => {
     // Écouter sur un port libre pour les tests WebSocket
     await app.listen(0);
     const addr = app.getHttpServer().address();
-    port = typeof addr === 'string' ? 0 : addr?.port ?? 0;
+    port = typeof addr === 'string' ? 0 : (addr?.port ?? 0);
 
     prisma = moduleFixture.get<PrismaService>(PrismaService);
 
@@ -114,9 +114,7 @@ describe('Messages + ChatGateway (e2e)', () => {
 
   describe('1 — Public discussions', () => {
     it('GET /messages/public → retourne un tableau (sans auth)', async () => {
-      const res = await request(app.getHttpServer())
-        .get('/api/v1/messages/public')
-        .expect(200);
+      const res = await request(app.getHttpServer()).get('/api/v1/messages/public').expect(200);
       expect(Array.isArray(res.body)).toBe(true);
     });
 
@@ -330,14 +328,20 @@ describe('Messages + ChatGateway (e2e)', () => {
 
       const timeout = setTimeout(() => {
         // Si on n'est pas connecté après 3s, le test passe
-        if (!socket.connected) { socket.disconnect(); done(); }
+        if (!socket.connected) {
+          socket.disconnect();
+          done();
+        }
       }, 3000);
 
       socket.on('connect', () => {
         clearTimeout(timeout);
         // Si on arrive ici c'est que le serveur a laissé passer sans token
         // La gateway doit déconnecter le client
-        socket.on('disconnect', () => { socket.disconnect(); done(); });
+        socket.on('disconnect', () => {
+          socket.disconnect();
+          done();
+        });
         // Si pas déconnecté rapidement, forcer fail
         setTimeout(() => {
           if (socket.connected) {
@@ -363,15 +367,27 @@ describe('Messages + ChatGateway (e2e)', () => {
       });
 
       const timer = setTimeout(() => {
-        if (!socket.connected) { socket.disconnect(); done(); }
-        else { socket.disconnect(); done(new Error('Token invalide devrait être rejeté')); }
+        if (!socket.connected) {
+          socket.disconnect();
+          done();
+        } else {
+          socket.disconnect();
+          done(new Error('Token invalide devrait être rejeté'));
+        }
       }, 3000);
 
-      socket.on('connect_error', () => { clearTimeout(timer); socket.disconnect(); done(); });
-      socket.on('disconnect', () => { clearTimeout(timer); done(); });
+      socket.on('connect_error', () => {
+        clearTimeout(timer);
+        socket.disconnect();
+        done();
+      });
+      socket.on('disconnect', () => {
+        clearTimeout(timer);
+        done();
+      });
     });
 
-    it('join + envoi typing → reçu par l\'autre participant', (done) => {
+    it("join + envoi typing → reçu par l'autre participant", (done) => {
       jest.setTimeout(15000);
       const socketAlice = io(socketUrl(), {
         auth: { token: alice.token },
@@ -410,8 +426,14 @@ describe('Messages + ChatGateway (e2e)', () => {
         }, 200);
       };
 
-      socketAlice.on('connect', () => { aliceConnected = true; tryTest(); });
-      socketBob.on('connect', () => { bobConnected = true; tryTest(); });
+      socketAlice.on('connect', () => {
+        aliceConnected = true;
+        tryTest();
+      });
+      socketBob.on('connect', () => {
+        bobConnected = true;
+        tryTest();
+      });
 
       const timeout = setTimeout(() => {
         socketAlice.disconnect();
@@ -422,7 +444,7 @@ describe('Messages + ChatGateway (e2e)', () => {
       socketAlice.on('disconnect', () => clearTimeout(timeout));
     });
 
-    it('newMessage broadcasté via socket lors d\'un envoi REST', (done) => {
+    it("newMessage broadcasté via socket lors d'un envoi REST", (done) => {
       jest.setTimeout(15000);
       const socketBob = io(socketUrl(), {
         auth: { token: bob.token },

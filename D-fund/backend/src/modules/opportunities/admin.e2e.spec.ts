@@ -132,9 +132,7 @@ describe('Admin — opportunity moderation (e2e)', () => {
 
   describe('1 — RolesGuard enforcement', () => {
     it('GET /admin/all → 401 without token', () =>
-      request(app.getHttpServer())
-        .get('/api/v1/opportunities/admin/all')
-        .expect(401));
+      request(app.getHttpServer()).get('/api/v1/opportunities/admin/all').expect(401));
 
     it('PUT /admin/:id/status → 401 without token', () =>
       request(app.getHttpServer())
@@ -177,9 +175,7 @@ describe('Admin — opportunity moderation (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
 
-      const hasNonPending = res.body.some(
-        (o: { status: string }) => o.status !== 'PENDING',
-      );
+      const hasNonPending = res.body.some((o: { status: string }) => o.status !== 'PENDING');
       expect(hasNonPending).toBe(false);
     });
 

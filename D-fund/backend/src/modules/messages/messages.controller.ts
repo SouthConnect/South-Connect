@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { User } from '@prisma/client';
 import { MessagesService } from './messages.service';
@@ -95,7 +95,12 @@ export class MessagesController {
     @CurrentUser() user: User,
     @Body() dto: CreateMessageDto,
   ) {
-    return this.messagesService.createPublicMessage(discussionId, user.id, dto.content, dto.clientMessageId);
+    return this.messagesService.createPublicMessage(
+      discussionId,
+      user.id,
+      dto.content,
+      dto.clientMessageId,
+    );
   }
 
   /** Posts a message to a private discussion. Rate-limited to 30 per minute. */
@@ -108,7 +113,12 @@ export class MessagesController {
     @CurrentUser() user: User,
     @Body() dto: CreateMessageDto,
   ) {
-    return this.messagesService.createPrivateMessage(discussionId, user.id, dto.content, dto.clientMessageId);
+    return this.messagesService.createPrivateMessage(
+      discussionId,
+      user.id,
+      dto.content,
+      dto.clientMessageId,
+    );
   }
 
   /**

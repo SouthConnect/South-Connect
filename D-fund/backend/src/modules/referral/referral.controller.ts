@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ReferralService } from './referral.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';

@@ -5,4 +5,3 @@ export class UpdateProfilePicDto {
   @IsNotEmpty()
   profilePic: string;
 }
-

@@ -26,5 +26,3 @@ import { ChatGateway } from './chat.gateway';
   exports: [MessagesService, ChatGateway],
 })
 export class MessagesModule {}
-
-

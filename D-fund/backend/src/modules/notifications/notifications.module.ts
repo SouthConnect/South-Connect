@@ -15,7 +15,12 @@ import { EmailQueueModule } from '../email-queue/email-queue.module';
  * module can still boot if MessagesModule is not loaded (e.g. in unit tests).
  */
 @Module({
-  imports: [ConfigModule, PrismaModule, forwardRef(() => MessagesModule), forwardRef(() => EmailQueueModule)],
+  imports: [
+    ConfigModule,
+    PrismaModule,
+    forwardRef(() => MessagesModule),
+    forwardRef(() => EmailQueueModule),
+  ],
   controllers: [NotificationsController],
   providers: [NotificationsService],
   exports: [NotificationsService],

@@ -12,7 +12,11 @@ import { ForbiddenException } from '@nestjs/common';
  * ownership...). Keeping call sites' own existence checks and exact wording
  * separate — this only replaces the identity comparison itself.
  */
-export function assertSameUser(expectedUserId: string, actualUserId: string, message: string): void {
+export function assertSameUser(
+  expectedUserId: string,
+  actualUserId: string,
+  message: string,
+): void {
   if (expectedUserId !== actualUserId) {
     throw new ForbiddenException(message);
   }

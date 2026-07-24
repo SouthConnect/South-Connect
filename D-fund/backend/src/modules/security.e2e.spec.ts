@@ -52,26 +52,6 @@ async function registerUser(
   return { token: extractToken(res), userId: res.body.user.id as string, email };
 }
 
-/** Create an opportunity and return its id */
-async function createOpportunity(
-  app: INestApplication,
-  token: string,
-  overrides: Partial<{ status: string; name: string }> = {},
-): Promise<string> {
-  const res = await request(app.getHttpServer())
-    .post('/api/v1/opportunities')
-    .set('Authorization', `Bearer ${token}`)
-    .send({
-      name: overrides.name ?? 'Test Opportunity',
-      punchline: 'A test opportunity',
-      description: 'Security test opportunity',
-      type: 'JOB_OPPORTUNITY',
-      status: overrides.status ?? 'ACTIVE',
-    })
-    .expect(201);
-  return res.body.id as string;
-}
-
 // ─── Suite ────────────────────────────────────────────────────────────────────
 
 describe('Security (e2e)', () => {
@@ -149,9 +129,7 @@ describe('Security (e2e)', () => {
         .expect(401));
 
     it('GET /applications/user/:userId without token → 401', () =>
-      request(app.getHttpServer())
-        .get(`/api/v1/applications/user/${userA.userId}`)
-        .expect(401));
+      request(app.getHttpServer()).get(`/api/v1/applications/user/${userA.userId}`).expect(401));
   });
 
   // ── 2. JWT tampering ───────────────────────────────────────────────────────
@@ -191,7 +169,12 @@ describe('Security (e2e)', () => {
 
     beforeAll(async () => {
       const opp = await prisma.opportunity.create({
-        data: { name: 'My Secret Draft', type: 'JOB_OPPORTUNITY', status: 'DRAFT', ownerId: userA.userId },
+        data: {
+          name: 'My Secret Draft',
+          type: 'JOB_OPPORTUNITY',
+          status: 'DRAFT',
+          ownerId: userA.userId,
+        },
       });
       draftId = opp.id;
     });
@@ -253,7 +236,12 @@ describe('Security (e2e)', () => {
 
     beforeAll(async () => {
       const opp = await prisma.opportunity.create({
-        data: { name: 'UserA Opportunity', type: 'JOB_OPPORTUNITY', status: 'ACTIVE', ownerId: userA.userId },
+        data: {
+          name: 'UserA Opportunity',
+          type: 'JOB_OPPORTUNITY',
+          status: 'ACTIVE',
+          ownerId: userA.userId,
+        },
       });
       oppId = opp.id;
     });
@@ -262,14 +250,14 @@ describe('Security (e2e)', () => {
       await prisma.opportunity.deleteMany({ where: { id: oppId } });
     });
 
-    it('UserB cannot update UserA\'s opportunity → 403', () =>
+    it("UserB cannot update UserA's opportunity → 403", () =>
       request(app.getHttpServer())
         .put(`/api/v1/opportunities/${oppId}`)
         .set('Authorization', `Bearer ${userB.token}`)
         .send({ name: 'Hacked Name' })
         .expect(403));
 
-    it('UserB cannot delete UserA\'s opportunity → 403', () =>
+    it("UserB cannot delete UserA's opportunity → 403", () =>
       request(app.getHttpServer())
         .delete(`/api/v1/opportunities/${oppId}`)
         .set('Authorization', `Bearer ${userB.token}`)
@@ -313,9 +301,7 @@ describe('Security (e2e)', () => {
         data: { visibility: false },
       });
 
-      await request(app.getHttpServer())
-        .get(`/api/v1/profiles/${userB.userId}`)
-        .expect(404);
+      await request(app.getHttpServer()).get(`/api/v1/profiles/${userB.userId}`).expect(404);
 
       // Restore for subsequent tests
       await prisma.user.update({
@@ -347,14 +333,14 @@ describe('Security (e2e)', () => {
   // ── 6. Profile update ownership ───────────────────────────────────────────
 
   describe('6 — Profile update ownership', () => {
-    it('UserB cannot update UserA\'s BtoC profile → 403', () =>
+    it("UserB cannot update UserA's BtoC profile → 403", () =>
       request(app.getHttpServer())
         .put(`/api/v1/profiles/bto-c/${userA.userId}`)
         .set('Authorization', `Bearer ${userB.token}`)
         .send({ description: 'Hacked description' })
         .expect(403));
 
-    it('UserB cannot update UserA\'s BtoB profile → 403', () =>
+    it("UserB cannot update UserA's BtoB profile → 403", () =>
       request(app.getHttpServer())
         .put(`/api/v1/profiles/bto-b/${userA.userId}`)
         .set('Authorization', `Bearer ${userB.token}`)
@@ -365,7 +351,7 @@ describe('Security (e2e)', () => {
   // ── 7. Application scoping — users only see their own applications ─────────
 
   describe('7 — Application scoping', () => {
-    it('UserA cannot read UserB\'s applications → 403', () =>
+    it("UserA cannot read UserB's applications → 403", () =>
       request(app.getHttpServer())
         .get(`/api/v1/applications/user/${userB.userId}`)
         .set('Authorization', `Bearer ${userA.token}`)
@@ -399,9 +385,7 @@ describe('Security (e2e)', () => {
     });
 
     it('unauthenticated request to admin routes → 401', async () => {
-      await request(app.getHttpServer())
-        .get('/api/v1/opportunities/admin/all')
-        .expect(401);
+      await request(app.getHttpServer()).get('/api/v1/opportunities/admin/all').expect(401);
     });
   });
 
@@ -526,8 +510,7 @@ describe('Security (e2e)', () => {
 
     it('extremely long search string does not crash the API (no 500)', async () => {
       const longStr = 'A'.repeat(10_000);
-      const res = await request(app.getHttpServer())
-        .get(`/api/v1/opportunities?search=${longStr}`);
+      const res = await request(app.getHttpServer()).get(`/api/v1/opportunities?search=${longStr}`);
       // Le serveur doit rejeter proprement (400 validation) ou répondre — jamais planter (500)
       expect(res.status).not.toBe(500);
     });

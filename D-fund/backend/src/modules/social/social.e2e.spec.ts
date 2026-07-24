@@ -92,9 +92,7 @@ describe('Social module (e2e)', () => {
 
   describe('1 — follow / unfollow', () => {
     it('should require authentication to follow', async () => {
-      await request(app.getHttpServer())
-        .post(`/api/v1/social/follow/${userAId}`)
-        .expect(401);
+      await request(app.getHttpServer()).post(`/api/v1/social/follow/${userAId}`).expect(401);
     });
 
     it('should allow userB to follow userA', async () => {
@@ -158,9 +156,7 @@ describe('Social module (e2e)', () => {
 
   describe('2 — like / unlike opportunity', () => {
     it('should require authentication to like', async () => {
-      await request(app.getHttpServer())
-        .post(`/api/v1/social/like/${opportunityId}`)
-        .expect(401);
+      await request(app.getHttpServer()).post(`/api/v1/social/like/${opportunityId}`).expect(401);
     });
 
     it('should allow userB to like an opportunity', async () => {
@@ -193,9 +189,7 @@ describe('Social module (e2e)', () => {
 
   describe('3 — save / unsave opportunity', () => {
     it('should require authentication to save', async () => {
-      await request(app.getHttpServer())
-        .post(`/api/v1/social/save/${opportunityId}`)
-        .expect(401);
+      await request(app.getHttpServer()).post(`/api/v1/social/save/${opportunityId}`).expect(401);
     });
 
     it('should allow userB to save an opportunity', async () => {

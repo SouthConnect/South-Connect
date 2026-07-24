@@ -18,7 +18,10 @@ export class CorsIoAdapter extends IoAdapter {
   constructor(app: INestApplicationContext, configService: ConfigService) {
     super(app);
     const raw = configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
-    this.allowedOrigins = raw.split(',').map((o) => o.trim()).filter(Boolean);
+    this.allowedOrigins = raw
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
   }
 
   createIOServer(port: number, options?: ServerOptions) {

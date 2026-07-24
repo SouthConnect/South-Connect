@@ -66,12 +66,15 @@ describe('AuthService', () => {
         AuthService,
         {
           provide: JwtService,
-          useValue: new JwtService({ secret: 'test-jwt-secret', signOptions: { expiresIn: '15m' } }),
+          useValue: new JwtService({
+            secret: 'test-jwt-secret',
+            signOptions: { expiresIn: '15m' },
+          }),
         },
-        { provide: PrismaService,        useValue: mockPrisma },
-        { provide: REDIS_CLIENT,         useValue: mockRedis },
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: REDIS_CLIENT, useValue: mockRedis },
         { provide: NotificationsService, useValue: mockNotifications },
-        { provide: ConfigService,        useValue: mockConfig },
+        { provide: ConfigService, useValue: mockConfig },
       ],
     }).compile();
 
@@ -94,7 +97,7 @@ describe('AuthService', () => {
       expect(accessToken).not.toBe(refreshToken);
     });
 
-    it('l\'access token expire dans ~15 min', () => {
+    it("l'access token expire dans ~15 min", () => {
       const { accessToken } = service.generateTokens('uid', 'a@b.com', 'USER');
       const payload = jwtService.decode(accessToken) as { exp: number; iat: number };
       expect(payload.exp - payload.iat).toBe(15 * 60);
@@ -109,9 +112,7 @@ describe('AuthService', () => {
     it('les deux tokens ont des secrets différents', () => {
       const { refreshToken } = service.generateTokens('uid', 'a@b.com', 'USER');
       // Vérification avec le mauvais secret doit échouer
-      expect(() =>
-        jwtService.verify(refreshToken, { secret: 'test-jwt-secret' }),
-      ).toThrow();
+      expect(() => jwtService.verify(refreshToken, { secret: 'test-jwt-secret' })).toThrow();
     });
   });
 
@@ -120,7 +121,11 @@ describe('AuthService', () => {
   describe('refreshTokens()', () => {
     it('émet de nouveaux tokens pour un refresh token valide', async () => {
       const { refreshToken } = service.generateTokens('uid', 'a@b.com', 'USER');
-      mockPrisma.user.findUnique.mockResolvedValueOnce({ id: 'uid', email: 'a@b.com', role: 'USER' });
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: 'uid',
+        email: 'a@b.com',
+        role: 'USER',
+      });
 
       const result = await service.refreshTokens(refreshToken);
 
@@ -147,7 +152,7 @@ describe('AuthService', () => {
       await expect(service.refreshTokens('')).rejects.toThrow(UnauthorizedException);
     });
 
-    it('lève UnauthorizedException si l\'utilisateur n\'existe plus', async () => {
+    it("lève UnauthorizedException si l'utilisateur n'existe plus", async () => {
       const { refreshToken } = service.generateTokens('deleted-uid', 'gone@b.com', 'USER');
       mockPrisma.user.findUnique.mockResolvedValueOnce(null);
 
@@ -156,7 +161,11 @@ describe('AuthService', () => {
 
     it('bloque le token consommé après rotation', async () => {
       const { refreshToken } = service.generateTokens('uid', 'a@b.com', 'USER');
-      mockPrisma.user.findUnique.mockResolvedValueOnce({ id: 'uid', email: 'a@b.com', role: 'USER' });
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: 'uid',
+        email: 'a@b.com',
+        role: 'USER',
+      });
 
       await service.refreshTokens(refreshToken);
 
@@ -189,7 +198,11 @@ describe('AuthService', () => {
     it('ne fait rien si Redis est null (fallback)', async () => {
       // Simule l'absence de Redis
       const serviceWithoutRedis = new (AuthService as any)(
-        mockPrisma, jwtService, mockNotifications, mockConfig, null,
+        mockPrisma,
+        jwtService,
+        mockNotifications,
+        mockConfig,
+        null,
       );
       await expect(
         serviceWithoutRedis.invalidateRefreshToken('any-token'),
@@ -219,9 +232,9 @@ describe('AuthService', () => {
       const hashed = await bcrypt.hash('Password1', 10);
       mockPrisma.user.findUnique.mockResolvedValueOnce({ ...buildSafeUser(), password: hashed });
 
-      await expect(
-        service.login({ email: 'a@b.com', password: 'WrongPass1' }),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.login({ email: 'a@b.com', password: 'WrongPass1' })).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
@@ -244,11 +257,16 @@ describe('AuthService', () => {
       expect(result.accessToken).toBeTruthy();
     });
 
-    it('lève ConflictException si l\'email existe déjà', async () => {
+    it("lève ConflictException si l'email existe déjà", async () => {
       mockPrisma.user.findUnique.mockResolvedValueOnce(buildSafeUser());
 
       await expect(
-        service.register({ email: 'exists@b.com', password: 'Password1', firstName: 'A', lastName: 'B' }),
+        service.register({
+          email: 'exists@b.com',
+          password: 'Password1',
+          firstName: 'A',
+          lastName: 'B',
+        }),
       ).rejects.toThrow(ConflictException);
     });
   });
@@ -262,7 +280,7 @@ describe('AuthService', () => {
       expect(result.message).toContain('If this email exists');
     });
 
-    it('envoie l\'email quand le user existe', async () => {
+    it("envoie l'email quand le user existe", async () => {
       mockPrisma.user.findFirst.mockResolvedValueOnce(buildSafeUser());
       mockPrisma.user.update.mockResolvedValueOnce({});
 
