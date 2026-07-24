@@ -247,10 +247,11 @@ function containsSensitivePattern(content: string): { match: string; line: strin
       lower.includes('localhost') ||
       lower.includes('127.0.0.1') ||
       lower.includes('test') ||
+      lower.includes('placeholder') ||
       /\[.*\]/.test(line) ||
-      // Référence à une variable d'env/shell (${VAR} ou $VAR), pas une valeur en dur —
-      // couvre aussi bien le TypeScript/JS que la syntaxe bash sans accolades.
-      /\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/.test(line)
+      // Référence à une variable d'env/shell (${VAR} ou $VAR) ou à une expression
+      // GitHub Actions (${{ secrets.X }}) — jamais une valeur en dur.
+      /\$\{\{|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/.test(line)
     );
   };
 
