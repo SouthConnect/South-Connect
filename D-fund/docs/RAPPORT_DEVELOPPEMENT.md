@@ -8,7 +8,7 @@
 
 #### Connexion à Supabase
 - Configuration de la connection string avec le Connection Pooler
-- Format utilisé : `postgresql://postgres.eblxcvivlowdqfbhhple:[REDACTED]%40@aws-1-eu-north-1.pooler.supabase.com:5432/postgres`
+- Format utilisé : `postgresql://postgres.eblxcvivlowdqfbhhple:[REDACTED]@aws-1-eu-north-1.pooler.supabase.com:5432/postgres`
 - Port 5432 (Session Mode) pour compatibilité avec Prisma migrations
 - Base de données synchronisée avec le schéma Prisma
 
@@ -156,7 +156,7 @@ setAuthToken(token)
 
 **`.env` (racine)** - Backend :
 ```
-DATABASE_URL="postgresql://postgres.eblxcvivlowdqfbhhple:[REDACTED]%40@aws-1-eu-north-1.pooler.supabase.com:5432/postgres"
+DATABASE_URL="postgresql://postgres.eblxcvivlowdqfbhhple:[REDACTED]@aws-1-eu-north-1.pooler.supabase.com:5432/postgres"
 JWT_SECRET="d-fund-jwt-secret-key-change-in-production-2025"
 PORT=3001
 FRONTEND_URL="http://localhost:3000"

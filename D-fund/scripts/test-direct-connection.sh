@@ -2,7 +2,7 @@
 # Test de connexion directe avec psql si disponible
 
 PROJECT_ID="eblxcvivlowdqfbhhple"
-PASSWORD="[REDACTED]@"
+PASSWORD="${SUPABASE_DB_PASSWORD:?Set SUPABASE_DB_PASSWORD before running this script}"
 DB_URL="postgresql://postgres:${PASSWORD}@db.${PROJECT_ID}.supabase.co:5432/postgres"
 
 echo "🔍 Test de connexion directe à Supabase..."

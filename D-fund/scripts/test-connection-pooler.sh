@@ -2,7 +2,7 @@
 # Test de connexion avec le connection pooler Supabase
 
 PROJECT_ID="eblxcvivlowdqfbhhple"
-PASSWORD="[REDACTED]%40"
+PASSWORD="${SUPABASE_DB_PASSWORD:?Set SUPABASE_DB_PASSWORD (URL-encoded) before running this script}"
 
 echo "🔍 Test de connexion avec le Connection Pooler (port 6543)..."
 echo ""
