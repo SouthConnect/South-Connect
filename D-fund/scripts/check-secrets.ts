@@ -248,6 +248,8 @@ function containsSensitivePattern(content: string): { match: string; line: strin
       lower.includes('127.0.0.1') ||
       lower.includes('test') ||
       lower.includes('placeholder') ||
+      line.includes('...') ||
+      line.includes('…') ||
       /\[.*\]/.test(line) ||
       // Référence à une variable d'env/shell (${VAR} ou $VAR) ou à une expression
       // GitHub Actions (${{ secrets.X }}) — jamais une valeur en dur.
@@ -261,8 +263,15 @@ function containsSensitivePattern(content: string): { match: string; line: strin
 
     const credentialMatch = line.match(CREDENTIAL_URL);
     if (credentialMatch) {
-      const pair = `${credentialMatch[1]}:${credentialMatch[2]}`.toLowerCase();
-      if (!OBVIOUS_PLACEHOLDER_CREDENTIALS.has(pair)) {
+      const user = credentialMatch[1].toLowerCase();
+      const pass = credentialMatch[2].toLowerCase();
+      // Placeholder token utilisé tel quel comme "mot de passe" dans un template
+      // de doc (ex: postgresql://postgres:PASSWORD@host), pas une vraie valeur.
+      const isPlaceholderToken = (s: string) => /^(password|pass|pwd|secret|xxx+|user(name)?)$/.test(s);
+      if (
+        !OBVIOUS_PLACEHOLDER_CREDENTIALS.has(`${user}:${pass}`) &&
+        !isPlaceholderToken(pass)
+      ) {
         return { match: 'credential embarqué dans une URL', line: line.trim() };
       }
     }
