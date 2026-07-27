@@ -354,26 +354,26 @@ export class ApplicationsService {
       isClosed: dto.stage === 'SUCCESS' || dto.stage === 'ARCHIVED',
     };
 
-    const result = await this.prisma.application.updateMany({
-      where: { id, deletedAt: null },
-      data: updateData,
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.application.updateMany({
+        where: { id, deletedAt: null },
+        data: updateData,
+      });
 
-    if (result.count === 0) {
-      throw new NotFoundException('Application was withdrawn or deleted concurrently');
-    }
+      if (result.count === 0) {
+        throw new NotFoundException('Application was withdrawn or deleted concurrently');
+      }
 
-    const updated = await this.prisma.application.findUniqueOrThrow({ where: { id } });
-
-    // Marquer le code de parrainage comme complété quand acceptée (usesCount déjà incrémenté au submit)
-    if (dto.stage === 'SUCCESS' && application.referralCodeUsed) {
-      this.prisma.referralCode
-        .updateMany({
+      // Marquer le code de parrainage comme complété quand acceptée (usesCount déjà incrémenté au submit)
+      if (dto.stage === 'SUCCESS' && application.referralCodeUsed) {
+        await tx.referralCode.updateMany({
           where: { code: application.referralCodeUsed, status: { not: ReferralStatus.COMPLETED } },
           data: { status: ReferralStatus.COMPLETED },
-        })
-        .catch((err) => this.logger.error('Failed to update referral code status', err));
-    }
+        });
+      }
+
+      return tx.application.findUniqueOrThrow({ where: { id } });
+    });
 
     try {
       if (application.candidate && application.opportunity) {

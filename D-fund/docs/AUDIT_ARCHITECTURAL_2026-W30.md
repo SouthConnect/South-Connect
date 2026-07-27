@@ -55,7 +55,7 @@ Plusieurs mutations critiques s'effectuent en deux writes séquentiels **sans `$
 | Mutation | Write 1 | Write 2 | Risque si Write 2 échoue |
 |---|---|---|---|
 | `applications.review()` | `application.update (stage)` | `referralCode.updateMany (status)` | Code parrainage reste ACTIVE, candidature SUCCESS |
-| `social.follow()` | `follow.create` | `notification.createInApp` | Follow enregistré, notification jamais envoyée |
+| `social.follow()` | `follow.create` | `notification.createInApp` | ✅ Corrigé — follow + compteurs dans un `$transaction` ; la notification reste fire-and-forget par choix (non-critique) |
 | `opportunities.create()` | `opportunity.create` | `profile.updateMany (compteur)` | Compteur profil désynchronisé définitivement |
 | `messages.createPrivateMessage()` | `message.create` | `participant.updateMany (unreadCount)` | Message livré, badge non incrémenté |
 
@@ -147,7 +147,7 @@ Trois modules NestJS se référencent mutuellement via `forwardRef()`. Toute mod
 |---|---|---|---|
 | 1 | Briser triangle forwardRef → `EmailModule` standalone | Messagerie+notifs découplés | ❌ Pas fait — `EmailQueueModule` existe mais référence encore `NotificationsModule` en `forwardRef` ; le cycle est déplacé sur 3 modules, pas cassé |
 | 2 | Soft-delete Opportunity (migration + service) | Suppression sécurisée | ✅ Fait — migration `0017_opportunity_soft_delete` |
-| 3 | Wrapper `social.follow()` et `opportunities.create()` en `$transaction` | État cohérent garanti | ❌ Pas fait — aucun `$transaction` dans ces deux services |
+| 3 | Wrapper `social.follow()` et `opportunities.create()` en `$transaction` | État cohérent garanti | ⚠️ Partiel — `social.follow()` déjà transactionnel (follow + compteurs BtoC/BtoB dans un `$transaction`, notification volontairement fire-and-forget après coup) ; `opportunities.create()` toujours non transactionnel |
 | 4 | Passer l'instance socket dans un `SocketContext` React | Comportement déterministe | ❌ Pas fait — pas de fichier `SocketContext` |
 | 5 | Consolider `deleteMe` / `adminDelete` en méthode privée partagée | Évolution RGPD en un endroit | ✅ Fait — méthode privée partagée, commentaire explicite dans `users.service.ts` |
 | 6 | Migration : CHECK constraint Message (discussion exclusive) + Rating (1–5) | Intégrité DB garantie | ❌ Pas fait — aucune contrainte CHECK trouvée dans les migrations |

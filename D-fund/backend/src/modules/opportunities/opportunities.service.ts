@@ -406,54 +406,63 @@ export class OpportunitiesService {
         ? dto.status!
         : 'ACTIVE';
 
-    const result = await this.prisma.opportunity.create({
-      data: {
-        ownerId,
-        name: dto.name,
-        punchline: dto.punchline,
-        description: dto.description,
-        type: dto.type,
-        status: initialStatus,
-        featureId: dto.featureId,
-        city: dto.city,
-        country: dto.country,
-        region: dto.region,
-        remote: dto.remote,
-        startDate: dto.startDate ? new Date(dto.startDate) : undefined,
-        endDate: dto.endDate ? new Date(dto.endDate) : undefined,
-        expirationDate: dto.expirationDate ? new Date(dto.expirationDate) : undefined,
-        applicationProcessId: dto.applicationProcessId,
-        needToCheckApplicant: dto.needToCheckApplicant ?? false,
-        image: dto.image,
-        backgroundImage: dto.backgroundImage,
-        file: dto.file,
-        url: dto.url,
-        tags: dto.tags ?? [],
-        industries: dto.industries ?? [],
-        markets: dto.markets ?? [],
-        price: dto.price,
-        currency: dto.currency,
-        pricingUnit: dto.pricingUnit,
-        pricingDetails: dto.pricingDetails,
-        aiGenerated: dto.aiGenerated ?? false,
-        aiPrompt: dto.aiPrompt,
-        aiOutput: dto.aiOutput,
-        boosted: dto.boosted ?? false,
-        boostedUntil: dto.boostedUntil ? new Date(dto.boostedUntil) : undefined,
-        qualified: dto.qualified ?? false,
-        referralAvailable: dto.referralAvailable ?? false,
-        referralAmount: dto.referralAmount,
-      },
-      include: { owner: { select: { id: true, name: true, profilePic: true } } },
-    });
+    const result = await this.prisma.$transaction(async (tx) => {
+      const opportunity = await tx.opportunity.create({
+        data: {
+          ownerId,
+          name: dto.name,
+          punchline: dto.punchline,
+          description: dto.description,
+          type: dto.type,
+          status: initialStatus,
+          featureId: dto.featureId,
+          city: dto.city,
+          country: dto.country,
+          region: dto.region,
+          remote: dto.remote,
+          startDate: dto.startDate ? new Date(dto.startDate) : undefined,
+          endDate: dto.endDate ? new Date(dto.endDate) : undefined,
+          expirationDate: dto.expirationDate ? new Date(dto.expirationDate) : undefined,
+          applicationProcessId: dto.applicationProcessId,
+          needToCheckApplicant: dto.needToCheckApplicant ?? false,
+          image: dto.image,
+          backgroundImage: dto.backgroundImage,
+          file: dto.file,
+          url: dto.url,
+          tags: dto.tags ?? [],
+          industries: dto.industries ?? [],
+          markets: dto.markets ?? [],
+          price: dto.price,
+          currency: dto.currency,
+          pricingUnit: dto.pricingUnit,
+          pricingDetails: dto.pricingDetails,
+          aiGenerated: dto.aiGenerated ?? false,
+          aiPrompt: dto.aiPrompt,
+          aiOutput: dto.aiOutput,
+          boosted: dto.boosted ?? false,
+          boostedUntil: dto.boostedUntil ? new Date(dto.boostedUntil) : undefined,
+          qualified: dto.qualified ?? false,
+          referralAvailable: dto.referralAvailable ?? false,
+          referralAmount: dto.referralAmount,
+        },
+        include: { owner: { select: { id: true, name: true, profilePic: true } } },
+      });
 
-    // Maintain denormalized counters (fire-and-forget; nightly recount cron corrects any drift)
-    this.prisma.btoCProfile
-      .updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { increment: 1 } } })
-      .catch((err) => this.logger.warn(`Counter increment failed (btoCProfile): ${err.message}`));
-    this.prisma.btoBProfile
-      .updateMany({ where: { userId: ownerId }, data: { opportunitiesCount: { increment: 1 } } })
-      .catch((err) => this.logger.warn(`Counter increment failed (btoBProfile): ${err.message}`));
+      // Maintain denormalized counters atomically — one of the two updateMany
+      // no-ops (0 rows) depending on whether the owner is BtoC or BtoB.
+      await Promise.all([
+        tx.btoCProfile.updateMany({
+          where: { userId: ownerId },
+          data: { opportunitiesCount: { increment: 1 } },
+        }),
+        tx.btoBProfile.updateMany({
+          where: { userId: ownerId },
+          data: { opportunitiesCount: { increment: 1 } },
+        }),
+      ]);
+
+      return opportunity;
+    });
 
     await this.invalidateCaches();
     return result;
