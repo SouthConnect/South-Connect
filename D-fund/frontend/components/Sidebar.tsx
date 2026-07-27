@@ -12,7 +12,6 @@ import {
   BarChart2,
   Users,
   Rocket,
-  BookOpen,
   LogOut,
   LogIn,
   Menu,
@@ -41,7 +40,6 @@ const BOTTOM_LINKS = [
   { href: '/analytics',  label: 'Analytiques',           icon: BarChart2       },
   { href: '/community',  label: 'Communauté',            icon: Users           },
   { href: '/features',   label: 'Nouveautés',            icon: Rocket          },
-  { href: '/explore',    label: 'Explorer',              icon: BookOpen        },
 ]
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -87,10 +85,6 @@ export default function Sidebar() {
         queryClient.prefetchQuery({ queryKey: qk.communityMembers(),   queryFn: () => apiJson('/profiles/lists/members?take=60'),   ...opts })
         queryClient.prefetchQuery({ queryKey: qk.communityTalents(),   queryFn: () => apiJson('/profiles/lists/talents?take=60'),   ...opts })
         queryClient.prefetchQuery({ queryKey: qk.communityCompanies(), queryFn: () => apiJson('/profiles/lists/companies?take=60'), ...opts })
-        break
-      case '/explore':
-        queryClient.prefetchQuery({ queryKey: qk.explore('', '', 0, false), queryFn: () => apiJson('/opportunities?status=ACTIVE&take=12'), ...opts })
-        queryClient.prefetchQuery({ queryKey: qk.exploreProfiles(),          queryFn: () => apiJson('/profiles/lists/members?take=6'),      ...opts })
         break
       case '/notifications':
         if (user?.id) {
