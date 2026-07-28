@@ -118,7 +118,7 @@ Trois modules NestJS se référencent mutuellement via `forwardRef()`. Toute mod
 **DB — index manquants + contraintes CHECK absentes**
 - Index manquants : `users.deletedAt`, `users.role`, `users.isBanned` — ✅ Corrigé (migration `0016_users_indexes`)
 - Message orphelin possible : aucun CHECK garantissant qu'un message appartient à exactement une discussion — ❌ Toujours absent
-- `Rating.itemId` sans FK : intégrité référentielle absente, ratings vers ressources supprimées — ❌ Toujours absent (`itemId String` sans `@relation`, seulement indexé)
+- `Rating.itemId` sans FK : intégrité référentielle absente, ratings vers ressources supprimées — ⚠️ Creusé plus en détail : `itemId` n'est pas juste "sans FK", il est **structurellement polymorphique à 3 usages** — un `User.id` (note de profil), un `Opportunity.id` (note d'opportunité), ou une chaîne synthétique `"discussion:<id>"` (`social.service.ts likeDiscussion()`, réutilise `Rating` comme mécanisme de dedup par-utilisateur sans créer de nouveau modèle). Une vraie FK Prisma est donc impossible sans redesign (séparer en plusieurs tables ou ajouter un vrai discriminant `itemType`) — ce n'est pas une migration de 5 minutes comme le suggérait l'estimation initiale. Recommandation : documenter le compromis assumé plutôt que forcer une fausse FK.
 
 **Erreurs silencieuses — `.catch(() => undefined)` sans log** — ✅ Corrigé globalement (0 occurrence dans `src/`)
 - `Opportunity.messagesCount` — drift silencieux

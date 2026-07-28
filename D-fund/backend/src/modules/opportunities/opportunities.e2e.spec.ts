@@ -100,11 +100,35 @@ describe('Opportunities module (e2e)', () => {
         .expect(400);
     });
 
-    it('should create an opportunity in DRAFT status', async () => {
+    it('should default to ACTIVE status when none is specified (direct-publish model)', async () => {
+      // Product decision (7628c89): opportunities publish immediately by default,
+      // like LinkedIn — no admin review step. Verified here, then reset to DRAFT
+      // below so the rest of this suite can exercise draft-visibility rules.
       const res = await request(app.getHttpServer())
         .post('/api/v1/opportunities')
         .set('Authorization', `Bearer ${ownerToken}`)
-        .send({ name: 'My Job Offer', type: 'JOB_OPPORTUNITY', description: 'Looking for devs' })
+        .send({
+          name: 'Auto-published Offer',
+          type: 'JOB_OPPORTUNITY',
+          description: 'Default status check',
+        })
+        .expect(201);
+
+      expect(res.body.status).toBe('ACTIVE');
+
+      await prisma.opportunity.delete({ where: { id: res.body.id } });
+    });
+
+    it('should create an opportunity in DRAFT status when explicitly requested', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/opportunities')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          name: 'My Job Offer',
+          type: 'JOB_OPPORTUNITY',
+          description: 'Looking for devs',
+          status: 'DRAFT',
+        })
         .expect(201);
 
       expect(res.body).toHaveProperty('id');
@@ -124,7 +148,8 @@ describe('Opportunities module (e2e)', () => {
 
       expect(res.body).toHaveProperty('data');
       expect(Array.isArray(res.body.data)).toBe(true);
-      expect(res.body).toHaveProperty('total');
+      // Public feed intentionally omits `total` (skips an expensive COUNT query) —
+      // only owner/admin views (filtered by ownerId) return it. See findAll().
       expect(res.body).toHaveProperty('hasMore');
     });
 
@@ -212,8 +237,8 @@ describe('Opportunities module (e2e)', () => {
         .set('Authorization', `Bearer ${ownerToken}`)
         .expect(200);
 
-      expect(Array.isArray(res.body)).toBe(true);
-      const found = res.body.find((o: { id: string }) => o.id === opportunityId);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      const found = res.body.data.find((o: { id: string }) => o.id === opportunityId);
       expect(found).toBeDefined();
       expect(found.status).toBe('DRAFT');
     });
@@ -224,7 +249,7 @@ describe('Opportunities module (e2e)', () => {
         .set('Authorization', `Bearer ${otherToken}`)
         .expect(200);
 
-      const draft = res.body.find(
+      const draft = res.body.data.find(
         (o: { id: string; status: string }) => o.id === opportunityId && o.status === 'DRAFT',
       );
       expect(draft).toBeUndefined();
@@ -237,7 +262,7 @@ describe('Opportunities module (e2e)', () => {
         .set('Authorization', `Bearer ${otherToken}`)
         .expect(200);
 
-      const hasDraft = res.body.some((o: { status: string }) => o.status === 'DRAFT');
+      const hasDraft = res.body.data.some((o: { status: string }) => o.status === 'DRAFT');
       expect(hasDraft).toBe(false);
     });
 
@@ -248,7 +273,7 @@ describe('Opportunities module (e2e)', () => {
         .expect(200);
 
       // Every result in the response must be a DRAFT
-      const allAreDraft = res.body.every((o: { status: string }) => o.status === 'DRAFT');
+      const allAreDraft = res.body.data.every((o: { status: string }) => o.status === 'DRAFT');
       expect(allAreDraft).toBe(true);
     });
   });

@@ -238,6 +238,8 @@ model Application {
   @@map("applications")
 }
 
+/// DB-level CHECK (see migration 0019) enforces that privateDiscussionId and
+/// publicDiscussionId are never both set and never both null.
 model Message {
   id                  String             @id @default(cuid())
   clientMessageId     String?            @unique

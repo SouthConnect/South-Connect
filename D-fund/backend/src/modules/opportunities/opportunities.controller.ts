@@ -102,7 +102,7 @@ export class OpportunitiesController {
     return this.opportunitiesService.findByOwner(userId, query, requester?.id);
   }
 
-  /** Creates a new opportunity. Defaults to DRAFT status. Rate-limited to 5 per 30s to prevent double-submit. */
+  /** Creates a new opportunity. Defaults to ACTIVE status (direct-publish model). Rate-limited to 5 per 30s to prevent double-submit. */
   @Post()
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 5, ttl: 30_000 } })
