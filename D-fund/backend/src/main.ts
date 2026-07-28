@@ -27,6 +27,7 @@ import { JsonLoggerService } from './common/logger/json-logger.service';
 import { HttpLoggingInterceptor } from './common/interceptors/http-logging.interceptor';
 import { CorsIoAdapter } from './common/adapters/cors-io.adapter';
 import { SentryExceptionFilter } from './common/filters/sentry-exception.filter';
+import { requestIdMiddleware } from './common/middleware/request-id.middleware';
 
 const logger = new Logger('Bootstrap');
 
@@ -103,6 +104,10 @@ async function bootstrap() {
   // Trust le premier proxy (Nginx / Railway / Render) pour que req.ip soit l'IP
   // réelle du client — requis pour le rate-limiting et les logs corrects.
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
+  // Correlation ID — first in the chain so every subsequent middleware,
+  // guard, interceptor and log line for this request can read it.
+  app.use(requestIdMiddleware);
 
   // Cookie parser — required for HttpOnly JWT cookie extraction
   app.use(compression());

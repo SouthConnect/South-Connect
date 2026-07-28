@@ -1,4 +1,5 @@
 import { ConsoleLogger, LogLevel } from '@nestjs/common';
+import { RequestContext } from '../context/request-context';
 
 /**
  * Structured JSON logger for production environments.
@@ -59,6 +60,9 @@ export class JsonLoggerService extends ConsoleLogger {
       context: context ?? 'App',
       message,
     };
+
+    const requestId = RequestContext.getRequestId();
+    if (requestId) entry['requestId'] = requestId;
 
     // If the first remaining param looks like a stack trace (Error or string with newlines), attach it
     if (optionalParams.length > 0) {

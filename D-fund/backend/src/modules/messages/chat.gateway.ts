@@ -11,13 +11,14 @@ import {
 } from '@nestjs/websockets';
 import { IsString, MaxLength, validateSync } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
-import { forwardRef, Inject, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
+import { forwardRef, Inject, Logger, OnModuleDestroy, Optional, UseFilters } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import type Redis from 'ioredis';
 import { MessagesService } from './messages.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
+import { WsSentryExceptionFilter } from '../../common/filters/ws-sentry-exception.filter';
 
 /** Socket.IO client extended with the authenticated user's ID. */
 interface AuthenticatedSocket extends Socket {
@@ -49,6 +50,7 @@ class TypingPayloadDto {
   namespace: '/chat',
   // CORS is configured via CorsIoAdapter in main.ts — do not set here.
 })
+@UseFilters(WsSentryExceptionFilter)
 export class ChatGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy
 {

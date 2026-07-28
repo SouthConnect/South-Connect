@@ -2,15 +2,19 @@ import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } fr
 import { Request, Response } from 'express';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { RequestContext } from '../context/request-context';
 
 /**
  * Logs every incoming HTTP request and its response time.
  *
  * Output example (development):
- *   [HttpLogging] POST /api/v1/auth/register → 201 (142ms)
+ *   [HttpLogging] [a1b2c3d4] POST /api/v1/auth/register → 201 (142ms)
  *
  * In production the JsonLoggerService transforms this into structured JSON
- * automatically because it is wired as the application logger.
+ * automatically because it is wired as the application logger — the request ID
+ * is attached there too (as a `requestId` field, read from the same
+ * AsyncLocalStorage context set by requestIdMiddleware), it's prefixed here
+ * as well purely so it's visible in the unstructured dev console output.
  */
 @Injectable()
 export class HttpLoggingInterceptor implements NestInterceptor {
@@ -39,18 +43,20 @@ export class HttpLoggingInterceptor implements NestInterceptor {
 
     const { method } = req;
     const url = this.sanitizeUrl(req.originalUrl);
+    const requestId = RequestContext.getRequestId();
+    const prefix = requestId ? `[${requestId.slice(0, 8)}] ` : '';
 
     return next.handle().pipe(
       tap({
         next: () => {
           const ms = Date.now() - start;
-          this.logger.log(`${method} ${url} → ${res.statusCode} (${ms}ms)`);
+          this.logger.log(`${prefix}${method} ${url} → ${res.statusCode} (${ms}ms)`);
         },
         error: (err: { status?: number; message?: string }) => {
           const ms = Date.now() - start;
           const status = err?.status ?? 500;
           this.logger.warn(
-            `${method} ${url} → ${status} (${ms}ms) — ${err?.message ?? 'Unknown error'}`,
+            `${prefix}${method} ${url} → ${status} (${ms}ms) — ${err?.message ?? 'Unknown error'}`,
           );
         },
       }),
