@@ -13,8 +13,10 @@ import { qk } from '@/app/lib/queryKeys'
  * Dynamically imported in AppShell so that socket.io-client is code-split into
  * its own chunk and does not block the initial page load.
  *
- * The 'reconnect' event is handled exclusively in useSocket to avoid duplicate
- * handlers with diverging invalidation scopes.
+ * The app-wide 'reconnect' handling (dismissing the error toast, refetching
+ * conversation list + notification badges) lives in SocketProvider
+ * (app/lib/SocketContext.tsx), not here — this component only reacts to
+ * server-pushed 'notification' / 'chatBadgeUpdate' events.
  */
 export default function RealtimeSync() {
   const { user } = useAuth()
