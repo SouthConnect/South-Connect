@@ -27,7 +27,7 @@ import { FeaturesModule } from './modules/features/features.module';
 import { AiModule } from './modules/ai/ai.module';
 import { CronModule } from './modules/cron/cron.module';
 import { AuditModule } from './modules/audit/audit.module';
-import { EmailQueueModule } from './modules/email-queue/email-queue.module';
+import { EmailModule } from './modules/email/email.module';
 
 @Module({
   imports: [
@@ -103,7 +103,7 @@ import { EmailQueueModule } from './modules/email-queue/email-queue.module';
     AiModule,
     CronModule,
     AuditModule,
-    EmailQueueModule,
+    EmailModule,
   ],
   providers: [
     {

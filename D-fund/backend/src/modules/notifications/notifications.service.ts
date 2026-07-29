@@ -1,22 +1,23 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
-import { Resend } from 'resend';
 import { Application, Opportunity, User } from '@prisma/client';
 import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
 import * as Sentry from '@sentry/nestjs';
 import { ChatGateway } from '../messages/chat.gateway';
 import { REDIS_CLIENT } from '../redis/redis.module';
-import { EMAIL_QUEUE_NAME, EmailJobData } from '../email-queue/email-queue.types';
+import { EmailService } from '../email/email.service';
 
 /**
- * Manages in-app notifications and transactional email delivery.
+ * Manages in-app notifications and transactional email content.
  *
- * Email is sent via Resend. When the `RESEND_API_KEY` environment variable is
- * absent the service falls back to mock logging so local development works
- * without an email provider.
+ * Actual email delivery mechanics (Resend client, BullMQ queue, RGPD
+ * unsubscribe footer) live in {@link EmailService} — this class builds the
+ * templated HTML and decides *whether* an email should be sent (preference
+ * gating), then delegates to EmailService to actually send it. That split
+ * removes what used to be a forwardRef(() => EmailQueueModule) import here:
+ * EmailModule has no dependency back on this module, so importing it is a
+ * plain, non-circular edge.
  *
  * Email subjects and body copy are intentionally written in French because the
  * application targets a French-speaking audience.
@@ -24,34 +25,14 @@ import { EMAIL_QUEUE_NAME, EmailJobData } from '../email-queue/email-queue.types
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private readonly resend?: Resend;
-  private readonly fromEmail?: string;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
     @Optional() private readonly chatGateway?: ChatGateway,
     @Optional() @Inject(REDIS_CLIENT) private readonly redis?: Redis | null,
-    @Optional() @InjectQueue(EMAIL_QUEUE_NAME) private readonly emailQueue?: Queue,
-  ) {
-    const apiKey = this.configService.get<string>('RESEND_API_KEY');
-    this.fromEmail = this.configService.get<string>('RESEND_FROM_EMAIL');
-
-    if (apiKey) {
-      this.resend = new Resend(apiKey);
-    } else {
-      this.logger.warn('RESEND_API_KEY not configured — email notifications are disabled');
-    }
-
-    if (!this.fromEmail) {
-      this.logger.warn('RESEND_FROM_EMAIL not configured — email notifications may fail');
-    }
-  }
-
-  /** Returns true when the email client is ready to send. */
-  private hasEmailClient(): boolean {
-    return Boolean(this.resend && this.fromEmail);
-  }
+  ) {}
 
   /**
    * Escapes a string for safe interpolation inside an HTML attribute or text node.
@@ -280,7 +261,7 @@ export class NotificationsService {
    * Falls back to a log entry when the email client is not configured.
    */
   async sendEmailVerification(user: User, verificationLink: string) {
-    if (!this.resend || !this.fromEmail) {
+    if (!this.emailService.hasEmailClient()) {
       // Do NOT log the token — it could appear in production log aggregators.
       this.logger.warn(
         `[mock] Email service not configured — skipping verification email to ${user.email}`,
@@ -296,7 +277,7 @@ export class NotificationsService {
       <p style="color:#6b7280;font-size:13px;margin-top:20px">Ce lien expire dans 24 heures. Si vous n'avez pas créé de compte, ignorez cet email.</p>
     `);
 
-    await this.sendEmail(user.email, subject, html, true); // critical: always deliver
+    await this.emailService.sendEmail(user.email, subject, html, true); // critical: always deliver
   }
 
   /**
@@ -325,7 +306,7 @@ export class NotificationsService {
    * Falls back to a log entry when the email client is not configured.
    */
   async sendWelcomeEmail(user: User) {
-    if (!this.resend || !this.fromEmail) {
+    if (!this.emailService.hasEmailClient()) {
       this.logger.warn(
         `[mock] Email service not configured — skipping welcome email to ${user.email}`,
       );
@@ -340,7 +321,7 @@ export class NotificationsService {
       <p style="color:#6b7280;font-size:13px;margin-top:20px">Des questions ? Répondez directement à cet email, notre équipe est là pour vous aider.</p>
     `);
 
-    this.sendEmailAsync(user.email, subject, html);
+    this.emailService.sendEmailAsync(user.email, subject, html);
   }
 
   /**
@@ -352,7 +333,7 @@ export class NotificationsService {
     application: Application,
     opportunity: Opportunity,
   ) {
-    if (!this.hasEmailClient()) {
+    if (!this.emailService.hasEmailClient()) {
       this.logger.warn(
         `[mock] Email service not configured — skipping application submitted email to ${owner.email}`,
       );
@@ -368,7 +349,7 @@ export class NotificationsService {
       <p>${NotificationsService.btn(`${frontendUrl}/my-opportunities`, 'Voir la candidature')}</p>
     `);
 
-    this.sendEmailAsync(owner.email, subject, html);
+    this.emailService.sendEmailAsync(owner.email, subject, html);
   }
 
   /**
@@ -380,7 +361,7 @@ export class NotificationsService {
     application: Application,
     opportunity: Opportunity,
   ) {
-    if (!this.hasEmailClient()) {
+    if (!this.emailService.hasEmailClient()) {
       this.logger.warn(
         `[mock] Email service not configured — skipping application reviewed email to ${candidate.email}`,
       );
@@ -400,7 +381,7 @@ export class NotificationsService {
       <p>${NotificationsService.btn(`${frontendUrl}/explore`, 'Voir mes candidatures')}</p>
     `);
 
-    this.sendEmailAsync(candidate.email, subject, html);
+    this.emailService.sendEmailAsync(candidate.email, subject, html);
   }
 
   /**
@@ -412,7 +393,7 @@ export class NotificationsService {
     application: Application,
     opportunity: Opportunity,
   ) {
-    if (!this.hasEmailClient()) {
+    if (!this.emailService.hasEmailClient()) {
       this.logger.warn(
         `[mock] Email service not configured — skipping application accepted email to ${candidate.email}`,
       );
@@ -429,7 +410,7 @@ export class NotificationsService {
       <p>${NotificationsService.btn(`${frontendUrl}/opportunities/${opportunity.id}`, "Voir l'opportunité")}</p>
     `);
 
-    this.sendEmailAsync(candidate.email, subject, html);
+    this.emailService.sendEmailAsync(candidate.email, subject, html);
   }
 
   /**
@@ -440,7 +421,7 @@ export class NotificationsService {
     owner: Pick<User, 'id' | 'email' | 'firstName' | 'name'>,
     opportunity: Opportunity,
   ) {
-    if (!this.resend || !this.fromEmail) {
+    if (!this.emailService.hasEmailClient()) {
       this.logger.warn(
         `[mock] Email service not configured — skipping opportunity approved email to ${owner.email}`,
       );
@@ -457,7 +438,7 @@ export class NotificationsService {
       <p>${NotificationsService.btn(`${frontendUrl}/opportunities/${opportunity.id}`, 'Voir mon opportunité')}</p>
     `);
 
-    this.sendEmailAsync(owner.email, subject, html);
+    this.emailService.sendEmailAsync(owner.email, subject, html);
   }
 
   /**
@@ -467,7 +448,7 @@ export class NotificationsService {
     owner: Pick<User, 'id' | 'email' | 'firstName' | 'name'>,
     opportunity: Opportunity,
   ) {
-    if (!this.hasEmailClient()) {
+    if (!this.emailService.hasEmailClient()) {
       this.logger.warn(
         `[mock] Email service not configured — skipping opportunity rejected email to ${owner.email}`,
       );
@@ -484,7 +465,7 @@ export class NotificationsService {
       <p>${NotificationsService.btn(`${frontendUrl}/my-opportunities`, 'Gérer mes opportunités')}</p>
     `);
 
-    this.sendEmailAsync(owner.email, subject, html, false, 'opportunity-rejected');
+    this.emailService.sendEmailAsync(owner.email, subject, html, false, 'opportunity-rejected');
   }
 
   /**
@@ -497,7 +478,7 @@ export class NotificationsService {
     preview: string,
     discussionId: string,
   ) {
-    if (!this.resend || !this.fromEmail) {
+    if (!this.emailService.hasEmailClient()) {
       this.logger.warn(
         `[mock] Email service not configured — skipping new message email to ${recipient.email}`,
       );
@@ -514,7 +495,7 @@ export class NotificationsService {
       <p>${NotificationsService.btn(`${frontendUrl}/chat/private/${discussionId}`, 'Répondre')}</p>
     `);
 
-    this.sendEmailAsync(recipient.email, subject, html);
+    this.emailService.sendEmailAsync(recipient.email, subject, html);
   }
 
   /**
@@ -522,7 +503,7 @@ export class NotificationsService {
    * Falls back to a log entry when the email client is not configured.
    */
   async sendNewFollowerEmail(follower: User, followee: User) {
-    if (!this.resend || !this.fromEmail) {
+    if (!this.emailService.hasEmailClient()) {
       this.logger.warn(
         `[mock] Email service not configured — skipping new follower email to ${followee.email}`,
       );
@@ -538,7 +519,7 @@ export class NotificationsService {
       <p>${NotificationsService.btn(`${frontendUrl}/profiles/${follower.id}`, 'Voir son profil')}</p>
     `);
 
-    this.sendEmailAsync(followee.email, subject, html);
+    this.emailService.sendEmailAsync(followee.email, subject, html);
   }
 
   /**
@@ -546,7 +527,7 @@ export class NotificationsService {
    * This is a critical security email — delivered even if the user has opted out of marketing.
    */
   async sendPasswordChangedEmail(user: User) {
-    if (!this.hasEmailClient()) {
+    if (!this.emailService.hasEmailClient()) {
       this.logger.warn(
         `[mock] Email service not configured — skipping password changed email (user: ${user.id})`,
       );
@@ -560,7 +541,7 @@ export class NotificationsService {
       <p style="padding:12px 16px;background:#fef2f2;border-radius:8px;color:#b91c1c;font-size:13px">⚠️ Si vous n'êtes pas à l'origine de cette action, contactez-nous immédiatement en répondant à cet email.</p>
     `);
 
-    await this.sendEmail(user.email, subject, html, true); // critical: always deliver
+    await this.emailService.sendEmail(user.email, subject, html, true); // critical: always deliver
   }
 
   /**
@@ -568,7 +549,7 @@ export class NotificationsService {
    * Throws when the email client is not configured.
    */
   async sendPasswordResetEmail(user: User, resetLink: string) {
-    if (!this.hasEmailClient()) {
+    if (!this.emailService.hasEmailClient()) {
       this.logger.warn(
         `[mock] Email service not configured — skipping password reset email (user: ${user.id})`,
       );
@@ -583,143 +564,6 @@ export class NotificationsService {
       <p style="color:#6b7280;font-size:13px;margin-top:20px">Ce lien expire dans 1 heure. Si vous n'avez pas fait cette demande, ignorez cet email.</p>
     `);
 
-    await this.sendEmail(user.email, subject, html, true); // critical: always deliver
-  }
-
-  /**
-   * Low-level email sender — throws on delivery failure.
-   *
-   * When `skipUnsubscribeFooter` is false (default) this method:
-   *  1. Looks up the recipient to check their opt-out preference — returns early if opted out.
-   *  2. Appends a RGPD-compliant unsubscribe footer using the user's permanent token.
-   *
-   * Pass `skipUnsubscribeFooter = true` for critical transactional emails (verification,
-   * password reset) that must always be delivered regardless of marketing preferences.
-   *
-   * Errors are NOT swallowed — callers decide whether to await (critical) or fire-and-forget (non-critical).
-   */
-  private async sendEmail(
-    to: string,
-    subject: string,
-    html: string,
-    skipUnsubscribeFooter = false,
-  ): Promise<void> {
-    // Never send to test/example addresses — generated by automated tests, must never hit Resend
-    if (/@example\.com$/i.test(to) || /@test\.local$/i.test(to)) {
-      this.logger.debug(`[mock] Skipping email to test address: ${to} — ${subject}`);
-      return;
-    }
-
-    let finalHtml = html;
-
-    if (!skipUnsubscribeFooter) {
-      const user = await this.prisma.user
-        .findUnique({
-          where: { email: to },
-          select: { emailOptOut: true, emailUnsubscribeToken: true },
-        })
-        .catch(() => null);
-
-      if (user?.emailOptOut) return; // silently skip — user opted out
-
-      if (user?.emailUnsubscribeToken) {
-        const frontendUrl = this.configService.get<string>('FRONTEND_URL') ?? '';
-        finalHtml += `
-          <hr style="margin:40px 0;border:none;border-top:1px solid #eee">
-          <p style="color:#888;font-size:12px;text-align:center">
-            Vous recevez cet email car vous êtes inscrit sur SouthConnect.<br>
-            <a href="${frontendUrl}/unsubscribe?token=${user.emailUnsubscribeToken}"
-               style="color:#aaa;text-decoration:underline">
-              Se désabonner des emails
-            </a>
-          </p>
-        `;
-      }
-    }
-
-    // Abort if Resend stalls — throws so callers can retry.
-    // The Resend SDK resolves the promise even on API errors (returns { data: null, error: {...} })
-    // so we must inspect the result and throw explicitly to surface failures.
-    const send = this.resend!.emails.send({ from: this.fromEmail!, to, subject, html: finalHtml });
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const timeout = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error('Resend timeout after 10 s')), 10_000);
-    });
-    const result = await Promise.race([send, timeout]).finally(() => clearTimeout(timeoutId!));
-    if (result.error) {
-      throw new Error(`Resend ${result.error.statusCode}: ${result.error.message}`);
-    }
-  }
-
-  /**
-   * Direct email delivery — called by the BullMQ processor.
-   * Delegates to the private sendEmail method.
-   * Throws on failure so the processor can re-throw and trigger BullMQ retries.
-   */
-  async sendEmailDirect(data: EmailJobData): Promise<void> {
-    await this.sendEmail(data.to, data.subject, data.html, data.skipUnsubscribeFooter);
-  }
-
-  /**
-   * Enqueues a non-critical email for asynchronous, persistent delivery via BullMQ.
-   *
-   * When the BullMQ queue is available the job is persisted in Redis so the email
-   * survives a process crash. When the queue is unavailable (e.g. Redis not configured
-   * in dev) the method falls back to the legacy in-process retry mechanism.
-   *
-   * Critical emails (verification, password reset, password changed) bypass this
-   * method entirely — they are sent synchronously via sendEmail().
-   */
-  private sendEmailAsync(
-    to: string,
-    subject: string,
-    html: string,
-    skipUnsubscribeFooter = false,
-    jobType = 'generic',
-  ): void {
-    // In test mode, skip queueing entirely — no real Redis jobs, no Resend calls
-    if (this.configService.get<string>('NODE_ENV') === 'test') {
-      this.logger.debug(`[test] Email skipped (not queued): ${to} — ${subject}`);
-      return;
-    }
-
-    if (this.emailQueue) {
-      const jobData: EmailJobData = { to, subject, html, skipUnsubscribeFooter, jobType };
-      this.emailQueue.add('send', jobData).catch((err: Error) => {
-        this.logger.warn(
-          `Failed to enqueue email job [${jobType}] → ${to}: ${err.message}. Falling back to in-process delivery.`,
-        );
-        // Fallback: deliver in-process if queue.add itself failed
-        this.sendEmailFallback(to, subject, html, skipUnsubscribeFooter);
-      });
-      return;
-    }
-    // No queue available — use in-process delivery with manual retries
-    this.sendEmailFallback(to, subject, html, skipUnsubscribeFooter);
-  }
-
-  /**
-   * Legacy in-process retry fallback for when BullMQ is unavailable.
-   * Retries up to 2 times with linear backoff (2 s, 4 s) before giving up.
-   */
-  private sendEmailFallback(
-    to: string,
-    subject: string,
-    html: string,
-    skipUnsubscribeFooter = false,
-  ): void {
-    const MAX_RETRIES = 2;
-    const attempt = (remaining: number) => {
-      this.sendEmail(to, subject, html, skipUnsubscribeFooter).catch((err: Error) => {
-        if (remaining > 0) {
-          const delayMs = (MAX_RETRIES - remaining + 1) * 2_000; // 2s, 4s
-          setTimeout(() => attempt(remaining - 1), delayMs);
-        } else {
-          this.logger.error(`Email to ${to} failed after all retries: ${err.message}`, err.stack);
-          Sentry.captureException(err, { tags: { email_to: to, email_subject: subject } });
-        }
-      });
-    };
-    setImmediate(() => attempt(MAX_RETRIES));
+    await this.emailService.sendEmail(user.email, subject, html, true); // critical: always deliver
   }
 }
