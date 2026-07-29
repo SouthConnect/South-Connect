@@ -1,25 +1,27 @@
-import { forwardRef, Inject, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
-import { EMAIL_QUEUE_NAME, EmailJobData } from './email-queue.types';
-import { NotificationsService } from '../notifications/notifications.service';
+import { EMAIL_QUEUE_NAME, EmailJobData } from './email.types';
+import { EmailService } from './email.service';
 
 /**
  * BullMQ processor for the email queue.
  *
- * Picks up jobs enqueued by NotificationsService.sendEmailAsync and delegates
- * actual delivery to NotificationsService.sendEmailDirect.
+ * Picks up jobs enqueued by EmailService.sendEmailAsync and delegates
+ * actual delivery to EmailService.sendEmailDirect.
  * On failure the error is re-thrown so BullMQ's built-in retry logic
  * (exponential back-off, max 5 attempts) handles the retry cycle.
+ *
+ * Lives in the same module as EmailService (no forwardRef needed) — this
+ * used to depend on NotificationsService via forwardRef(), which was one
+ * leg of a three-module circular dependency. Now it depends directly on
+ * EmailService, a module-local sibling provider.
  */
 @Processor(EMAIL_QUEUE_NAME)
-export class EmailQueueProcessor extends WorkerHost {
-  private readonly logger = new Logger(EmailQueueProcessor.name);
+export class EmailProcessor extends WorkerHost {
+  private readonly logger = new Logger(EmailProcessor.name);
 
-  constructor(
-    @Inject(forwardRef(() => NotificationsService))
-    private readonly notificationsService: NotificationsService,
-  ) {
+  constructor(private readonly emailService: EmailService) {
     super();
   }
 
@@ -27,7 +29,7 @@ export class EmailQueueProcessor extends WorkerHost {
     const { to, jobType } = job.data;
     this.logger.log(`Processing email job [${jobType}] attempt ${job.attemptsMade + 1} → ${to}`);
     try {
-      await this.notificationsService.sendEmailDirect(job.data);
+      await this.emailService.sendEmailDirect(job.data);
       this.logger.log(`Email job [${jobType}] delivered → ${to}`);
     } catch (err) {
       this.logger.error(
