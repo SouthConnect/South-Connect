@@ -15,6 +15,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useAuth } from '@/app/lib/AuthContext'
 import type { Opportunity, OpportunityListResponse } from '@/app/lib/types'
+import { Skeleton } from '@/components/Skeleton'
+import { Spinner } from '@/components/Spinner'
 
 const PAGE_SIZE = 20
 
@@ -49,7 +51,7 @@ export default function HomePage() {
     return (
       <div className="flex flex-col gap-4 p-8">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-28 bg-gray-100 animate-pulse rounded-xl" />
+          <Skeleton key={i} className="h-28" />
         ))}
       </div>
     )
@@ -277,7 +279,7 @@ function OpportunityPreview() {
     return (
       <div className="grid md:grid-cols-3 gap-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-32 bg-gray-200 animate-pulse rounded-xl" />
+          <Skeleton key={i} className="h-32" />
         ))}
       </div>
     )
@@ -521,7 +523,7 @@ function AppFeed() {
         <div className={viewMode === 'gallery' ? 'grid grid-cols-2 md:grid-cols-3 gap-4' : 'space-y-3'}>
           {isLoadingList ? (
             Array.from({ length: viewMode === 'gallery' ? 6 : 5 }).map((_, i) => (
-              <div key={i} className={`bg-gray-100 animate-pulse rounded-xl ${viewMode === 'gallery' ? 'h-48' : 'h-28'}`} />
+              <Skeleton key={i} className={viewMode === 'gallery' ? 'h-48' : 'h-28'} />
             ))
           ) : isErrorList ? (
             <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-dashed border-red-200">
@@ -568,7 +570,7 @@ function AppFeed() {
           <div ref={sentinelRef} className="mt-8 flex justify-center">
             {isFetchingNextPage ? (
               <div className="flex gap-2 items-center text-sm text-gray-400">
-                <div className="w-4 h-4 border-2 border-[#3b49df] border-t-transparent rounded-full animate-spin" />
+                <Spinner size="sm" />
                 Chargement…
               </div>
             ) : hasNextPage ? null : allItems.length > 0 ? (

@@ -9,6 +9,7 @@ import Sidebar from '@/components/Sidebar'
 import { useAuth } from '@/app/lib/AuthContext'
 import { apiJson } from '@/app/lib/api'
 import { toast } from 'sonner'
+import { Spinner } from '@/components/Spinner'
 
 const RealtimeSync = dynamic(() => import('@/components/RealtimeSync'), { ssr: false })
 
@@ -238,7 +239,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="w-7 h-7 rounded-full border-2 border-[#3b49df] border-t-transparent animate-spin" />
+        <Spinner />
       </div>
     )
   }

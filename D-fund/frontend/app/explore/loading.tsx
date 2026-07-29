@@ -1,23 +1,37 @@
+import { Skeleton } from '@/components/Skeleton'
+import { OpportunityCardSkeleton } from '@/components/OpportunityCard'
+
 export default function ExploreLoading() {
   return (
-    <div className="animate-pulse">
-      <div className="bg-white border-b border-gray-100 py-6">
-        <div className="container mx-auto px-4 max-w-5xl space-y-3">
-          <div className="h-6 bg-gray-100 rounded w-48" />
-          <div className="h-4 bg-gray-100 rounded w-72" />
+    <div className="bg-gray-50 min-h-screen pb-16">
+      <div className="bg-gradient-to-br from-[#1a237e] to-[#3b49df] py-14 px-4">
+        <div className="container mx-auto max-w-3xl text-center">
+          <h1 className="text-3xl font-extrabold text-white mb-3">Explorer SouthConnect</h1>
+          <p className="text-white/70 mb-8 text-base">
+            Découvrez des opportunités, talents, investisseurs et collaborateurs dans tout l&apos;écosystème.
+          </p>
         </div>
       </div>
-      <div className="container mx-auto px-4 max-w-5xl py-6 space-y-4">
-        {/* Filtres */}
-        <div className="flex gap-2 flex-wrap">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-9 bg-gray-100 rounded-full w-24" />
+
+      <div className="container mx-auto max-w-6xl px-4 py-10">
+        <div className="flex flex-wrap gap-2 mb-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-9 w-28 rounded-xl" />
           ))}
         </div>
-        {/* Cards */}
-        {[1, 2, 3, 4, 5, 6].map((i) => (
-          <div key={i} className="h-28 bg-white rounded-xl border border-gray-100" />
-        ))}
+
+        <div className="flex flex-wrap gap-2 mb-8 pb-6 border-b border-gray-200">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-8 w-20 rounded-lg" />
+          ))}
+        </div>
+
+        <Skeleton className="h-5 w-40 mb-5" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <OpportunityCardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     </div>
   )

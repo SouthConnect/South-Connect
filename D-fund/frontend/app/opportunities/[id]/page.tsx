@@ -14,6 +14,7 @@ import type { Opportunity, Application, PublicDiscussion, PrivateDiscussion } fr
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 import { useToggleOpportunityLike, useToggleOpportunitySave } from '@/app/hooks/useOpportunitySocial'
 import { qk } from '@/app/lib/queryKeys'
+import { OpportunitySkeleton } from './OpportunitySkeleton'
 
 const TYPE_GRADIENTS: Record<string, string> = {
   JOB_OPPORTUNITY:          'from-[#1e3a5f] via-[#2d5fa0] to-[#3b49df]',
@@ -154,11 +155,7 @@ export default function OpportunityDetailPage() {
   })
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-[#3b49df] border-t-transparent animate-spin" />
-      </div>
-    )
+    return <OpportunitySkeleton />
   }
 
   if (isError || !opportunity) {

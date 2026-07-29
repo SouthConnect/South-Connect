@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 import { useToggleFollow } from '@/app/hooks/useFollow'
 import { qk } from '@/app/lib/queryKeys'
+import { CommunityRowSkeleton } from './CommunitySkeleton'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -354,15 +355,7 @@ export default function CommunityPage() {
         {/* Liste */}
         <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50 overflow-hidden">
           {isLoading ? (
-            Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="w-10 h-10 rounded-full bg-gray-100 animate-pulse shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3.5 bg-gray-100 animate-pulse rounded w-32" />
-                  <div className="h-3 bg-gray-100 animate-pulse rounded w-48" />
-                </div>
-              </div>
-            ))
+            Array.from({ length: 8 }).map((_, i) => <CommunityRowSkeleton key={i} />)
           ) : count === 0 ? (
             <div className="py-16 text-center text-sm text-gray-400">
               Aucun résultat trouvé.

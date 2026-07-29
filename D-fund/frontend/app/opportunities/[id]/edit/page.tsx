@@ -12,6 +12,7 @@ import { ArrowLeft, Save, Info, MapPin, Globe, DollarSign, Image as ImageIcon, X
 import Link from 'next/link'
 import AuthGuard from '@/components/AuthGuard'
 import MultiSelect from '@/components/MultiSelect'
+import { Spinner } from '@/components/Spinner'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 
 export default function EditOpportunityPage() {
@@ -136,7 +137,7 @@ export default function EditOpportunityPage() {
     <AuthGuard>
     {isLoading ? (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#3b49df]" />
+        <Spinner size="lg" />
       </div>
     ) : !opportunity ? (
       <div className="container mx-auto px-4 py-12 text-center">

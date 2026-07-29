@@ -10,6 +10,7 @@ import { qk } from '@/app/lib/queryKeys'
 import type { Opportunity } from '@/app/lib/types'
 import { ThumbsUp, MessageSquare, Bookmark, Users } from 'lucide-react'
 import { useToggleOpportunityLike, useToggleOpportunitySave } from '@/app/hooks/useOpportunitySocial'
+import { Skeleton } from './Skeleton'
 
 interface OpportunityCardProps {
   opportunity: Opportunity
@@ -164,5 +165,24 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
         </div>
       </div>
     </Link>
+  )
+}
+
+/** Mirrors OpportunityCard's shape (thumbnail, title, subtitle, stats) for loading grids/lists. */
+export function OpportunityCardSkeleton() {
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 px-4 py-3">
+      <div className="flex gap-3 items-start">
+        <Skeleton className="w-14 h-14 rounded-lg flex-shrink-0" />
+        <div className="flex-1 min-w-0 space-y-2 py-0.5">
+          <Skeleton className="h-3 w-16 rounded" />
+          <Skeleton className="h-4 w-[70%]" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+        <div className="flex-shrink-0 ml-2">
+          <Skeleton className="h-3.5 w-14" />
+        </div>
+      </div>
+    </div>
   )
 }

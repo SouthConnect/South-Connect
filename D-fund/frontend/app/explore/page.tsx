@@ -9,9 +9,10 @@ import {
   Search, Briefcase, Users, Lightbulb, DollarSign, Calendar, Rocket,
   ArrowRight, MapPin, Wifi, X, ChevronDown,
 } from 'lucide-react'
-import OpportunityCard from '@/components/OpportunityCard'
+import OpportunityCard, { OpportunityCardSkeleton } from '@/components/OpportunityCard'
 import { Avatar } from '@/components/Avatar'
 import type { Opportunity } from '@/app/lib/types'
+import { Skeleton } from '@/components/Skeleton'
 
 // ── Catégories ────────────────────────────────────────────────────────────────
 
@@ -308,7 +309,7 @@ export default function ExplorePage() {
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-48 bg-white rounded-2xl animate-pulse border border-gray-100" />
+                <OpportunityCardSkeleton key={i} />
               ))}
             </div>
           ) : isError ? (
@@ -343,7 +344,7 @@ export default function ExplorePage() {
               {isFetchingNextPage && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="h-48 bg-white rounded-2xl animate-pulse border border-gray-100" />
+                    <OpportunityCardSkeleton key={i} />
                   ))}
                 </div>
               )}
