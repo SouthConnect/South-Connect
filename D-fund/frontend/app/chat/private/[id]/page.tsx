@@ -143,7 +143,14 @@ export default function PrivateDiscussionPage() {
     // never reach this client until the page is remounted. Also refetch this
     // conversation's messages to catch anything sent during the gap between
     // disconnect and this re-join (targeted — only this open conversation,
-    // not every cached discussion; see useSocket.ts's own reconnect handler).
+    // not every cached discussion; see SocketContext.tsx's own reconnect
+    // handler).
+    //
+    // Note: `reconnect` is a Manager-level event — it must be listened for on
+    // `socket.io`, not `socket` itself (socket.io-client only forwards
+    // open/packet/error/close from the Manager onto the Socket instance;
+    // `socket.on('reconnect', ...)` never fires). See SocketContext.tsx for
+    // the full explanation.
     const handleReconnect = () => {
       socket.emit('join', id)
       queryClient.invalidateQueries({ queryKey: qk.privateDiscussionMessages(id) })
@@ -152,14 +159,14 @@ export default function PrivateDiscussionPage() {
     socket.on('newMessage', handleNewMessage)
     socket.on('typing', handleTyping)
     socket.on('stopTyping', handleStopTyping)
-    socket.on('reconnect', handleReconnect)
+    socket.io.on('reconnect', handleReconnect)
 
     return () => {
       socket.emit('leave', id)
       socket.off('newMessage', handleNewMessage)
       socket.off('typing', handleTyping)
       socket.off('stopTyping', handleStopTyping)
-      socket.off('reconnect', handleReconnect)
+      socket.io.off('reconnect', handleReconnect)
     }
   }, [socket, id, user?.id, queryClient])
 

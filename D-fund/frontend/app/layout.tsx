@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/app/lib/AuthContext'
+import { SocketProvider } from '@/app/lib/SocketContext'
 import AppShell from '@/components/AppShell'
 import Providers from './Providers'
 import { Toaster } from 'sonner'
@@ -61,8 +62,10 @@ export default function RootLayout({
         <NextTopLoader color="#3b49df" showSpinner={false} height={3} shadow="0 0 10px #3b49df,0 0 5px #3b49df" />
         <Providers>
           <AuthProvider>
-            <AppShell>{children}</AppShell>
-            <Toaster position="bottom-right" richColors closeButton />
+            <SocketProvider>
+              <AppShell>{children}</AppShell>
+              <Toaster position="bottom-right" richColors closeButton />
+            </SocketProvider>
           </AuthProvider>
         </Providers>
         <Analytics />
