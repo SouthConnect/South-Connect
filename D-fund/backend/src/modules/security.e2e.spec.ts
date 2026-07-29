@@ -14,7 +14,7 @@
 
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { UserAwareThrottlerGuard } from '../common/guards/user-aware-throttler.guard';
 import * as request from 'supertest';
 import helmet from 'helmet';
 import { AppModule } from '../app.module';
@@ -66,7 +66,7 @@ describe('Security (e2e)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
-      .overrideGuard(ThrottlerGuard)
+      .overrideGuard(UserAwareThrottlerGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -215,7 +215,7 @@ describe('Security (e2e)', () => {
         .get(`/api/v1/opportunities/user/${userA.userId}`)
         .set('Authorization', `Bearer ${userB.token}`)
         .expect(200);
-      const ids: string[] = res.body.map((o: any) => o.id);
+      const ids: string[] = res.body.data.map((o: any) => o.id);
       expect(ids).not.toContain(draftId);
     });
 
@@ -224,7 +224,7 @@ describe('Security (e2e)', () => {
         .get(`/api/v1/opportunities/user/${userA.userId}`)
         .set('Authorization', `Bearer ${userA.token}`)
         .expect(200);
-      const ids: string[] = res.body.map((o: any) => o.id);
+      const ids: string[] = res.body.data.map((o: any) => o.id);
       expect(ids).toContain(draftId);
     });
   });

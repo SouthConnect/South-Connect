@@ -51,10 +51,14 @@ let _refreshPromise: Promise<RefreshResult> | null = null
 
 const hasWebLocks = typeof navigator !== 'undefined' && 'locks' in navigator
 
-const doRefreshRequest = (apiUrl: string): Promise<RefreshResult> =>
-  fetch(`${apiUrl}/auth/refresh`, {
+const doRefreshRequest = (apiUrl: string): Promise<RefreshResult> => {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS)
+
+  return fetch(`${apiUrl}/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
+    signal: controller.signal,
   })
     .then((r): RefreshResult => {
       if (r.ok) return 'ok'
@@ -62,7 +66,9 @@ const doRefreshRequest = (apiUrl: string): Promise<RefreshResult> =>
       if (r.status === 429) return 'server-error' // Throttle — transitoire, ne pas déconnecter
       return 'expired' // 401/403 → token définitivement invalide
     })
-    .catch((): RefreshResult => 'server-error') // erreur réseau — ne pas déconnecter
+    .catch((): RefreshResult => 'server-error') // erreur réseau ou timeout — ne pas déconnecter
+    .finally(() => clearTimeout(timeoutId))
+}
 
 const attemptTokenRefresh = (apiUrl: string): Promise<RefreshResult> => {
   if (_refreshPromise) return _refreshPromise

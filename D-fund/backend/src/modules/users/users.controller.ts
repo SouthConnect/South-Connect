@@ -26,6 +26,7 @@ import { UpdateProfilePicDto } from './dto/update-profile-pic.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AuditService } from '../audit/audit.service';
 import { Throttle } from '@nestjs/throttler';
+import { rateLimit } from '../../common/rate-limit';
 
 class UpdateRoleDto {
   @IsEnum(UserRole)
@@ -91,7 +92,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Export all personal data (GDPR Article 20)' })
   @Post('me/export')
   @UseGuards(JwtAuthGuard)
-  @Throttle({ strict: {} })
+  @Throttle({ default: { limit: rateLimit(3), ttl: 60_000 } })
   async exportMyData(@CurrentUser() user: User, @Res() res: Response) {
     const payload = await this.usersService.exportMyData(user.id);
     const filename = `dfund-export-${user.id}-${Date.now()}.json`;
@@ -161,7 +162,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Delete and anonymise own account (RGPD art. 17)' })
   @Delete('me')
   @UseGuards(JwtAuthGuard)
-  @Throttle({ strict: {} })
+  @Throttle({ default: { limit: rateLimit(3), ttl: 60_000 } })
   async deleteMe(@CurrentUser() user: User, @Res({ passthrough: true }) res: Response) {
     await this.usersService.deleteMe(user.id);
     this.auditService.log(user.id, 'DELETE_OWN_ACCOUNT', user.id, 'user');

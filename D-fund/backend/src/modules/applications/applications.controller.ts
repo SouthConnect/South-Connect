@@ -12,6 +12,7 @@ import {
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { rateLimit } from '../../common/rate-limit';
 import { User } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
@@ -92,7 +93,7 @@ export class ApplicationsController {
   /** Submits a DRAFT application for review. Only the applicant may call this. Rate-limited to 3/min. */
   @Post(':id/submit')
   @UseGuards(JwtAuthGuard, ApplicationOwnerGuard)
-  @Throttle({ strict: {} })
+  @Throttle({ default: { limit: rateLimit(3), ttl: 60_000 } })
   submit(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User) {
     return this.applicationsService.submit(id, user.id);
   }
@@ -111,7 +112,7 @@ export class ApplicationsController {
   /** Withdraws the authenticated user's own application (soft-delete). Rate-limited to 3/min. */
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  @Throttle({ strict: {} })
+  @Throttle({ default: { limit: rateLimit(3), ttl: 60_000 } })
   withdraw(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User) {
     return this.applicationsService.withdraw(id, user.id);
   }

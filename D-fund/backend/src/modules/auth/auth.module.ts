@@ -33,6 +33,7 @@ import { PrismaService } from '../prisma/prisma.service';
     NotificationsModule,
     PrismaModule,
   ],
+  exports: [AuthService, JwtModule],
   controllers: [AuthController],
   providers: [
     AuthService,
@@ -50,6 +51,5 @@ import { PrismaService } from '../prisma/prisma.service';
       inject: [ConfigService, PrismaService],
     },
   ],
-  exports: [AuthService],
 })
 export class AuthModule {}

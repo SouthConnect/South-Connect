@@ -2,6 +2,7 @@ import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { rateLimit } from '../../common/rate-limit';
 import { ReferralService } from './referral.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -42,7 +43,7 @@ export class ReferralController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  @Throttle({ auth: {} })
+  @Throttle({ default: { limit: rateLimit(15), ttl: 60_000 } })
   create(@CurrentUser() user: User, @Body() dto: CreateReferralDto) {
     return this.referralService.create(user.id, dto.opportunityId, dto.type);
   }

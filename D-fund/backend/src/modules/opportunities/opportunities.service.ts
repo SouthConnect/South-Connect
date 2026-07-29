@@ -174,7 +174,10 @@ export class OpportunitiesService {
     let feedCacheKey: string | null = null;
     if (isCacheable) {
       feedCacheKey = `${FEED_CACHE_PREFIX}:${JSON.stringify({ take, status: status ?? 'no-draft', type: type ?? '', types: types ?? '', search: search ?? '', sort: sort ?? '', country: country ?? '', remote: remote ?? '', createdAfter: createdAfter ?? '' })}`;
-      const cached = await this.redis!.get(feedCacheKey).catch(() => null);
+      const cached = await this.redis!.get(feedCacheKey).catch((err) => {
+        this.logger.warn(`Redis read failed for feed cache, falling back to DB: ${err.message}`);
+        return null;
+      });
       if (cached) {
         const base = JSON.parse(cached);
         if (requesterId) {

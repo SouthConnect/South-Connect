@@ -1,6 +1,7 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { rateLimit } from '../../common/rate-limit';
 import { User } from '@prisma/client';
 import { FeedbackService } from './feedback.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -20,7 +21,7 @@ export class FeedbackController {
   /** Submits a feedback entry from the authenticated user. */
   @Post()
   @UseGuards(JwtAuthGuard)
-  @Throttle({ auth: {} })
+  @Throttle({ default: { limit: rateLimit(15), ttl: 60_000 } })
   submit(@CurrentUser() user: User, @Body() dto: CreateFeedbackDto) {
     return this.feedbackService.submit(user, dto);
   }

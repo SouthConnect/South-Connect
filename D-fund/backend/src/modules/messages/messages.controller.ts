@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { rateLimit } from '../../common/rate-limit';
 import { User } from '@prisma/client';
 import { MessagesService } from './messages.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -34,7 +35,7 @@ export class MessagesController {
 
   /** Returns public discussion threads. Supports ?type, ?take (max 100), ?skip. */
   @Get('public')
-  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Throttle({ default: { limit: rateLimit(120), ttl: 60_000 } })
   findPublicDiscussions(
     @Query('type') type?: string,
     @Query('take') take?: string,
@@ -51,7 +52,7 @@ export class MessagesController {
   @Post('public')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  @Throttle({ auth: {} })
+  @Throttle({ default: { limit: rateLimit(15), ttl: 60_000 } })
   createPublicDiscussion(@CurrentUser() user: User, @Body() dto: CreateDiscussionDto) {
     return this.messagesService.createPublicDiscussion(user.id, dto.title, dto.description);
   }
@@ -66,7 +67,7 @@ export class MessagesController {
 
   /** Returns messages for a public discussion thread. */
   @Get('public/:discussionId')
-  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Throttle({ default: { limit: rateLimit(120), ttl: 60_000 } })
   findPublicMessages(@Param('discussionId', ParseIdPipe) discussionId: string) {
     return this.messagesService.findPublicDiscussionMessages(discussionId);
   }
@@ -89,7 +90,7 @@ export class MessagesController {
   @Post('public/:discussionId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  @Throttle({ messaging: {} })
+  @Throttle({ default: { limit: rateLimit(30), ttl: 60_000 } })
   createPublicMessage(
     @Param('discussionId', ParseIdPipe) discussionId: string,
     @CurrentUser() user: User,
@@ -107,7 +108,7 @@ export class MessagesController {
   @Post('private/:discussionId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  @Throttle({ messaging: {} })
+  @Throttle({ default: { limit: rateLimit(30), ttl: 60_000 } })
   createPrivateMessage(
     @Param('discussionId', ParseIdPipe) discussionId: string,
     @CurrentUser() user: User,
@@ -129,7 +130,7 @@ export class MessagesController {
   @Post('private/start/:targetUserId')
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
-  @Throttle({ auth: {} })
+  @Throttle({ default: { limit: rateLimit(15), ttl: 60_000 } })
   startPrivateDiscussion(
     @CurrentUser() user: User,
     @Param('targetUserId', ParseIdPipe) targetUserId: string,

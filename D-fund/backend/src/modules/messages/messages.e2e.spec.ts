@@ -11,7 +11,7 @@
 
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { UserAwareThrottlerGuard } from '../../common/guards/user-aware-throttler.guard';
 import * as request from 'supertest';
 import { io } from 'socket.io-client';
 import { IoAdapter } from '@nestjs/platform-socket.io';
@@ -64,7 +64,7 @@ describe('Messages + ChatGateway (e2e)', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
-      .overrideGuard(ThrottlerGuard)
+      .overrideGuard(UserAwareThrottlerGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

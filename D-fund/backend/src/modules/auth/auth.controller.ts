@@ -15,6 +15,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { GoogleCallbackGuard } from './guards/google-callback.guard';
 import { Throttle } from '@nestjs/throttler';
+import { rateLimit } from '../../common/rate-limit';
 import { User } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
@@ -112,7 +113,7 @@ export class AuthController {
   /** Registers a new user account. Rate-limited to 5 requests per minute. */
   @ApiOperation({ summary: 'Register a new account' })
   @Post('register')
-  @Throttle({ auth: {} })
+  @Throttle({ default: { limit: rateLimit(15), ttl: 60_000 } })
   async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
     const { user, accessToken, refreshToken } = await this.authService.register(dto);
     this.setAuthCookies(res, accessToken, refreshToken);
@@ -123,7 +124,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Login and receive HttpOnly auth cookies' })
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ auth: {} })
+  @Throttle({ default: { limit: rateLimit(15), ttl: 60_000 } })
   async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const { user, accessToken, refreshToken } = await this.authService.login(dto);
     this.setAuthCookies(res, accessToken, refreshToken);
@@ -155,7 +156,7 @@ export class AuthController {
    */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ refresh: {} })
+  @Throttle({ default: { limit: rateLimit(20), ttl: 60_000 } })
   async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     const refreshToken: string = req.cookies?.['refresh_token'] ?? '';
     const tokens = await this.authService.refreshTokens(refreshToken);
@@ -184,7 +185,7 @@ export class AuthController {
 
   /** Initiates the Google OAuth2 redirect flow. */
   @Get('google')
-  @Throttle({ auth: {} })
+  @Throttle({ default: { limit: rateLimit(30), ttl: 60_000 } })
   @UseGuards(AuthGuard('google'))
   googleLogin() {
     // Passport redirects to Google — no response body needed
@@ -195,7 +196,7 @@ export class AuthController {
    * The JWT is never exposed in the redirect URL or browser history.
    */
   @Get('google/callback')
-  @Throttle({ auth: {} })
+  @Throttle({ default: { limit: rateLimit(30), ttl: 60_000 } })
   @UseGuards(GoogleCallbackGuard)
   googleCallback(@Req() req: any, @Res() res: Response) {
     const frontendUrl = (this.config.get<string>('FRONTEND_URL') || 'http://localhost:3000')
@@ -228,7 +229,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify email address with one-time token' })
   @Get('verify-email')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ strict: {} })
+  @Throttle({ default: { limit: rateLimit(3), ttl: 60_000 } })
   verifyEmail(@Query('token') token: string) {
     return this.authService.verifyEmail(token);
   }
@@ -238,7 +239,7 @@ export class AuthController {
   @ApiBearerAuth('JWT')
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ strict: {} })
+  @Throttle({ default: { limit: rateLimit(3), ttl: 60_000 } })
   @UseGuards(JwtAuthGuard)
   @SkipEmailVerification()
   resendVerification(@CurrentUser() user: User) {
@@ -251,7 +252,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Request a password-reset email' })
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ strict: {} })
+  @Throttle({ default: { limit: rateLimit(3), ttl: 60_000 } })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
   }
@@ -260,7 +261,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Reset password with a valid token' })
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ auth: {} })
+  @Throttle({ default: { limit: rateLimit(15), ttl: 60_000 } })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.password);
   }
@@ -274,7 +275,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Unsubscribe from emails using footer token' })
   @Post('unsubscribe')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ strict: {} })
+  @Throttle({ default: { limit: rateLimit(3), ttl: 60_000 } })
   unsubscribeEmail(@Body('token') token: string) {
     return this.authService.unsubscribeEmail(token);
   }
@@ -295,7 +296,7 @@ export class AuthController {
   @ApiBearerAuth('JWT')
   @Put('change-password')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ auth: {} })
+  @Throttle({ default: { limit: rateLimit(15), ttl: 60_000 } })
   @UseGuards(JwtAuthGuard)
   changePassword(@CurrentUser() user: User, @Body() dto: ChangePasswordDto) {
     return this.authService.changePassword(user.id, dto.currentPassword, dto.newPassword);

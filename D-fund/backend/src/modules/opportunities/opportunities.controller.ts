@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
+import { rateLimit } from '../../common/rate-limit';
 import { ParseIdPipe } from '../../common/pipes/parse-id.pipe';
 import { ApiTags } from '@nestjs/swagger';
 import { User, UserRole } from '@prisma/client';
@@ -49,7 +50,7 @@ export class OpportunitiesController {
 
   /** Returns a paginated list of non-draft opportunities for the public feed. */
   @Get()
-  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Throttle({ default: { limit: rateLimit(120), ttl: 60_000 } })
   @UseGuards(JwtOptionalGuard)
   findAll(@Query() query: ListOpportunitiesDto, @CurrentUser() user?: User) {
     return this.opportunitiesService.findAll(query, user?.id);
@@ -105,7 +106,7 @@ export class OpportunitiesController {
   /** Creates a new opportunity. Defaults to ACTIVE status (direct-publish model). Rate-limited to 5 per 30s to prevent double-submit. */
   @Post()
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 5, ttl: 30_000 } })
+  @Throttle({ default: { limit: rateLimit(5), ttl: 30_000 } })
   create(@CurrentUser() user: User, @Body() dto: CreateOpportunityDto) {
     return this.opportunitiesService.create(user.id, dto, user.role);
   }
@@ -131,7 +132,7 @@ export class OpportunitiesController {
   /** Returns a single opportunity. Includes like/save state when the requester is authenticated. */
   @Get(':id')
   @UseGuards(JwtOptionalGuard)
-  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Throttle({ default: { limit: rateLimit(120), ttl: 60_000 } })
   findOne(
     @Param('id', ParseIdPipe) id: string,
     @Req() req: Request,
@@ -156,7 +157,7 @@ export class OpportunitiesController {
   /** Records a share action for an opportunity (increments sharedCount, once per user per day). */
   @Post(':id/share')
   @UseGuards(JwtAuthGuard)
-  @Throttle({ strict: {} })
+  @Throttle({ default: { limit: rateLimit(3), ttl: 60_000 } })
   share(@Param('id', ParseIdPipe) id: string, @CurrentUser() user: User) {
     return this.opportunitiesService.incrementShares(id, user.id);
   }

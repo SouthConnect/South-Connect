@@ -1,5 +1,6 @@
 import { Controller, Get, Inject, Optional, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { rateLimit } from '../../common/rate-limit';
 import type { Response } from 'express';
 import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
@@ -25,7 +26,7 @@ export class HealthController {
    */
   @Get()
   @Get('ready')
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ default: { limit: rateLimit(10), ttl: 60_000 } })
   async check(@Res() res: Response) {
     const checks: Record<string, 'ok' | 'error'> = {};
 

@@ -103,6 +103,8 @@ export default function ExplorePage() {
   const {
     data,
     isLoading,
+    isError,
+    refetch,
     isFetchingNextPage,
     fetchNextPage,
     hasNextPage,
@@ -308,6 +310,14 @@ export default function ExplorePage() {
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="h-48 bg-white rounded-2xl animate-pulse border border-gray-100" />
               ))}
+            </div>
+          ) : isError ? (
+            <div className="py-16 text-center">
+              <p className="text-sm text-red-500 font-medium mb-1">Impossible de charger les opportunités.</p>
+              <p className="text-xs text-gray-400 mb-4">Le serveur est peut-être temporairement indisponible. Réessaie dans quelques instants.</p>
+              <button onClick={() => refetch()} className="text-sm text-[#3b49df] font-semibold hover:underline">
+                Réessayer
+              </button>
             </div>
           ) : opportunities.length === 0 ? (
             <div className="py-16 text-center">

@@ -342,7 +342,7 @@ function AppFeed() {
     staleTime: 3 * 60 * 1000,
   })
 
-  const { data: saved, isLoading: isLoadingSaved } = useQuery({
+  const { data: saved, isLoading: isLoadingSaved, isError: isErrorSaved, refetch: refetchSaved } = useQuery({
     queryKey: qk.savedOpportunities(user?.id ?? ''),
     queryFn: () => apiJson('/social/saved'),
     enabled: !!user && tab === 'favorites',
@@ -370,6 +370,8 @@ function AppFeed() {
     : (pages?.pages.flatMap((p) => p.data) ?? [])
 
   const isLoadingList = tab === 'favorites' ? isLoadingSaved : isLoading
+  const isErrorList = tab === 'favorites' ? isErrorSaved : isError
+  const refetchList = tab === 'favorites' ? refetchSaved : refetch
   const total = tab !== 'favorites' ? pages?.pages[0]?.total : undefined
 
   return (
@@ -521,12 +523,12 @@ function AppFeed() {
             Array.from({ length: viewMode === 'gallery' ? 6 : 5 }).map((_, i) => (
               <div key={i} className={`bg-gray-100 animate-pulse rounded-xl ${viewMode === 'gallery' ? 'h-48' : 'h-28'}`} />
             ))
-          ) : isError && tab !== 'favorites' ? (
+          ) : isErrorList ? (
             <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-dashed border-red-200">
               <p className="text-sm text-red-500 font-medium mb-1">Impossible de charger les opportunités.</p>
               <p className="text-xs text-gray-400 mb-4">Le serveur est peut-être en cours de démarrage. Réessaie dans quelques secondes.</p>
               <button
-                onClick={() => refetch()}
+                onClick={() => refetchList()}
                 className="px-4 py-2 bg-[#3b49df] text-white text-xs font-semibold rounded-lg hover:bg-[#2d3aba]"
               >
                 Réessayer
