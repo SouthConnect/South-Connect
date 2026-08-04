@@ -15,6 +15,7 @@ import AuthGuard from '@/components/AuthGuard'
 import MultiSelect from '@/components/MultiSelect'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 import { toast } from 'sonner'
+import { Skeleton } from '@/components/Skeleton'
 
 // Cette page lit les search params et des données utilisateur côté client,
 // on force un rendu dynamique pour éviter les erreurs de pré-rendu.
@@ -167,9 +168,9 @@ function ProfilePageContent() {
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-12 max-w-4xl">
-        <div className="animate-pulse space-y-8">
-          <div className="h-32 bg-gray-200 rounded-xl" />
-          <div className="h-64 bg-gray-200 rounded-xl" />
+        <div className="space-y-8">
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
         </div>
       </div>
     )

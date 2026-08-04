@@ -10,6 +10,7 @@ import { Search, Copy, CheckCheck, Plus, BookOpen } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { Skeleton } from '@/components/Skeleton'
 
 // Mettre à jour avec l'URL Notion / docs quand elle est disponible
 const DOCS_URL = 'https://southconnect.notion.site'
@@ -118,7 +119,7 @@ export default function ReferralPage() {
           {isLoading ? (
             <div className="divide-y divide-gray-50">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-14 bg-gray-50 animate-pulse" />
+                <Skeleton key={i} className="h-14 rounded-none" />
               ))}
             </div>
           ) : isError ? (

@@ -8,6 +8,7 @@ import { useDebounce } from '@/app/hooks/useDebounce'
 import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
 import { Search, Filter, Loader2 } from 'lucide-react'
+import { Skeleton } from '@/components/Skeleton'
 
 // DRAFT intentionally excluded — drafts are never shown in the public feed
 const STATUS_OPTIONS = ['ACTIVE', 'PENDING', 'CLOSED', 'ARCHIVED'] as const
@@ -168,7 +169,7 @@ export default function OpportunitiesPage() {
         {isLoading && (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
+              <Skeleton key={i} className="h-24 rounded-xl" />
             ))}
           </div>
         )}

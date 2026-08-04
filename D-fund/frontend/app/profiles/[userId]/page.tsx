@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 import StarRating from '@/components/StarRating'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 import { useToggleFollow } from '@/app/hooks/useFollow'
+import { Skeleton } from '@/components/Skeleton'
 
 export default function PublicProfilePage() {
   const params = useParams()
@@ -53,9 +54,9 @@ export default function PublicProfilePage() {
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-12 max-w-4xl">
-        <div className="animate-pulse space-y-6">
-          <div className="h-32 bg-gray-200 rounded-xl" />
-          <div className="h-64 bg-gray-200 rounded-xl" />
+        <div className="space-y-6">
+          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
         </div>
       </div>
     )
