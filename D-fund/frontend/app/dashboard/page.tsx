@@ -19,6 +19,7 @@ import { toast } from 'sonner'
 import type { PrivateDiscussion, Task } from '@/app/lib/types'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 import AuthGuard from '@/components/AuthGuard'
+import { Skeleton } from '@/components/Skeleton'
 
 type DashboardTab = 'applications' | 'offers' | 'dm' | 'tasks'
 
@@ -298,7 +299,7 @@ function ApplicationsSection({
 
       {isLoading ? (
         Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+          <Skeleton key={i} className="h-20 rounded-xl" />
         ))
       ) : filtered && filtered.length > 0 ? (
         filtered.map((app: any) => (
@@ -354,7 +355,7 @@ function OffersSection({
     <div className="space-y-3">
       {isLoading ? (
         Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-20 bg-gray-100 rounded-xl animate-pulse" />
+          <Skeleton key={i} className="h-20 rounded-xl" />
         ))
       ) : opportunities && opportunities.length > 0 ? (
         opportunities.map((op: any) => (
@@ -399,7 +400,7 @@ function DMSection({
     <div className="space-y-3">
       {isLoading ? (
         Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+          <Skeleton key={i} className="h-16 rounded-xl" />
         ))
       ) : discussions && discussions.length > 0 ? (
         <>
@@ -575,7 +576,7 @@ function TasksSection() {
 
       {isLoading ? (
         Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+          <Skeleton key={i} className="h-12 rounded-xl" />
         ))
       ) : tasks && (tasks as Task[]).length > 0 ? (
         (tasks as Task[]).map((task) => (
