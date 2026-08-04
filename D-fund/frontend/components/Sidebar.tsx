@@ -23,7 +23,7 @@ import { apiJson } from '@/app/lib/api'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from '@/app/lib/queryKeys'
 import { useState, useEffect } from 'react'
-import type { PrivateDiscussion } from '@/app/lib/types'
+import type { PrivateDiscussion, NotificationPage } from '@/app/lib/types'
 
 // ── Navigation items ────────────────────────────────────────────────────────
 
@@ -87,8 +87,18 @@ export default function Sidebar() {
         queryClient.prefetchQuery({ queryKey: qk.communityCompanies(), queryFn: () => apiJson('/profiles/lists/companies?take=60'), ...opts })
         break
       case '/notifications':
+        // La page /notifications lit ce cache via useInfiniteQuery — un prefetchQuery
+        // classique stocke une forme incompatible ({data,nextCursor} au lieu de
+        // {pages,pageParams}) et n'est jamais réutilisé, gaspillant la requête.
         if (user?.id) {
-          queryClient.prefetchQuery({ queryKey: qk.notifications(user.id), queryFn: () => apiJson('/notifications?take=20'), staleTime: 30_000 })
+          queryClient.prefetchInfiniteQuery({
+            queryKey: qk.notifications(user.id),
+            queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
+              apiJson<NotificationPage>(`/notifications?take=30${pageParam ? `&cursor=${pageParam}` : ''}`),
+            initialPageParam: undefined as string | undefined,
+            getNextPageParam: (lastPage: NotificationPage) => lastPage.nextCursor ?? undefined,
+            staleTime: 30_000,
+          })
         }
         break
       case '/dashboard':

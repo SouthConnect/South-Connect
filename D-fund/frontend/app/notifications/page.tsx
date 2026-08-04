@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { Skeleton } from '@/components/Skeleton'
 
 const PAGE_SIZE = 30
 
@@ -19,7 +20,7 @@ function NotifSkeleton() {
     <div className="container mx-auto px-6 py-8 max-w-2xl">
       <div className="space-y-3">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+          <Skeleton key={i} className="h-16 rounded-xl" />
         ))}
       </div>
     </div>
@@ -119,7 +120,7 @@ export default function NotificationsPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-16 bg-gray-50 animate-pulse border-b border-gray-100" />
+              <Skeleton key={i} className="h-16 rounded-none border-b border-gray-100" />
             ))
           ) : notifications.length === 0 ? (
             <div className="py-12 text-center">
