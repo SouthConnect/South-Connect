@@ -8,6 +8,7 @@ import { apiJson } from '@/app/lib/api'
 import Link from 'next/link'
 import { Search, Briefcase, UserCircle, MessageCircle, MapPin } from 'lucide-react'
 import { Avatar } from '@/components/Avatar'
+import { Skeleton } from '@/components/Skeleton'
 
 function SearchContent() {
   const searchParams = useSearchParams()
@@ -67,7 +68,7 @@ function SearchContent() {
       {initialQ && isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+            <Skeleton key={i} className="h-16 rounded-xl" />
           ))}
         </div>
       )}
@@ -207,7 +208,7 @@ function SearchContent() {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<div className="container mx-auto px-6 py-8"><div className="h-12 bg-gray-100 rounded-xl animate-pulse" /></div>}>
+    <Suspense fallback={<div className="container mx-auto px-6 py-8"><Skeleton className="h-12 rounded-xl" /></div>}>
       <SearchContent />
     </Suspense>
   )

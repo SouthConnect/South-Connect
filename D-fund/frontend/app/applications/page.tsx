@@ -10,15 +10,16 @@ import AuthGuard from '@/components/AuthGuard'
 import type { Application } from '@/app/lib/types'
 import { Clock, CheckCircle, Archive, Filter, Search } from 'lucide-react'
 import Link from 'next/link'
+import { Skeleton } from '@/components/Skeleton'
 
 type StageFilter = 'ALL' | 'DRAFT' | 'SUBMITTED' | 'OWNER_REVIEW' | 'SUCCESS' | 'ARCHIVED'
 
 function AppsSkeleton() {
   return (
     <div className="container mx-auto px-6 py-12 max-w-5xl">
-      <div className="animate-pulse space-y-3">
+      <div className="space-y-3">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-20 bg-gray-100 rounded-xl" />
+          <Skeleton key={i} className="h-20 rounded-xl" />
         ))}
       </div>
     </div>
@@ -116,7 +117,7 @@ export default function ApplicationsPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100">
           {isLoading ? (
             Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-20 bg-gray-50 animate-pulse" />
+              <Skeleton key={i} className="h-20 rounded-none" />
             ))
           ) : filtered.length ? (
             filtered.map((app) => <ApplicationRow key={app.id} app={app} />)

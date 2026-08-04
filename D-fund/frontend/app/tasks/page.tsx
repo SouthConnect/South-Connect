@@ -10,6 +10,7 @@ import { Plus, Trash2, ExternalLink, Check, Circle, Lightbulb, Loader2, X, Calen
 import { toast } from 'sonner'
 import type { Task, TaskStatus } from '@/app/lib/types'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { Skeleton } from '@/components/Skeleton'
 
 const STATUS_CONFIG: Record<
   TaskStatus,
@@ -176,7 +177,7 @@ function TasksContent() {
       {isLoading && (
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+            <Skeleton key={i} className="h-16 rounded-xl" />
           ))}
         </div>
       )}

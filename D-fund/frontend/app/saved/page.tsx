@@ -9,13 +9,14 @@ import AuthGuard from '@/components/AuthGuard'
 import type { Opportunity } from '@/app/lib/types'
 import { Bookmark } from 'lucide-react'
 import Link from 'next/link'
+import { Skeleton } from '@/components/Skeleton'
 
 function SavedSkeleton() {
   return (
     <div className="container mx-auto px-6 py-12 max-w-5xl">
-      <div className="animate-pulse space-y-4">
+      <div className="space-y-4">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-32 bg-gray-100 rounded-xl" />
+          <Skeleton key={i} className="h-32 rounded-xl" />
         ))}
       </div>
     </div>
@@ -50,7 +51,7 @@ export default function SavedPage() {
         {isLoading ? (
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-32 bg-gray-100 animate-pulse rounded-xl" />
+              <Skeleton key={i} className="h-32 rounded-xl" />
             ))}
           </div>
         ) : isError ? (

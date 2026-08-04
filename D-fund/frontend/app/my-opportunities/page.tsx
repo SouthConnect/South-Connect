@@ -13,6 +13,7 @@ import ConfirmModal from '@/components/ConfirmModal'
 import AuthGuard from '@/components/AuthGuard'
 import type { Opportunity } from '@/app/lib/types'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { Skeleton } from '@/components/Skeleton'
 
 type StatusFilter = 'ALL' | 'DRAFT' | 'PENDING' | 'ACTIVE' | 'ARCHIVED' | 'CLOSED'
 
@@ -35,9 +36,9 @@ const STATUS_LABELS: Record<string, string> = {
 function MyOpportunitiesSkeleton() {
   return (
     <div className="container mx-auto px-6 py-12 max-w-5xl">
-      <div className="animate-pulse space-y-4">
+      <div className="space-y-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-24 bg-gray-100 rounded-2xl" />
+          <Skeleton key={i} className="h-24 rounded-2xl" />
         ))}
       </div>
     </div>
@@ -183,7 +184,7 @@ export default function MyOpportunitiesPage() {
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
+            <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
       ) : filtered.length > 0 ? (
