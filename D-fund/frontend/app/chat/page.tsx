@@ -20,6 +20,7 @@ import Image from 'next/image'
 import { toast } from 'sonner'
 import type { PublicDiscussion, PrivateDiscussion } from '@/app/lib/types'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { Skeleton } from '@/components/Skeleton'
 
 type ChatMode = 'open' | 'private'
 type OpenTab = 'opportunity' | 'forum'
@@ -310,7 +311,7 @@ function DiscussionList({
     return (
       <div className="space-y-2">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+          <Skeleton key={i} className="h-12 rounded-xl" />
         ))}
       </div>
     )
@@ -404,7 +405,7 @@ function PrivateDiscussionList({
     return (
       <div className="space-y-2">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+          <Skeleton key={i} className="h-12 rounded-xl" />
         ))}
       </div>
     )

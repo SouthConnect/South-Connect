@@ -13,6 +13,7 @@ import Image from 'next/image'
 import { toast } from 'sonner'
 import type { PublicDiscussion, Message } from '@/app/lib/types'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { Skeleton } from '@/components/Skeleton'
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -220,8 +221,8 @@ export default function PublicDiscussionPage() {
           <div className="space-y-3 pt-4">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex gap-2">
-                <div className="w-7 h-7 rounded-full bg-gray-200 animate-pulse shrink-0" />
-                <div className="h-9 rounded-2xl bg-gray-200 animate-pulse w-52" />
+                <Skeleton className="w-7 h-7 rounded-full shrink-0" />
+                <Skeleton className="h-9 rounded-2xl w-52" />
               </div>
             ))}
           </div>
