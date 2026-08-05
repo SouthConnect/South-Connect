@@ -18,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SkipEmailVerification } from '../../common/decorators/skip-email-verification.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ApplicationOwnerGuard } from '../../common/guards/application-owner.guard';
+import { ApplicationReviewOwnerGuard } from '../../common/guards/application-review-owner.guard';
 import { ApplicationsService } from './applications.service';
 import { CreateApplicationDto, ReviewApplicationDto, UpdateApplicationDto } from './dto';
 
@@ -100,7 +101,7 @@ export class ApplicationsController {
 
   /** Allows the opportunity owner to review and update the stage of an application. */
   @Put(':id/review')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ApplicationReviewOwnerGuard)
   review(
     @Param('id', ParseIdPipe) id: string,
     @CurrentUser() user: User,
