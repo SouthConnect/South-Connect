@@ -12,6 +12,7 @@ import { CheckCircle, XCircle, Clock, Search, Eye, ShieldAlert, Users, Briefcase
 import Image from 'next/image'
 import { toast } from 'sonner'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { Skeleton } from '@/components/Skeleton'
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: 'bg-gray-100 text-gray-600',
@@ -257,7 +258,7 @@ export default function AdminPage() {
             {isLoading ? (
               <div className="space-y-px">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-16 bg-gray-50 animate-pulse" />
+                  <Skeleton key={i} className="h-16 rounded-none" />
                 ))}
               </div>
             ) : !opportunities?.length ? (
@@ -356,7 +357,7 @@ export default function AdminPage() {
                 {isLoadingUsers ? (
                   <div className="space-y-px">
                     {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="h-14 bg-gray-50 animate-pulse" />
+                      <Skeleton key={i} className="h-14 rounded-none" />
                     ))}
                   </div>
                 ) : !usersData?.data?.length ? (
@@ -499,7 +500,7 @@ export default function AdminPage() {
 
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 {isLoadingIndustries ? (
-                  <div className="space-y-px">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 bg-gray-50 animate-pulse" />)}</div>
+                  <div className="space-y-px">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-none" />)}</div>
                 ) : !industries?.length ? (
                   <div className="py-10 text-center text-sm text-gray-400">Aucun secteur pour l'instant.</div>
                 ) : (
@@ -570,7 +571,7 @@ export default function AdminPage() {
 
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 {isLoadingMarkets ? (
-                  <div className="space-y-px">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 bg-gray-50 animate-pulse" />)}</div>
+                  <div className="space-y-px">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-none" />)}</div>
                 ) : !markets?.length ? (
                   <div className="py-10 text-center text-sm text-gray-400">Aucun marché pour l'instant.</div>
                 ) : (
@@ -642,7 +643,7 @@ export default function AdminPage() {
 
               <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                 {isLoadingFeatures ? (
-                  <div className="space-y-px">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-12 bg-gray-50 animate-pulse" />)}</div>
+                  <div className="space-y-px">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-none" />)}</div>
                 ) : !features?.length ? (
                   <div className="py-10 text-center text-sm text-gray-400">Aucune fonctionnalité pour l'instant.</div>
                 ) : (
@@ -709,7 +710,7 @@ function StatCard({
       </div>
       <div className="text-2xl font-bold text-gray-900">
         {value === undefined ? (
-          <span className="inline-block w-16 h-7 bg-gray-100 animate-pulse rounded" />
+          <Skeleton className="w-16 h-7 rounded" />
         ) : (
           value.toLocaleString()
         )}

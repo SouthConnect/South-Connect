@@ -14,15 +14,16 @@ import { toast } from 'sonner'
 import ConfirmModal from '@/components/ConfirmModal'
 import type { Application } from '@/app/lib/types'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
+import { Skeleton } from '@/components/Skeleton'
 
 type Tab = 'main' | 'attachments' | 'referrals'
 
 function AppDetailSkeleton() {
   return (
     <div className="container mx-auto px-6 py-12 max-w-4xl">
-      <div className="animate-pulse space-y-6">
-        <div className="h-10 bg-gray-200 rounded" />
-        <div className="h-64 bg-gray-200 rounded-2xl" />
+      <div className="space-y-6">
+        <Skeleton className="h-10 rounded" />
+        <Skeleton className="h-64 rounded-2xl" />
       </div>
     </div>
   )

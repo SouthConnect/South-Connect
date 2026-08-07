@@ -4,6 +4,7 @@ import { useAuth } from '@/app/lib/AuthContext'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { LogIn } from 'lucide-react'
+import { Skeleton } from '@/components/Skeleton'
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -51,9 +52,9 @@ export default function AuthGuard({ children, skeleton, message }: AuthGuardProp
 function DefaultAuthSkeleton() {
   return (
     <div className="container mx-auto px-6 py-12 max-w-5xl">
-      <div className="animate-pulse space-y-4">
+      <div className="space-y-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-24 bg-gray-100 rounded-xl" />
+          <Skeleton key={i} className="h-24 rounded-xl" />
         ))}
       </div>
     </div>

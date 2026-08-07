@@ -18,6 +18,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import AuthGuard from '@/components/AuthGuard'
+import { Skeleton } from '@/components/Skeleton'
 import { toast } from 'sonner'
 import type { Application } from '@/app/lib/types'
 import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
@@ -132,7 +133,7 @@ export default function OpportunityApplicationsPage() {
           {isLoading || isLoadingOpportunity ? (
             <div className="space-y-2 p-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-16 bg-gray-50 animate-pulse" />
+                <Skeleton key={i} className="h-16 rounded-none" />
               ))}
             </div>
           ) : !applications || applications.length === 0 ? (

@@ -15,6 +15,7 @@ import { useTrackedMutation } from '@/app/hooks/useTrackedMutation'
 import { useToggleOpportunityLike, useToggleOpportunitySave } from '@/app/hooks/useOpportunitySocial'
 import { qk } from '@/app/lib/queryKeys'
 import { OpportunitySkeleton } from './OpportunitySkeleton'
+import { Skeleton } from '@/components/Skeleton'
 
 const TYPE_GRADIENTS: Record<string, string> = {
   JOB_OPPORTUNITY:          'from-[#1e3a5f] via-[#2d5fa0] to-[#3b49df]',
@@ -443,7 +444,7 @@ function DiscussionSection({
       </div>
 
       {isLoading ? (
-        <div className="h-16 bg-gray-100 rounded-xl animate-pulse" />
+        <Skeleton className="h-16 rounded-xl" />
       ) : linked ? (
         <Link
           href={`/chat/public/${linked.id}`}

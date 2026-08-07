@@ -7,6 +7,7 @@ import { apiJson } from '@/app/lib/api'
 import OpportunityCard from '@/components/OpportunityCard'
 import Link from 'next/link'
 import { Search, Plus, type LucideIcon } from 'lucide-react'
+import { Skeleton } from '@/components/Skeleton'
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -84,7 +85,7 @@ export default function ResourcePageTemplate({ title, description, type, icon: I
         {isLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-28 bg-gray-100 rounded-xl animate-pulse" />
+              <Skeleton key={i} className="h-28 rounded-xl" />
             ))}
           </div>
         ) : items.length > 0 ? (

@@ -180,9 +180,9 @@ function ProfilePageContent() {
     <AuthGuard
       skeleton={
         <div className="container mx-auto px-4 py-12 max-w-4xl">
-          <div className="animate-pulse space-y-8">
-            <div className="h-32 bg-gray-200 rounded-xl" />
-            <div className="h-64 bg-gray-200 rounded-xl" />
+          <div className="space-y-8">
+            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-64 rounded-xl" />
           </div>
         </div>
       }
