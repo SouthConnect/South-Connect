@@ -156,6 +156,30 @@ export class MessagesService {
    * @throws NotFoundException  when the discussion does not exist.
    * @throws ForbiddenException when the requester is not a participant.
    */
+  /**
+   * Returns just enough to render the conversation header (participants,
+   * with basic user info) — avoids the caller fetching the full inbox list
+   * just to look up one discussion's metadata.
+   */
+  async findPrivateDiscussionMetadata(discussionId: string, requesterId: string) {
+    const discussion = await this.prisma.privateDiscussion.findUnique({
+      where: { id: discussionId },
+      include: {
+        participants: {
+          include: { user: { select: { id: true, name: true, profilePic: true } } },
+        },
+      },
+    });
+
+    if (!discussion) throw new NotFoundException('Discussion not found');
+
+    if (!discussion.participants.some((p) => p.userId === requesterId)) {
+      throw new ForbiddenException('You are not allowed to read this discussion');
+    }
+
+    return discussion;
+  }
+
   async findPrivateDiscussionMessages(
     discussionId: string,
     requesterId: string,

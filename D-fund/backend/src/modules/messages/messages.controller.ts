@@ -73,6 +73,20 @@ export class MessagesController {
   }
 
   /**
+   * Returns metadata (participants) for a private discussion, without its messages.
+   * Only participants of the discussion may access this endpoint.
+   */
+  @Get('private/:discussionId/metadata')
+  @UseGuards(JwtAuthGuard)
+  @SkipEmailVerification()
+  findPrivateDiscussionMetadata(
+    @Param('discussionId', ParseIdPipe) discussionId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.messagesService.findPrivateDiscussionMetadata(discussionId, user.id);
+  }
+
+  /**
    * Returns messages for a private discussion.
    * Only participants of the discussion may access this endpoint.
    */

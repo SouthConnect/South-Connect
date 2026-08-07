@@ -45,12 +45,14 @@ export default function PrivateDiscussionPage() {
   const readDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── fetch discussion metadata ──────────────────────────────────────────────
-  const { data: privateDiscussions } = useQuery({
-    queryKey: qk.privateDiscussions(user?.id ?? ''),
-    queryFn: () => apiJson('/messages/private'),
-    enabled: !!user?.id,
+  // Fetches just this discussion's participants instead of the full inbox
+  // list — the page only ever needs the other participant's name/avatar.
+  const { data: discussion } = useQuery({
+    queryKey: qk.privateDiscussionMetadata(id),
+    queryFn: () => apiJson<Pick<PrivateDiscussion, 'id' | 'participants'>>(`/messages/private/${id}/metadata`),
+    enabled: !!id && !!user?.id,
+    staleTime: 30_000,
   })
-  const discussion = (privateDiscussions as PrivateDiscussion[] | undefined)?.find((d) => d.id === id)
   const otherParticipant = discussion?.participants?.find((p) => p.userId !== user?.id)?.user ?? null
 
   // ── fetch messages ─────────────────────────────────────────────────────────

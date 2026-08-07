@@ -257,6 +257,35 @@ describe('Messages + ChatGateway (e2e)', () => {
         .get(`/api/v1/messages/private/${privateDiscussionId}`)
         .expect(401));
 
+    it('GET /messages/private/:id/metadata → participants sans les messages', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/messages/private/${privateDiscussionId}/metadata`)
+        .set('Authorization', `Bearer ${bob.token}`)
+        .expect(200);
+
+      expect(res.body.id).toBe(privateDiscussionId);
+      expect(Array.isArray(res.body.participants)).toBe(true);
+      expect(res.body.participants.some((p: any) => p.userId === alice.userId)).toBe(true);
+      expect(res.body.messages).toBeUndefined();
+    });
+
+    it('GET /messages/private/:id/metadata → 403 pour un non-participant', () =>
+      request(app.getHttpServer())
+        .get(`/api/v1/messages/private/${privateDiscussionId}/metadata`)
+        .set('Authorization', `Bearer ${eve.token}`)
+        .expect(403));
+
+    it('GET /messages/private/:id/metadata → 401 sans token', () =>
+      request(app.getHttpServer())
+        .get(`/api/v1/messages/private/${privateDiscussionId}/metadata`)
+        .expect(401));
+
+    it("GET /messages/private/:id/metadata → 404 si la discussion n'existe pas", () =>
+      request(app.getHttpServer())
+        .get('/api/v1/messages/private/cm00000000000000000000000/metadata')
+        .set('Authorization', `Bearer ${bob.token}`)
+        .expect(404));
+
     it('POST /messages/private/:id/read → 200 pour un participant', () =>
       request(app.getHttpServer())
         .post(`/api/v1/messages/private/${privateDiscussionId}/read`)

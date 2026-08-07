@@ -21,6 +21,7 @@ export const qk = {
 
   // ── Messages / Discussions ────────────────────────────────────────────────
   privateDiscussions:        (userId: string)       => ['private-discussions', userId]         as const,
+  privateDiscussionMetadata: (discussionId: string) => ['private-discussion-metadata', discussionId] as const,
   privateDiscussionMessages: (discussionId: string) => ['private-discussion-messages', discussionId] as const,
   publicDiscussionMessages:  (discussionId: string) => ['public-discussion-messages', discussionId]  as const,
   publicDiscussions:         (type: string)         => ['public-discussions', type]            as const,
