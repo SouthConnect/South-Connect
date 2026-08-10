@@ -12,8 +12,12 @@
  *  - POST /auth/refresh    — rotation tokens, blocklist
  *  - POST /auth/logout     — effacement cookies, blocklist Redis
  *  - Guard email vérifié   — 403 sur route protégée si non vérifié
+ *  - GET  /auth/verify-email    — token valide, invalide/expiré, absent
+ *  - POST /auth/forgot-password — email connu, inconnu (anti-énumération), compte Google-only
+ *  - POST /auth/reset-password  — token valide, invalide/expiré, mdp faible, token absent
  */
 
+import * as crypto from 'crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { JwtModule, JwtService } from '@nestjs/jwt';
@@ -94,6 +98,8 @@ const mockNotifications = {
   sendEmailVerification: jest.fn().mockResolvedValue(undefined),
   sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
   createInApp: jest.fn().mockResolvedValue(undefined),
+  sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
+  sendPasswordChangedEmail: jest.fn().mockResolvedValue(undefined),
 };
 
 const mockConfigService = {
@@ -381,6 +387,153 @@ describe('Auth (E2E)', () => {
         'EX',
         expect.any(Number),
       );
+    });
+  });
+
+  // ─── Verify email ────────────────────────────────────────────────────────────
+
+  describe('GET /auth/verify-email', () => {
+    it("vérifie l'email avec un token valide et le consomme", async () => {
+      const rawToken = 'valid-verification-token';
+      const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+      mockPrisma.user.findFirst.mockResolvedValueOnce({
+        ...SAFE_UNVERIFIED_USER,
+        emailVerificationToken: hashedToken,
+      });
+      mockPrisma.user.update.mockResolvedValueOnce({});
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/auth/verify-email?token=${rawToken}`)
+        .expect(200);
+
+      expect(res.body.message).toContain('vérifié');
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: SAFE_UNVERIFIED_USER.id },
+        data: {
+          isEmailVerified: true,
+          emailVerificationToken: null,
+          emailVerificationTokenExpiry: null,
+        },
+      });
+    });
+
+    it('retourne 400 pour un token invalide ou expiré', async () => {
+      // Ni le lookup par hash ni le fallback plaintext ne trouvent de compte
+      mockPrisma.user.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+      await request(app.getHttpServer())
+        .get('/api/v1/auth/verify-email?token=bogus-token')
+        .expect(400);
+    });
+
+    it('retourne 400 si le token est absent', async () => {
+      await request(app.getHttpServer()).get('/api/v1/auth/verify-email').expect(400);
+    });
+  });
+
+  // ─── Forgot password ─────────────────────────────────────────────────────────
+
+  describe('POST /auth/forgot-password', () => {
+    it("retourne 200 et déclenche l'email pour un compte existant avec mot de passe", async () => {
+      mockPrisma.user.findFirst.mockResolvedValueOnce(VERIFIED_USER_DB);
+      mockPrisma.user.update.mockResolvedValueOnce({});
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ email: 'verified@test.com' })
+        .expect(200);
+
+      expect(res.body.message).toContain('If this email exists');
+      expect(mockNotifications.sendPasswordResetEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('retourne le même message générique pour un email inconnu (anti-énumération)', async () => {
+      mockPrisma.user.findFirst.mockResolvedValueOnce(null);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ email: 'ghost@test.com' })
+        .expect(200);
+
+      expect(res.body.message).toContain('If this email exists');
+      expect(mockNotifications.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('ignore silencieusement les comptes liés uniquement à Google (sans mot de passe)', async () => {
+      mockPrisma.user.findFirst.mockResolvedValueOnce({
+        ...VERIFIED_USER_DB,
+        password: null,
+        googleId: 'google-123',
+      });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ email: 'verified@test.com' })
+        .expect(200);
+
+      expect(res.body.message).toContain('If this email exists');
+      expect(mockNotifications.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('retourne 400 pour un email au format invalide', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/forgot-password')
+        .send({ email: 'not-an-email' })
+        .expect(400);
+    });
+  });
+
+  // ─── Reset password ──────────────────────────────────────────────────────────
+
+  describe('POST /auth/reset-password', () => {
+    it('réinitialise le mot de passe avec un token valide', async () => {
+      const rawToken = 'valid-reset-token';
+      const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+      mockPrisma.user.findFirst.mockResolvedValueOnce({
+        ...VERIFIED_USER_DB,
+        passwordResetToken: hashedToken,
+      });
+      mockPrisma.user.update.mockResolvedValueOnce({});
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/reset-password')
+        .send({ token: rawToken, password: 'NewPassword1' })
+        .expect(200);
+
+      expect(res.body.message).toBeDefined();
+      expect(mockPrisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: VERIFIED_USER_DB.id },
+          data: expect.objectContaining({
+            passwordResetToken: null,
+            passwordResetExpiry: null,
+          }),
+        }),
+      );
+      expect(mockNotifications.sendPasswordChangedEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('retourne 400 pour un token invalide ou expiré', async () => {
+      mockPrisma.user.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/reset-password')
+        .send({ token: 'bogus-token', password: 'NewPassword1' })
+        .expect(400);
+    });
+
+    it('retourne 400 si le nouveau mot de passe est trop faible', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/reset-password')
+        .send({ token: 'some-token', password: 'weak' })
+        .expect(400);
+    });
+
+    it('retourne 400 si le token est absent', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/reset-password')
+        .send({ password: 'NewPassword1' })
+        .expect(400);
     });
   });
 });
