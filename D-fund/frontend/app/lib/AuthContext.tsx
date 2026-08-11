@@ -27,9 +27,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const lastRefreshAt = useRef<number>(0)
   const channel = useRef<BroadcastChannel | null>(null)
   const visibilityDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Miroir de `user.id` lisible depuis le handler BroadcastChannel (créé une seule
+  // fois, deps []) sans capturer une closure figée sur l'état au moment du montage.
+  const userIdRef = useRef<string | null>(null)
 
   /** Minimum ms between two successive /auth/me calls — matches staleTime. */
   const REFRESH_STALE_MS = 60_000
+
+  useEffect(() => {
+    userIdRef.current = user?.id ?? null
+  }, [user])
 
   const refreshUser = useCallback(async (force = false) => {
     if (isRefreshing.current) return
@@ -64,15 +71,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Login/refresh sur l'onglet A → les autres onglets re-fetch /auth/me.
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       channel.current = new BroadcastChannel(AUTH_CHANNEL)
-      channel.current.onmessage = (e: MessageEvent<string>) => {
-        if (e.data === 'logout') {
+      channel.current.onmessage = (e: MessageEvent<{ type: 'login' | 'logout'; userId?: string }>) => {
+        if (e.data.type === 'logout') {
           queryClient.clear()
           setUser(null)
           setLoading(false)
-        } else if (e.data === 'login') {
-          // Un autre onglet vient de connecter un (potentiellement différent) utilisateur.
-          // On vide le cache avant de re-fetch /auth/me pour éviter d'afficher des
-          // données de l'ancien utilisateur à l'utilisateur nouvellement connecté.
+        } else if (e.data.type === 'login') {
+          if (e.data.userId && e.data.userId === userIdRef.current) {
+            // Même utilisateur reconnecté dans un autre onglet (ex: session
+            // expirée puis reconnexion) — pas de raison de vider le cache et
+            // d'interrompre en silence ce que cet onglet est en train de faire.
+            // Simple resynchronisation en arrière-plan.
+            refreshUser(true)
+            return
+          }
+          // Utilisateur différent (ou cet onglet était anonyme) : vider le cache
+          // avant de re-fetch /auth/me pour éviter d'afficher des données de
+          // l'ancien utilisateur à l'utilisateur nouvellement connecté.
           queryClient.clear()
           refreshUser(true) // force=true : bypass la stale-window de 60s
         }
@@ -114,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear()
     setUser(userData)
     localStorage.setItem('sc_has_session', '1')
-    channel.current?.postMessage('login')
+    channel.current?.postMessage({ type: 'login', userId: userData.id })
   }, [queryClient])
 
   const logout = useCallback(async () => {
@@ -128,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear()
     setUser(null)
     localStorage.removeItem('sc_has_session')
-    channel.current?.postMessage('logout')
+    channel.current?.postMessage({ type: 'logout' })
   }, [queryClient])
 
   return (
