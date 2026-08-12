@@ -20,9 +20,9 @@ Plateforme connectant les entrepreneurs africains à leurs ressources : talents,
 
 ```
 D-fund/
-├── backend/     # API NestJS — 25 modules métier (auth, opportunities, applications,
+├── backend/     # API NestJS — 24 modules (auth, opportunities, applications,
 │                #   messages, notifications, social, referral, ratings, search, ai, ...)
-├── frontend/    # Next.js 14 App Router — 41 pages
+├── frontend/    # Next.js 14 App Router — 44 routes
 ├── prisma/      # Schéma partagé (22 modèles) + migrations
 ├── docs/        # Documentation projet (onboarding, phases produit, audits, rapports)
 └── scripts/     # Scripts utilitaires
@@ -109,10 +109,11 @@ npm run test:cov       # avec couverture
 
 ## Documentation
 
+- [`docs/ETAT_TECHNIQUE_ACTUEL.md`](./docs/ETAT_TECHNIQUE_ACTUEL.md) — état technique réel et vérifié (stack, architecture, modèle de données, sécurité, dette technique connue) — **document de référence à jour**
 - [`docs/ONBOARDING.md`](./docs/ONBOARDING.md) — guide d'installation complet pour un nouveau collaborateur
 - [`docs/GUIDE_DEMO.md`](./docs/GUIDE_DEMO.md) — parcours de démonstration de la plateforme
 - [`docs/RAPPORT_DEPLOIEMENT_PRODUCTION.md`](./docs/RAPPORT_DEPLOIEMENT_PRODUCTION.md) — état du déploiement production
-- [`docs/`](./docs) — cadrage produit, modélisation de données, architecture fonctionnelle, sécurité/permissions, notifications, standards de process (phases 1 à 9)
+- [`docs/`](./docs) — cadrage produit, modélisation de données, architecture fonctionnelle, sécurité/permissions, notifications, standards de process (phases 1 à 9 — documents de planification historiques, voir la note en tête de chacun)
 
 ## Licence
 

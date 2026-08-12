@@ -1,5 +1,7 @@
 # Phase 6 — Stack & infrastructure
 
+> ⚠️ **Document de planification historique (janvier 2026), rédigé avant le développement.** Il décrit des intentions et options envisagées à l'époque, pas nécessairement l'état réel actuel — plusieurs points ici présentés comme "à choisir" ou "à intégrer" sont depuis longtemps tranchés et en production. Pour l'état technique réel et vérifié, voir [`ETAT_TECHNIQUE_ACTUEL.md`](./ETAT_TECHNIQUE_ACTUEL.md).
+
 ##   Stack technique figée
 
 ### Frontend
