@@ -273,10 +273,10 @@ function ProfilePageContent() {
         )}
 
         {/* Tabs */}
-        <div className="flex border-t border-gray-100">
+        <div className="flex border-t border-gray-100 overflow-x-auto">
           <button
             onClick={() => setActiveTab('info')}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-colors ${
+            className={`shrink-0 whitespace-nowrap px-4 md:px-0 md:flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-colors ${
               activeTab === 'info' ? 'text-[#3b49df] bg-[#3b49df]/5' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -285,7 +285,7 @@ function ProfilePageContent() {
           </button>
           <button
             onClick={() => setActiveTab('btoc')}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-colors ${
+            className={`shrink-0 whitespace-nowrap px-4 md:px-0 md:flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-colors ${
               activeTab === 'btoc' ? 'text-[#3b49df] bg-[#3b49df]/5' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -294,7 +294,7 @@ function ProfilePageContent() {
           </button>
           <button
             onClick={() => setActiveTab('btob')}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-colors ${
+            className={`shrink-0 whitespace-nowrap px-4 md:px-0 md:flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-colors ${
               activeTab === 'btob' ? 'text-[#3b49df] bg-[#3b49df]/5' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -303,7 +303,7 @@ function ProfilePageContent() {
           </button>
           <button
             onClick={() => setActiveTab('security')}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-colors ${
+            className={`shrink-0 whitespace-nowrap px-4 md:px-0 md:flex-1 flex items-center justify-center gap-2 py-4 text-sm font-semibold transition-colors ${
               activeTab === 'security' ? 'text-[#3b49df] bg-[#3b49df]/5' : 'text-gray-500 hover:text-gray-700'
             }`}
           >

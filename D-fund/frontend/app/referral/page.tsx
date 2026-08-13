@@ -91,15 +91,15 @@ export default function ReferralPage() {
 
         {/* Table */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-b border-gray-100">
             <h2 className="text-sm font-semibold text-gray-900">Mes codes de parrainage</h2>
             <div className="flex items-center gap-3">
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Rechercher…"
-                  className="pl-9 pr-4 py-1.5 bg-gray-100 rounded-lg text-sm border-none focus:ring-2 focus:ring-[#3b49df] w-48"
+                  className="pl-9 pr-4 py-1.5 bg-gray-100 rounded-lg text-sm border-none focus:ring-2 focus:ring-[#3b49df] w-full sm:w-48"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -108,7 +108,7 @@ export default function ReferralPage() {
                 type="button"
                 onClick={() => createMutation.mutate()}
                 disabled={createMutation.isPending}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3b49df] text-white rounded-lg text-xs font-semibold hover:bg-[#2d3aba] disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3b49df] text-white rounded-lg text-xs font-semibold hover:bg-[#2d3aba] disabled:opacity-50 shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Nouveau code
