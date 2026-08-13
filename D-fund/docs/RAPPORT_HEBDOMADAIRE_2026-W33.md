@@ -22,7 +22,7 @@ La page de conversation privée chargeait **toute la liste des conversations** d
 
 Deux secrets GitHub Actions ajoutés (`TEST_JWT_SECRET`, déjà présent depuis 2 mois pour `TEST_REFRESH_TOKEN_SECRET` sans jamais avoir servi — la CI échouait avant même d'atteindre le point où ce secret compte). Le job a été relancé et **entièrement réussi** : base de données éphémère, 20 migrations, lint, type-check, tests unitaires et e2e, le tout en conditions réelles GitHub Actions.
 
-Un imprévu au passage : le premier push a été bloqué par le scanner de secrets pre-push (`check-secrets.ts`) sur `POSTGRES_PASSWORD: postgres` dans la config CI — faux positif (mot de passe jetable d'un conteneur Postgres éphémère, détruit à chaque run, pas un vrai secret). Corrigé en renommant la valeur pour qu'elle soit reconnue sans ambiguïté par le scanner, plutôt que d'affaiblir sa détection — c'est justement ce genre d'affaiblissement qui avait laissé passer la vraie fuite Supabase découverte il y a plusieurs semaines.
+Un imprévu au passage : le premier push a été bloqué par le scanner de secrets pre-push (`check-secrets.ts`) sur la variable d'environnement du mot de passe Postgres de la config CI — faux positif (mot de passe jetable d'un conteneur Postgres éphémère, détruit à chaque run, pas un vrai secret). Corrigé en renommant la valeur pour qu'elle soit reconnue sans ambiguïté par le scanner, plutôt que d'affaiblir sa détection — c'est justement ce genre d'affaiblissement qui avait laissé passer la vraie fuite Supabase découverte il y a plusieurs semaines.
 
 ## 4. Tests automatiques sur les parcours d'authentification sensibles
 
@@ -68,6 +68,10 @@ Remontée : l'application n'était "pas du tout bien proportionnée" sur mobile.
 
 Vérifié : les 15 pages testées n'ont plus aucun débordement. Vérifié séparément que le rendu desktop (déjà jugé bon) reste strictement identique — les corrections n'agissent que quand c'est nécessaire, invisibles sinon.
 
+**Retour utilisateur le lendemain** : 4 pages signalées comme encore problématiques sur mobile (parrainage, analytiques, tableau de bord, profil). Re-testées avec un compte réaliste (nom long, bio longue, plusieurs opportunités) plutôt qu'un compte vide comme la première fois — le script de détection de débordement ne trouvait toujours rien d'anormal, ce qui ne collait pas avec le retour. Les captures d'écran ont été regardées une par une plutôt que de se fier au seul chiffre : deux pages (profil, parrainage) avaient un **vrai problème d'un autre type**, plus sournois qu'un débordement — le contenu en trop n'étalait pas la page, il était **coupé et rendu invisible** par un cadre arrondi qui masque tout dépassement (nécessaire pour l'esthétique des cartes, mais qui cachait le problème au lieu de le révéler). C'est ce qui expliquait que la mesure automatique ne voie rien : rien ne dépassait la page, le contenu manquant était juste hors champ.
+
+Concrètement : sur la page profil, l'onglet "Sécurité" (accès au changement de mot de passe, export RGPD, suppression de compte) était **totalement inaccessible** sur petit écran — les 4 onglets ne tenaient pas côte à côte et le dernier disparaissait sans indication. Sur la page parrainage, le bouton "Nouveau code" disparaissait pour la même raison. Corrigé : les onglets défilent maintenant horizontalement sur profil, et l'en-tête de parrainage s'empile proprement sur mobile au lieu de forcer une seule ligne trop étroite. Dashboard et analytiques, eux, ont été confirmés corrects après inspection — probablement une confusion du retour initial avec profil/parrainage, ou un état transitoire déjà réglé par le premier correctif.
+
 ---
 
 ## État à la fin de la semaine
@@ -82,10 +86,10 @@ Vérifié : les 15 pages testées n'ont plus aucun débordement. Vérifié sépa
 | Bug multi-onglet (cache vidé à tort) | ✅ Corrigé, vérifié empiriquement |
 | Documentation technique | ✅ Document de référence créé, anciens docs de planification signalés comme périmés |
 | Crash Notifications | 🟡 Très probablement résolu, à surveiller pour confirmation |
-| Débordement mobile sur pages connectées | ✅ Trouvé et corrigé, 15 pages vérifiées |
+| Débordement mobile sur pages connectées | ✅ Trouvé et corrigé, 15 pages vérifiées, + 2 pages avec contenu masqué corrigées suite au retour utilisateur |
 | `forwardRef` Messages ↔ Notifications | ❌ Toujours volontairement reporté, pas un bug actif |
 
-**5 commits cette semaine, tous poussés en production** (`ba98015`, `d2b51f1`, `95fa58d`, `93d2f6b`, `9fca1db`, `1e74eec`, `6c3ab13`, `f2a51dc` — incluant la fin du travail de la semaine précédente non encore rapportée). Chaque commit vérifié individuellement (tsc, lint, tests, build) avant d'être poussé, et une vérification combinée complète rejouée sur l'ensemble avant chaque envoi en production.
+**Commits cette semaine, tous poussés en production** (`ba98015`, `d2b51f1`, `95fa58d`, `93d2f6b`, `9fca1db`, `1e74eec`, `6c3ab13`, `f2a51dc`, `bdf5713` — incluant la fin du travail de la semaine précédente non encore rapportée). Chaque commit vérifié individuellement (tsc, lint, tests, build) avant d'être poussé, et une vérification combinée complète rejouée sur l'ensemble avant chaque envoi en production.
 
 ---
 
