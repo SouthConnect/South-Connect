@@ -27,7 +27,7 @@ export default function EmailVerificationBanner() {
   return (
     <div className="flex items-center gap-3 bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-sm text-amber-800">
       <MailWarning className="w-4 h-4 shrink-0 text-amber-600" />
-      <span className="flex-1">
+      <span className="flex-1 min-w-0">
         Votre adresse email n&apos;est pas encore vérifiée. Certaines fonctionnalités sont restreintes.{' '}
         <button
           onClick={resend}

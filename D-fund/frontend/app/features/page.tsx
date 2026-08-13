@@ -148,10 +148,10 @@ export default function FeaturesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 border-b border-gray-200 text-sm mb-8">
+      <div className="flex gap-4 border-b border-gray-200 text-sm mb-8 overflow-x-auto">
         <button
           onClick={() => setTab('features')}
-          className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1.5 ${
+          className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
             tab === 'features'
               ? 'border-[#3b49df] text-[#3b49df]'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -162,7 +162,7 @@ export default function FeaturesPage() {
         </button>
         <button
           onClick={() => setTab('feedbacks')}
-          className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1.5 ${
+          className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
             tab === 'feedbacks'
               ? 'border-[#3b49df] text-[#3b49df]'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

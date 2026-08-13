@@ -65,7 +65,7 @@ export default function ApplicationsPage() {
 
         {/* Filters bar */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div className="flex gap-4 border-b border-gray-200 text-sm">
+          <div className="flex gap-4 border-b border-gray-200 text-sm overflow-x-auto">
             {[
               { id: 'ALL', label: 'Toutes' },
               { id: 'DRAFT', label: 'Brouillon', icon: Clock },
@@ -77,7 +77,7 @@ export default function ApplicationsPage() {
               <button
                 key={id}
                 onClick={() => setStageFilter(id as StageFilter)}
-                className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+                className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap ${
                   stageFilter === id
                     ? 'border-[#3b49df] text-[#3b49df]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

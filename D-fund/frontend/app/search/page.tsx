@@ -76,7 +76,7 @@ function SearchContent() {
       {initialQ && !isLoading && (
         <>
           {/* Result tabs */}
-          <div className="flex gap-1 mb-5 text-sm border-b border-gray-200">
+          <div className="flex gap-1 mb-5 text-sm border-b border-gray-200 overflow-x-auto">
             {([
               { id: 'all' as const, label: `Tout (${total})` },
               { id: 'opportunities' as const, label: `Opportunités (${opportunities.length})` },
@@ -86,7 +86,7 @@ function SearchContent() {
               <button
                 key={id}
                 onClick={() => setActiveTab(id)}
-                className={`pb-3 px-3 border-b-2 font-semibold ${
+                className={`pb-3 px-3 border-b-2 font-semibold shrink-0 whitespace-nowrap ${
                   activeTab === id
                     ? 'border-[#3b49df] text-[#3b49df]'
                     : 'border-transparent text-gray-500 hover:text-gray-700'

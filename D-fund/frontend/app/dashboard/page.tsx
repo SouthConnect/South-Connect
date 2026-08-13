@@ -119,11 +119,11 @@ export default function DashboardPage() {
 
       <section>
         <div className="flex items-center justify-between mb-4">
-          <div className="flex gap-4 text-sm border-b border-gray-200">
+          <div className="flex gap-4 text-sm border-b border-gray-200 overflow-x-auto">
             <button
               type="button"
               onClick={() => setTab('applications')}
-              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap ${
                 tab === 'applications'
                   ? 'border-[#3b49df] text-[#3b49df]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -138,7 +138,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setTab('offers')}
-              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap ${
                 tab === 'offers'
                   ? 'border-[#3b49df] text-[#3b49df]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -153,7 +153,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setTab('dm')}
-              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap ${
                 tab === 'dm'
                   ? 'border-[#3b49df] text-[#3b49df]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -175,7 +175,7 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setTab('tasks')}
-              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+              className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap ${
                 tab === 'tasks'
                   ? 'border-[#3b49df] text-[#3b49df]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

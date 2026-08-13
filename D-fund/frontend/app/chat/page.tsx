@@ -105,11 +105,11 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div className="mb-6 flex gap-4 border-b border-gray-200 text-sm">
+      <div className="mb-6 flex gap-4 border-b border-gray-200 text-sm overflow-x-auto">
         <button
           type="button"
           onClick={() => setMode('open')}
-          className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+          className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap ${
             mode === 'open'
               ? 'border-[#3b49df] text-[#3b49df]'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -121,7 +121,7 @@ export default function ChatPage() {
         <button
           type="button"
           onClick={() => setMode('private')}
-          className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 ${
+          className={`pb-3 px-1 border-b-2 font-semibold flex items-center gap-1 shrink-0 whitespace-nowrap ${
             mode === 'private'
               ? 'border-[#3b49df] text-[#3b49df]'
               : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -135,11 +135,11 @@ export default function ChatPage() {
       {mode === 'open' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex gap-4 text-sm">
+            <div className="flex gap-4 text-sm overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setOpenTab('opportunity')}
-                className={`pb-2 border-b-2 font-semibold ${
+                className={`pb-2 border-b-2 font-semibold shrink-0 whitespace-nowrap ${
                   openTab === 'opportunity'
                     ? 'border-[#3b49df] text-[#3b49df]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -150,7 +150,7 @@ export default function ChatPage() {
               <button
                 type="button"
                 onClick={() => setOpenTab('forum')}
-                className={`pb-2 border-b-2 font-semibold ${
+                className={`pb-2 border-b-2 font-semibold shrink-0 whitespace-nowrap ${
                   openTab === 'forum'
                     ? 'border-[#3b49df] text-[#3b49df]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

@@ -302,12 +302,12 @@ export default function CommunityPage() {
 
       <div className="container mx-auto max-w-3xl px-4 pt-4">
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-gray-200 mb-4">
+        <div className="flex gap-1 border-b border-gray-200 mb-4 overflow-x-auto">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => { setTab(id); setIndustryFilter('') }}
-              className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+              className={`flex items-center gap-1.5 px-3 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px shrink-0 whitespace-nowrap ${
                 tab === id
                   ? 'border-[#3b49df] text-[#3b49df]'
                   : 'border-transparent text-gray-500 hover:text-gray-700'

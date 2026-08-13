@@ -331,11 +331,11 @@ export default function ApplicationDetailPage() {
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             {/* Tabs */}
-            <div className="border-b border-gray-100 px-6 pt-6 flex gap-6">
+            <div className="border-b border-gray-100 px-6 pt-6 flex gap-6 overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setActiveTab('main')}
-                className={`flex items-center gap-2 pb-4 border-b-2 text-sm font-semibold transition-colors ${
+                className={`flex items-center gap-2 pb-4 border-b-2 text-sm font-semibold transition-colors shrink-0 whitespace-nowrap ${
                   activeTab === 'main'
                     ? 'border-[#3b49df] text-[#3b49df]'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -347,7 +347,7 @@ export default function ApplicationDetailPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab('attachments')}
-                className={`flex items-center gap-2 pb-4 border-b-2 text-sm font-semibold transition-colors ${
+                className={`flex items-center gap-2 pb-4 border-b-2 text-sm font-semibold transition-colors shrink-0 whitespace-nowrap ${
                   activeTab === 'attachments'
                     ? 'border-[#3b49df] text-[#3b49df]'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -362,7 +362,7 @@ export default function ApplicationDetailPage() {
               <button
                 type="button"
                 onClick={() => setActiveTab('referrals')}
-                className={`flex items-center gap-2 pb-4 border-b-2 text-sm font-semibold transition-colors ${
+                className={`flex items-center gap-2 pb-4 border-b-2 text-sm font-semibold transition-colors shrink-0 whitespace-nowrap ${
                   activeTab === 'referrals'
                     ? 'border-[#3b49df] text-[#3b49df]'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
