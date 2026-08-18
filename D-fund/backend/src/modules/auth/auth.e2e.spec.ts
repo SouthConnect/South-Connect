@@ -174,7 +174,13 @@ describe('Auth (E2E)', () => {
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/register')
-        .send({ email: 'new@test.com', password: 'Password1', firstName: 'New', lastName: 'User' })
+        .send({
+          email: 'new@test.com',
+          password: 'Password1',
+          firstName: 'New',
+          lastName: 'User',
+          acceptTerms: true,
+        })
         .expect(201);
 
       expect(res.body.user).toBeDefined();
@@ -192,7 +198,13 @@ describe('Auth (E2E)', () => {
 
       await request(app.getHttpServer())
         .post('/api/v1/auth/register')
-        .send({ email: 'verified@test.com', password: 'Password1', firstName: 'A', lastName: 'B' })
+        .send({
+          email: 'verified@test.com',
+          password: 'Password1',
+          firstName: 'A',
+          lastName: 'B',
+          acceptTerms: true,
+        })
         .expect(409);
     });
 
@@ -207,6 +219,31 @@ describe('Auth (E2E)', () => {
       await request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send({ password: 'Password1', firstName: 'A', lastName: 'B' })
+        .expect(400);
+    });
+
+    it('retourne 400 si les CGU/politique de confidentialité ne sont pas acceptées', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send({
+          email: 'no-consent@test.com',
+          password: 'Password1',
+          firstName: 'A',
+          lastName: 'B',
+        })
+        .expect(400);
+    });
+
+    it('retourne 400 si acceptTerms est explicitement false', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send({
+          email: 'no-consent2@test.com',
+          password: 'Password1',
+          firstName: 'A',
+          lastName: 'B',
+          acceptTerms: false,
+        })
         .expect(400);
     });
   });

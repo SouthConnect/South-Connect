@@ -34,6 +34,7 @@ async function registerUser(
       name: 'Referral Tester',
       email,
       password: 'SecurePass123!',
+      acceptTerms: true,
       role: 'USER',
     })
     .expect(201);

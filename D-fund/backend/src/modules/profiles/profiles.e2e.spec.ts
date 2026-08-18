@@ -37,6 +37,7 @@ async function registerUser(
       name: `${overrides.firstName ?? 'Profile'} Tester`,
       email,
       password: 'SecurePass123!',
+      acceptTerms: true,
       role: 'USER',
     })
     .expect(201);

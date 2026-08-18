@@ -20,6 +20,7 @@ describe('Applications module (e2e)', () => {
     password: 'OwnerPassword123!',
     firstName: 'App',
     lastName: 'Owner',
+    acceptTerms: true,
   };
 
   const candidateCredentials = {
@@ -27,6 +28,7 @@ describe('Applications module (e2e)', () => {
     password: 'CandidatePassword123!',
     firstName: 'App',
     lastName: 'Candidate',
+    acceptTerms: true,
   };
 
   const otherCredentials = {
@@ -34,6 +36,7 @@ describe('Applications module (e2e)', () => {
     password: 'OtherPassword123!',
     firstName: 'App',
     lastName: 'Other',
+    acceptTerms: true,
   };
 
   let ownerToken: string;

@@ -146,7 +146,9 @@ App Router avec 44 routes. Layout racine (`AppShell.tsx`) gère le rendu conditi
 
 `ChatGateway` (namespace `/chat`) : authentification JWT au handshake, rooms par discussion, adaptateur Redis (`@socket.io/redis-adapter`) pour que les messages traversent toutes les instances backend en cas de scaling multi-instance — pas seulement le process qui a reçu la connexion WebSocket.
 
-**Dette technique connue** : `MessagesModule` et `NotificationsModule` sont en dépendance circulaire (`forwardRef`) — Messages a besoin de Notifications pour créer une notif à la réception d'un message, Notifications a besoin du `ChatGateway` de Messages pour la pousser en temps réel. Le `forwardRef` fonctionne (pattern supporté nativement par NestJS), mais casser proprement ce cycle demanderait de faire de `ChatGateway` le propriétaire d'un nouveau module `RealtimeModule` dédié — analysé en détail, jugé plus invasif qu'une simple extraction (implique de déplacer l'authentification de handshake, l'adaptateur Redis et le tracking de présence). Volontairement pas touché faute d'un vrai bug actif ; plan de refactor documenté si repris un jour.
+`MessagesModule` et `NotificationsModule` sont reliés par un `forwardRef` (pattern supporté nativement par NestJS) : Messages a besoin de Notifications pour créer une notif à la réception d'un message, Notifications a besoin du `ChatGateway` de Messages pour la pousser en temps réel. L'injection du `ChatGateway` côté Notifications est marquée `@Optional()`, donc le module boote même sans `MessagesModule` chargé (ex. tests unitaires).
+
+Depuis le 29 juillet 2026 (commit `edbcf81`), ce cycle ne concerne plus que ces deux modules : `EmailQueueModule` a été extrait en `EmailModule`, qui possède désormais entièrement le client Resend et la file BullMQ sans dépendance retour vers Notifications. Casser le dernier edge restant demanderait de faire de `ChatGateway` le propriétaire d'un nouveau module `RealtimeModule` dédié (déplacement de l'authentification de handshake, de l'adaptateur Redis et du tracking de présence) — planifié si repris un jour.
 
 ---
 

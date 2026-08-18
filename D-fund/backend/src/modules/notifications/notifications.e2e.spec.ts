@@ -36,6 +36,7 @@ async function registerUser(
       name: 'Notif Tester',
       email,
       password: 'SecurePass123!',
+      acceptTerms: true,
       role: 'USER',
     })
     .expect(201);
@@ -262,6 +263,7 @@ describe('Notifications (e2e)', () => {
           name: 'Page Tester',
           email: paginationEmail,
           password: 'SecurePass123!',
+          acceptTerms: true,
         })
         .expect(201);
 

@@ -17,6 +17,7 @@ export default function RegisterPage() {
     email: '',
     password: '',
   })
+  const [acceptTerms, setAcceptTerms] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -38,12 +39,18 @@ export default function RegisterPage() {
       return
     }
 
+    if (!acceptTerms) {
+      setError('Vous devez accepter les conditions générales d\'utilisation et la politique de confidentialité.')
+      return
+    }
+
     setLoading(true)
 
     try {
       const registerData = {
         ...formData,
         name: `${formData.firstName} ${formData.lastName}`.trim(),
+        acceptTerms,
       }
 
       const data = await apiJson<{ user: any }>('/auth/register', {
@@ -192,9 +199,32 @@ export default function RegisterPage() {
             </Link>
           </div>
 
+          <div className="flex items-start gap-2">
+            <input
+              id="acceptTerms"
+              name="acceptTerms"
+              type="checkbox"
+              required
+              checked={acceptTerms}
+              onChange={(e) => setAcceptTerms(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-[#3b49df] focus:ring-[#3b49df]"
+            />
+            <label htmlFor="acceptTerms" className="text-xs text-gray-600">
+              J&apos;accepte les{' '}
+              <Link href="/terms" target="_blank" className="font-medium text-[#3b49df] hover:underline">
+                conditions générales d&apos;utilisation
+              </Link>{' '}
+              et la{' '}
+              <Link href="/privacy" target="_blank" className="font-medium text-[#3b49df] hover:underline">
+                politique de confidentialité
+              </Link>
+              .
+            </label>
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !acceptTerms}
             className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-[#3b49df] hover:bg-[#2d3aba] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3b49df] disabled:opacity-50 transition-all shadow-sm"
           >
             {loading ? 'Création en cours…' : 'Créer un compte'}
@@ -221,6 +251,18 @@ export default function RegisterPage() {
             </svg>
             Continuer avec Google
           </a>
+
+          <p className="text-center text-[11px] text-gray-400">
+            En continuant avec Google, vous acceptez nos{' '}
+            <Link href="/terms" target="_blank" className="underline hover:text-gray-600">
+              conditions générales d&apos;utilisation
+            </Link>{' '}
+            et notre{' '}
+            <Link href="/privacy" target="_blank" className="underline hover:text-gray-600">
+              politique de confidentialité
+            </Link>
+            .
+          </p>
         </form>
       </div>
     </div>

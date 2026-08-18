@@ -185,6 +185,18 @@ function LoginPageContent() {
             </svg>
             Continuer avec Google
           </a>
+
+          <p className="text-center text-[11px] text-gray-400">
+            En continuant avec Google, vous acceptez nos{' '}
+            <Link href="/terms" target="_blank" className="underline hover:text-gray-600">
+              conditions générales d&apos;utilisation
+            </Link>{' '}
+            et notre{' '}
+            <Link href="/privacy" target="_blank" className="underline hover:text-gray-600">
+              politique de confidentialité
+            </Link>
+            .
+          </p>
         </form>
       </div>
     </div>

@@ -42,6 +42,7 @@ async function registerUser(
     email,
     password: 'SecurePass123!',
     role: overrides.role ?? 'USER',
+    acceptTerms: true,
   };
 
   const res = await request(app.getHttpServer())
@@ -443,6 +444,7 @@ describe('Security (e2e)', () => {
           email: `pwd-check-${ts}@example.com`,
           password: 'SecurePass123!',
           role: 'USER',
+          acceptTerms: true,
         })
         .expect(201);
 

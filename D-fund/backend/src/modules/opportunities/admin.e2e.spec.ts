@@ -43,6 +43,7 @@ describe('Admin — opportunity moderation (e2e)', () => {
     password: 'AdminPassword123!',
     firstName: 'Admin',
     lastName: 'User',
+    acceptTerms: true,
   };
 
   const ownerCredentials = {
@@ -50,6 +51,7 @@ describe('Admin — opportunity moderation (e2e)', () => {
     password: 'OwnerPassword123!',
     firstName: 'Owner',
     lastName: 'User',
+    acceptTerms: true,
   };
 
   let adminToken: string;

@@ -20,6 +20,7 @@ describe('Opportunities module (e2e)', () => {
     password: 'OwnerPassword123!',
     firstName: 'Opp',
     lastName: 'Owner',
+    acceptTerms: true,
   };
 
   const otherCredentials = {
@@ -27,6 +28,7 @@ describe('Opportunities module (e2e)', () => {
     password: 'OtherPassword123!',
     firstName: 'Other',
     lastName: 'User',
+    acceptTerms: true,
   };
 
   let ownerToken: string;

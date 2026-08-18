@@ -97,8 +97,17 @@ export class StorageController {
       throw new BadRequestException('prefix and resourceId are required');
     }
 
-    // Vérification d'ownership selon le préfixe pour empêcher la pollution du namespace d'autrui
-    const userOwnedPrefixes = ['avatars', 'covers', 'profile'];
+    // Vérification d'ownership selon le préfixe pour empêcher la pollution du namespace d'autrui.
+    // Toute nouvelle valeur de prefix doit être ajoutée explicitement ci-dessous — le else final
+    // rejette tout préfixe inconnu plutôt que de laisser passer un upload sans vérification.
+    const userOwnedPrefixes = [
+      'avatars',
+      'covers',
+      'profile',
+      'applications',
+      'companies',
+      'attachments',
+    ];
     if (userOwnedPrefixes.includes(prefix)) {
       if (resourceId !== user.id)
         throw new ForbiddenException('You can only upload to your own namespace');
@@ -109,9 +118,8 @@ export class StorageController {
       });
       if (!opp) throw new ForbiddenException('You do not own this opportunity');
       assertSameUser(opp.ownerId, user.id, 'You do not own this opportunity');
-    } else if (prefix === 'attachments') {
-      if (resourceId !== user.id)
-        throw new ForbiddenException('You can only upload to your own namespace');
+    } else {
+      throw new ForbiddenException('Unknown upload namespace');
     }
 
     const filePath = this.storageService.generateFilePath(prefix!, resourceId!, file.mimetype);

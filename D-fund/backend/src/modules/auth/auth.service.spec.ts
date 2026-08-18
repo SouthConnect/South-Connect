@@ -251,6 +251,7 @@ describe('AuthService', () => {
         password: 'Password1',
         firstName: 'A',
         lastName: 'B',
+        acceptTerms: true,
       });
 
       expect(result.user).toBeDefined();
@@ -266,6 +267,7 @@ describe('AuthService', () => {
           password: 'Password1',
           firstName: 'A',
           lastName: 'B',
+          acceptTerms: true,
         }),
       ).rejects.toThrow(ConflictException);
     });

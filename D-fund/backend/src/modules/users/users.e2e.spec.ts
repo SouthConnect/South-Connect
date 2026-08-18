@@ -42,6 +42,7 @@ async function registerUser(
       email,
       password,
       role: 'USER',
+      acceptTerms: true,
     })
     .expect(201);
   const userId = res.body.user.id;

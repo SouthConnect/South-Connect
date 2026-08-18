@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsEnum,
   Matches,
+  Equals,
 } from 'class-validator';
 
 enum AllowedRole {
@@ -44,4 +45,8 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(AllowedRole)
   role?: AllowedRole;
+
+  /** Must be explicitly true — enforces that the user ticked the terms/privacy checkbox. */
+  @Equals(true, { message: 'You must accept the Terms of Service and Privacy Policy.' })
+  acceptTerms: boolean;
 }

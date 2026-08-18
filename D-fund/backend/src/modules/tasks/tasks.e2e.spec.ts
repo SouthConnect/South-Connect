@@ -20,6 +20,7 @@ describe('Tasks module (e2e)', () => {
     password: 'UserAPassword123!',
     firstName: 'Task',
     lastName: 'UserA',
+    acceptTerms: true,
   };
 
   const userBCredentials = {
@@ -27,6 +28,7 @@ describe('Tasks module (e2e)', () => {
     password: 'UserBPassword123!',
     firstName: 'Task',
     lastName: 'UserB',
+    acceptTerms: true,
   };
 
   let tokenA: string;

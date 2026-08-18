@@ -40,6 +40,7 @@ async function registerUser(
       name: `${overrides.firstName ?? 'Msg'} Tester`,
       email,
       password: 'SecurePass123!',
+      acceptTerms: true,
       role: 'USER',
     })
     .expect(201);

@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CURRENT_TERMS_VERSION } from '../auth.service';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -70,6 +71,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
             isEmailVerified: true,
             // Required so email footers have a valid one-click unsubscribe link
             emailUnsubscribeToken: rawUnsubscribeToken,
+            // Google OAuth has no checkbox step — consent is implicit via the visible
+            // terms/privacy notice next to the "Continue with Google" button.
+            termsAcceptedAt: new Date(),
+            termsVersion: CURRENT_TERMS_VERSION,
             btoCProfile: { create: {} },
             notificationPreferences: { create: {} },
           },

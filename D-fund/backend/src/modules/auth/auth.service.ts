@@ -46,6 +46,13 @@ const USER_SAFE_SELECT = {
   updatedAt: true,
 } as const;
 
+/**
+ * Bump whenever /terms or /privacy content materially changes, so
+ * termsVersion on existing accounts reflects what they actually agreed to.
+ * Shared with GoogleStrategy — both signup paths must record the same version.
+ */
+export const CURRENT_TERMS_VERSION = '2026-08-18';
+
 @Injectable()
 export class AuthService implements OnModuleDestroy {
   private readonly logger = new Logger(AuthService.name);
@@ -107,6 +114,8 @@ export class AuthService implements OnModuleDestroy {
         emailVerificationTokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 h
         emailUnsubscribeToken: this.hashToken(rawUnsubscribeToken),
         isEmailVerified: false,
+        termsAcceptedAt: new Date(),
+        termsVersion: CURRENT_TERMS_VERSION,
         // Create sub-rows in the same transaction so new users can edit their profile
         // and receive notification preferences immediately after signup.
         btoCProfile: { create: {} },

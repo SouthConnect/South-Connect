@@ -14,6 +14,7 @@ describe('Social module (e2e)', () => {
     password: 'PasswordA123!',
     firstName: 'Social',
     lastName: 'UserA',
+    acceptTerms: true,
   };
 
   const userBCredentials = {
@@ -21,6 +22,7 @@ describe('Social module (e2e)', () => {
     password: 'PasswordB123!',
     firstName: 'Social',
     lastName: 'UserB',
+    acceptTerms: true,
   };
 
   let tokenA: string;

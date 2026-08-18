@@ -41,6 +41,8 @@ model User {
   emailVerificationTokenExpiry DateTime?
   passwordChangedAt            DateTime?
   deletedAt                    DateTime?
+  termsAcceptedAt              DateTime?
+  termsVersion                 String?
   adminAuditLogs               AdminAuditLog[]
   applications                 Application[]
   btoBProfile                  BtoBProfile?
