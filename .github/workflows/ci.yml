@@ -280,3 +280,53 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
+
+  # ──────────────────────────────────────────────────────────────────────────────
+  # Deploy — déclenche Railway et Vercel, mais seulement si tout ce qui précède
+  # (secrets, backend, frontend, build Docker) a réussi. Avant ce job, Railway et
+  # Vercel étaient branchés directement sur le repo GitHub et déployaient sur
+  # chaque push vers main indépendamment du résultat de la CI — un échec ne
+  # bloquait rien. Ce job remplace ce déclenchement automatique natif par un
+  # déclenchement explicite, gardé par `needs`.
+  #
+  # Nécessite deux secrets GitHub (Settings → Secrets and variables → Actions) :
+  #   - VERCEL_DEPLOY_HOOK_URL : créé dans Vercel → Project Settings → Git →
+  #     Deploy Hooks (choisir la branche main). URL à usage unique, révocable,
+  #     ne donne aucun accès au-delà de "déclencher un déploiement".
+  #   - RAILWAY_TOKEN : créé dans Railway → Project Settings → Tokens
+  #     (jeton de niveau projet, pas de compte).
+  #
+  # Tant que ces deux secrets ne sont pas configurés ET que le déploiement
+  # automatique natif n'est pas désactivé côté Railway/Vercel (dashboards,
+  # pas de config par fichier possible pour Railway), les deux mécanismes
+  # coexistent : rien ne casse, mais la CI ne bloque encore rien réellement.
+  # ──────────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy (Railway + Vercel)
+    runs-on: ubuntu-latest
+    needs: [secrets-scan, backend, frontend, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Deploy frontend (Vercel)
+        run: |
+          if [ -z "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}" ]; then
+            echo "::error::VERCEL_DEPLOY_HOOK_URL n'est pas configuré (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          curl -sf -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}"
+
+      - name: Deploy backend (Railway)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN n'est pas configuré (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          npm install -g @railway/cli
+          # Nom de service confirmé le 20 août 2026 (tableau de bord Railway) : insightful-vision
+          railway up --service insightful-vision --detach
