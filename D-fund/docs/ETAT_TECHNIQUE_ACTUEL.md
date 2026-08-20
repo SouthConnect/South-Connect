@@ -1,6 +1,6 @@
 # État technique actuel — D-Fund / SouthConnect
 
-**Dernière vérification : 12 août 2026.** Ce document décrit l'état réel du code à cette date, vérifié directement dans le repo (versions, modules, configuration) — pas une description de ce qui était prévu. Il fait autorité sur l'état actuel du projet ; les 9 documents `PHASE1_*` à `PHASE9_*` dans ce dossier sont des documents de **planification datant d'avant le développement** (janvier 2026) et ne reflètent pas nécessairement des décisions encore ouvertes aujourd'hui — voir la note en tête de chacun.
+**Dernière vérification : 18 août 2026.** Ce document décrit l'état réel du code à cette date, vérifié directement dans le repo (versions, modules, configuration) — pas une description de ce qui était prévu. Il fait autorité sur l'état actuel du projet ; les 9 documents `PHASE1_*` à `PHASE9_*` dans ce dossier sont des documents de **planification datant d'avant le développement** (janvier 2026) et ne reflètent pas nécessairement des décisions encore ouvertes aujourd'hui — voir la note en tête de chacun.
 
 Pour un résumé plus court et déjà à jour, voir le [`README.md`](../README.md) à la racine. Ce document va plus loin sur les détails d'implémentation et les points de vigilance.
 
@@ -140,9 +140,42 @@ App Router avec 44 routes. Layout racine (`AppShell.tsx`) gère le rendu conditi
 - **Rate limiting** différencié par route sensible (`@Throttle`), tracké par utilisateur authentifié (pas seulement par IP) pour éviter qu'un foyer/réseau partagé ne consomme un quota commun.
 - **Tokens sensibles hachés** (SHA-256) en base — reset password, vérification email, désabonnement.
 
+### 6.1 Dépendances vulnérables — 17 sur 19 corrigées (18 août 2026)
+
+Un scan direct des dépendances (`npm audit`, exécuté en réel, pas déduit d'un document) a trouvé 19 vulnérabilités connues dans les librairies utilisées : 3 côté backend (dont `socket.io-parser`, un risque de déni de service par épuisement de mémoire sur le chat temps réel) et 16 côté frontend (dont `ws`, `brace-expansion`, `nanoid`, et `dompurify` — ce dernier lié à la protection XSS).
+
+**17 corrigées sans casser aucune fonctionnalité** (aucune montée de version majeure nécessaire), vérifié par la suite de tests complète rejouée après coup plus une vérification manuelle ciblée du chat. **Les 2 restantes** nécessitent Next.js 16 (changement majeur) — volontairement pas traitées maintenant, à faire dans une session dédiée avec son propre plan de test plutôt que glissées dans un travail de sécurité courant.
+
+### 6.2 Trou d'autorisation trouvé et corrigé dans `storage` (18 août 2026)
+
+En écrivant les premiers tests du module `storage` (jusque-là non testé), un vrai problème est apparu : deux types d'upload réellement utilisés en production — pièces jointes de candidature (`prefix: 'applications'`) et logo d'entreprise (`prefix: 'companies'`) — ne passaient par **aucune vérification de propriétaire**. La logique prévoyait un cas pour chaque préfixe connu mais aucun cas par défaut pour les autres : un utilisateur authentifié pouvait, en théorie, uploader un fichier en se faisant passer pour le propriétaire d'un autre compte ou d'une autre entreprise.
+
+Corrigé avant toute exploitation connue : la liste des préfixes autorisés a été complétée, et tout préfixe non reconnu est désormais **rejeté explicitement** plutôt que silencieusement accepté. 30 tests couvrent maintenant chaque branche d'autorisation (upload et suppression) pour détecter automatiquement une régression future.
+
 ---
 
-## 7. Temps réel
+## 7. RGPD et données personnelles
+
+Deux couches distinctes à ne pas confondre : la **mécanique technique** (le système permet-il d'exercer ses droits) et la **couche d'information** (l'utilisateur sait-il quels droits il a et a-t-il donné un consentement traçable). La première est solide et testée. La seconde est le principal point ouvert du projet.
+
+**Ce qui fonctionne, vérifié par test :**
+
+- **Droit à l'effacement (art. 17)** — `DELETE /users/me` et `DELETE /users/admin/:id` anonymisent entièrement le compte (email, nom, téléphone, bio, photo, ville, pays, mot de passe…), vérifié champ par champ par 25 tests. Les données liées (candidatures, messages) sont conservées mais rattachées au compte anonymisé, pour ne pas casser l'historique d'un tiers. Un jeton d'authentification encore valide au moment de la suppression est immédiatement rejeté sur la requête suivante (`AuthService.validateUser` revérifie `deletedAt` en base à chaque appel, pas seulement à la connexion).
+- **Droit d'accès et portabilité (art. 20)** — `POST /users/me/export` renvoie toutes les données personnelles ; vérifié qu'aucun champ sensible (mot de passe, jetons internes) ne fuite et qu'un utilisateur ne peut exporter que ses propres données.
+- **Consentement à l'inscription** (ajouté le 18 août 2026) — champ `acceptTerms` obligatoire côté API (rejeté à 400 sinon), `termsAcceptedAt`/`termsVersion` enregistrés en base à la création du compte, pour l'inscription classique et pour Google OAuth (consentement implicite via la mention affichée à côté du bouton, ce flux ne permettant pas de case à cocher).
+- **Désabonnement email** — un utilisateur peut se désabonner des emails non-critiques ; les emails de sécurité (mot de passe, vérification de compte) sont explicitement exclus de ce mécanisme (`skipUnsubscribeFooter`) pour qu'il ne se retrouve jamais bloqué hors de son compte.
+
+**Ce qui manque — le vrai point bloquant :**
+
+- **`/privacy` et `/terms` sont des pages sans contenu juridique.** La structure existe (11 sections chacune, format standard RGPD, avec la liste réelle des sous-traitants déjà indiquée : Supabase, Resend, Sentry, Google, Anthropic, Vercel, Railway), mais le texte lui-même — raison sociale, adresse d'immatriculation, contact DPO, durée de conservation des données — reste à écrire. C'est une information que seule la direction détient, pas un travail technique restant.
+- **Aucune mention légale sur le site** — la page `/contact` ne donne qu'une adresse email personnelle.
+- **Aucune bannière de consentement cookies**, alors que Vercel Analytics tourne sur chaque page.
+
+Concrètement : aujourd'hui un utilisateur peut créer un compte et cocher la case de consentement sans jamais avoir eu accès à une information réelle sur l'usage de ses données. La mécanique de consentement est en place ; ce à quoi il consent ne l'est pas encore.
+
+---
+
+## 8. Temps réel
 
 `ChatGateway` (namespace `/chat`) : authentification JWT au handshake, rooms par discussion, adaptateur Redis (`@socket.io/redis-adapter`) pour que les messages traversent toutes les instances backend en cas de scaling multi-instance — pas seulement le process qui a reçu la connexion WebSocket.
 
@@ -152,7 +185,7 @@ Depuis le 29 juillet 2026 (commit `edbcf81`), ce cycle ne concerne plus que ces 
 
 ---
 
-## 8. CI/CD & déploiement
+## 9. CI/CD & déploiement
 
 - **CI** (`.github/workflows/ci.yml`, déclenché sur push/PR vers `main`) : scan de secrets (gitleaks), job Backend (Postgres éphémère jetable, migrations, lint, type-check, tests unitaires + e2e), job Frontend (lint, type-check, tests, build), E2E Playwright (smoke tests), build Docker.
 - **Déploiement** : Railway (backend) et Vercel (frontend) redéploient automatiquement sur chaque push vers `main`, **indépendamment de la CI** — un échec de CI ne bloque pas un déploiement aujourd'hui (pas de "required status check" configuré côté GitHub/plateformes). À garder en tête : la CI est un filet de vérification, pas une porte bloquante.
@@ -160,23 +193,41 @@ Depuis le 29 juillet 2026 (commit `edbcf81`), ce cycle ne concerne plus que ces 
 
 ---
 
-## 9. Démarrage en local
+## 10. Démarrage en local
 
 Voir le [`README.md`](../README.md) (section "Installation locale") et [`ONBOARDING.md`](./ONBOARDING.md) pour le détail complet, pas dupliqué ici. Point de vigilance : `ONBOARDING.md` recommande Node 22 (cohérent avec les images Docker de prod, mais pas avec la CI qui teste sur Node 20 — voir section 3).
 
 ---
 
-## 10. Dette technique et compromis assumés — résumé
+## 11. Couverture de tests
+
+Constat mesuré dans l'historique git (90 derniers jours, pas supposé) : 60 commits de correctif de bug contre seulement 6 qui touchent un fichier de test — un déséquilibre entre « corriger quand ça casse » et « empêcher que ça recasse », en cours de rattrapage actif plutôt que laissé s'accumuler.
+
+Trois modules backend sans aucun test ont été identifiés comme les plus risqués et couverts le 18 août 2026 :
+
+| Module | Avant | Après | Pourquoi c'était prioritaire |
+|---|---|---|---|
+| `users` | 0 test | 25 tests | Porte l'anonymisation et l'export RGPD (section 7) — le plus sensible à ne pas casser silencieusement |
+| `cron` | 0 test | 14 tests | Verrou distribué Redis qui empêche une tâche planifiée de tourner en double sur plusieurs instances — invisible en local, ne se manifeste qu'en production |
+| `storage` | 0 test | 30 tests | A directement révélé le trou d'autorisation corrigé en section 6.2 |
+
+**État global : 337 tests backend (276 de bout en bout + 61 unitaires) + 119 tests frontend, tous vérifiés verts avant chaque changement livré.**
+
+---
+
+## 12. Dette technique et compromis assumés — résumé
 
 | Point | Statut |
 |---|---|
+| Contenu légal absent (`/terms`, `/privacy`, mentions légales) | **Bloquant** — structure prête, contenu à écrire par la direction (section 7) |
 | `forwardRef` Messages ↔ Notifications | Connu, pas un bug actif, refactor documenté mais reporté |
 | `Rating.itemId` sans clé étrangère (polymorphisme à 3 usages) | Compromis documenté, redesign nécessaire sinon |
 | Énumération de compte via callback OAuth Google | Accepté, sévérité jugée faible |
 | `ENFORCE_EMAIL_VERIFICATION=false` | Choix assumé, pas un oubli |
+| 2 vulnérabilités de dépendances restantes (Next.js 14→16) | Connu (section 6.1), changement majeur planifié séparément |
 | Incohérence versions Prisma (racine vs backend) | Mineure, sans impact connu, à nettoyer un jour |
 | Incohérence Node CI (20) vs prod (22) | Mineure, sans impact connu, à harmoniser un jour |
-| CI non bloquante pour le déploiement | Vrai angle mort, à corriger si on veut une vraie porte de qualité |
+| CI non bloquante pour le déploiement | Vrai angle mort, décision à prendre — impact réel sur le workflow si activée |
 | RLS activée sans policies | Sûr dans l'usage actuel (deny-all, backend en bypass), à revoir seulement si un accès direct Supabase côté client est introduit un jour |
 
 ---
