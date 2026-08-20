@@ -238,12 +238,15 @@ jobs:
 
   # ──────────────────────────────────────────────────────────────────────────────
   # Docker build — validate both images build correctly
-  # Only runs on push to main (not on PRs) to avoid wasting build minutes
+  # Only runs on push to main (not on PRs) to avoid wasting build minutes.
+  # Tourne en parallèle de backend/frontend (dépend seulement de secrets-scan) —
+  # il ne dépend pas de leur résultat, seulement du code source, donc les
+  # enchaîner en série n'apportait rien d'autre qu'un déploiement plus lent.
   # ──────────────────────────────────────────────────────────────────────────────
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [secrets-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     permissions:
@@ -311,6 +314,12 @@ jobs:
       contents: read
 
     steps:
+      # Nécessaire pour l'étape Railway ci-dessous : `railway up` package et
+      # envoie le contenu local du répertoire (avec railway.toml), contrairement
+      # au Deploy Hook Vercel qui ne fait que déclencher un build côté Vercel
+      # à partir du commit et n'a besoin d'aucun fichier local.
+      - uses: actions/checkout@v4
+
       - name: Deploy frontend (Vercel)
         run: |
           if [ -z "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}" ]; then
@@ -322,11 +331,15 @@ jobs:
       - name: Deploy backend (Railway)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        # railway.toml vit dans D-fund/ (pas la racine du repo) — railway up doit
+        # être lancé depuis là pour résoudre correctement dockerfilePath.
+        working-directory: D-fund
         run: |
           if [ -z "$RAILWAY_TOKEN" ]; then
             echo "::error::RAILWAY_TOKEN n'est pas configuré (Settings → Secrets and variables → Actions)."
             exit 1
           fi
           npm install -g @railway/cli
-          # Nom de service confirmé le 20 août 2026 (tableau de bord Railway) : insightful-vision
-          railway up --service insightful-vision --detach
+          # Nom de service confirmé le 20 août 2026 sur le canvas du projet Railway
+          # (pas dans Settings, qui n'affiche que le nom du projet "insightful-vision") : D-fund
+          railway up --service D-fund --detach
